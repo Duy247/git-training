@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { getCourse } from './courses.js';
 import { runUI } from './ui.js';
+import { openTheory, theoryMessage } from './theory.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
 
 const usage = `git-training — luyện Git bằng repository riêng trên máy của bạn
@@ -15,7 +16,7 @@ Cách dùng:
   git-training ui [--window]               Mở bảng học tại đây hoặc cửa sổ mới
   git-training --version                  Xem phiên bản
   git-training roadmap                    Xem tiến độ toàn bộ roadmap
-  git-training start <track> [--dir <nơi-lưu>]
+  git-training start <track> [--dir <nơi-lưu>] [--no-browser]
   git-training list                       Xem các bài trong track hiện tại
   git-training status                     Xem bài và thư mục thực hành
   git-training path                       Chỉ in đường dẫn repository hiện tại
@@ -23,11 +24,13 @@ Cách dùng:
   git-training solution                   Xem lời giải
   git-training answer [đáp-án]           Trả lời câu hỏi; bỏ trống để nhập tương tác
   git-training check                      Kiểm tra trạng thái Git và đáp án
-  git-training next                       Mở bài tiếp theo sau khi đạt
-  git-training open <mã-bài>              Khôi phục checkpoint bài đã mở khóa
+  git-training next [--no-browser]        Mở bài tiếp theo sau khi đạt
+  git-training open <mã-bài> [--no-browser]  Khôi phục checkpoint bài đã mở khóa
   git-training migrate <thư-mục-phiên-cũ> Nhập tiến độ từ phiên v1
 
 Lệnh Git được chạy trong terminal thường của bạn. 'open' tạo lại repository bài đó.
+Khi mở một bài (start, next, open, bảng học), trang lý thuyết của bài tự mở trong trình duyệt mặc định.
+Tắt bằng --no-browser hoặc đặt GIT_TRAINING_NO_BROWSER=1.
 `;
 
 function show(info: Awaited<ReturnType<typeof getExerciseInfo>>): void {
@@ -63,7 +66,14 @@ async function answerInput(parts: string[]): Promise<string> {
 async function main(): Promise<void> {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   if (nodeMajor < 22) throw new Error('Cần Node.js 22 trở lên. Hãy cập nhật Node.js rồi chạy lại.');
-  const [command, argument, ...rest] = process.argv.slice(2);
+  const raw = process.argv.slice(2);
+  const browserFlag = ['start', 'next', 'open'].includes(raw[0] ?? '');
+  const noBrowser = browserFlag && raw.slice(1).includes('--no-browser');
+  const [command, argument, ...rest] = browserFlag ? [raw[0]!, ...raw.slice(1).filter(part => part !== '--no-browser')] : raw;
+  const theory = async (info: { session: { courseId: string }; id: string }, reopen = false) => {
+    const message = theoryMessage(await openTheory(info.session.courseId, info.id, { noBrowser, reopen }));
+    if (message) console.log(message);
+  };
   const launchWindow = async (): Promise<boolean> => {
     if (process.platform !== 'win32') return false;
     return new Promise(resolve => {
@@ -114,7 +124,9 @@ async function main(): Promise<void> {
       const session = await createSession(argument, dirFlag >= 0 ? { workspaceDir: path.resolve(rest[dirFlag + 1]!) } : {});
       console.log(`Phiên ${session.id} ở ${session.dir}.`);
       if (dirFlag >= 0 && path.resolve(rest[dirFlag + 1]!) !== path.dirname(session.dir)) console.log('Track này đã có phiên; --dir không đổi vị trí phiên cũ.');
-      show(await getExerciseInfo({ sessionDir: session.dir }));
+      const info = await getExerciseInfo({ sessionDir: session.dir });
+      show(info);
+      await theory(info);
       break;
     }
     case 'list': {
@@ -143,14 +155,20 @@ async function main(): Promise<void> {
       noExtra();
       const opened = await nextExercise();
       if (!opened) console.log('Đã hoàn thành track!');
-      else show(await getExerciseInfo({ sessionDir: opened.session.dir }));
+      else {
+        const info = await getExerciseInfo({ sessionDir: opened.session.dir });
+        show(info);
+        await theory(info);
+      }
       break;
     }
     case 'open': {
       if (!argument) throw new Error('Hãy nhập mã bài. Xem git-training list.');
       if (rest.length) throw new Error('Lệnh open chỉ nhận một mã bài.');
       const opened = await openExercise(argument);
-      show(await getExerciseInfo({ sessionDir: opened.session.dir }));
+      const info = await getExerciseInfo({ sessionDir: opened.session.dir });
+      show(info);
+      await theory(info, true);
       break;
     }
     case 'migrate': {

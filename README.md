@@ -59,7 +59,7 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | `courses` | Liệt kê track. |
 | Không đối số | Mở bảng học; trên Windows thử mở cửa sổ riêng. |
 | `ui [--window]` | Mở bảng học tại terminal hiện tại hoặc cửa sổ mới trên Windows. |
-| `start <track> [--dir <thư-mục>]` | Tạo phiên mới; mặc định trong `~/git-training`. |
+| `start <track> [--dir <thư-mục>] [--no-browser]` | Tạo phiên mới; mặc định trong `~/git-training`. Mở trang lý thuyết của bài đang hiện. |
 | `--version` | Xem phiên bản CLI. |
 | `roadmap` | Xem tiến độ cả 11 track. |
 | `list` | Xem bài đã đạt, sẵn sàng và chưa mở trong track hiện tại. |
@@ -69,13 +69,24 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | `solution` | Xem lời giải. |
 | `answer [đáp-án]` | Gửi đáp án; bỏ đối số để nhập trong terminal tương tác. |
 | `check` | Kiểm tra Git và đáp án, lưu lần thử, mở khóa bài tiếp theo nếu đạt. |
-| `next` | Mở bài kế sau khi đạt. |
-| `open <mã-bài>` | Mở lại bài đã mở khóa từ checkpoint. |
+| `next [--no-browser]` | Mở bài kế sau khi đạt và mở trang lý thuyết của bài đó. |
+| `open <mã-bài> [--no-browser]` | Mở lại bài đã mở khóa từ checkpoint và mở lại trang lý thuyết. |
 | `migrate <thư-mục-phiên-cũ>` | Nhập tiến độ từ phiên bản hai track cũ. |
 
 `open` tạo lại repository của chính bài đó từ checkpoint và giữ dấu hoàn thành. Dữ liệu phiên nằm ngoài repository bài tập. Từ thư mục phiên, CLI tự tìm phiên; ở nơi khác, CLI dùng phiên hoạt động gần nhất. Biến `GIT_TRAINING_HOME` đổi vị trí lưu chỉ mục và hồ sơ tiến độ. Nếu thư mục phiên bị xóa, `start <track>` tạo phiên mới; nếu chỉ repository bài bị xóa, dùng `open <mã-bài>` để khôi phục.
 
 Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-repo` được ghi rõ là **mô phỏng offline**. Chúng không đăng nhập dịch vụ, ký bằng khóa thật hay viết lại lịch sử thật. Bài remote dùng bare repository cục bộ.
+
+## Trang lý thuyết
+
+Mỗi bài có một trang HTML tiếng Việt giải thích khái niệm trước khi làm (thư mục `theory/<track>/<mã-bài>.html`, chỉ mục ở `theory/index.html`). Khi bạn **mở một bài** bằng `start`, `next`, `open` hoặc bằng bảng học (chọn track, **N**, **O**, hoặc Enter trong danh sách bài), trang của bài đó tự mở trong trình duyệt mặc định. Các lệnh `status`, `list`, `check`, `hint`, `answer`, `solution`... không mở trình duyệt. Mỗi lần mở bài, CLI luôn in một dòng `Bài lý thuyết: <đường dẫn>` (hoặc `Đã mở bài lý thuyết trong trình duyệt: <đường dẫn>`) để bạn tự mở khi cần.
+
+- Windows: `rundll32 url.dll,FileProtocolHandler <file://…>` (không qua `cmd.exe`, nên khoảng trắng, chữ Việt hay `&` trong đường dẫn không gây lỗi). macOS: `open`. Linux: `xdg-open`. WSL: `wslview` nếu có, nếu không thì `rundll32.exe` với đường dẫn Windows.
+- Tắt: thêm `--no-browser` cho `start`, `next` hoặc `open`, hoặc đặt biến môi trường `GIT_TRAINING_NO_BROWSER=1` (cũng áp dụng cho bảng học).
+- Tự bỏ qua khi có biến `CI`, `NODE_ENV=test`, khi Linux không có `DISPLAY`/`WAYLAND_DISPLAY` (máy chủ không giao diện, SSH). Khi đó chỉ in đường dẫn.
+- Chạy hoàn toàn offline: phông chữ Be Vietnam Pro, JetBrains Mono và Mermaid nằm trong `theory/assets/`, trang mở bằng `file://` và không cần mạng hay máy chủ. Gói npm có kèm các trang này.
+- Một trang chỉ được mở một lần trong mỗi lần chạy (ví dụ trong bảng học); `open <mã-bài>` do bạn yêu cầu thì luôn mở lại.
+- Viết hoặc sửa trang: sửa Markdown trong `theory/src/<track>/<mã-bài>.md` rồi chạy `node theory/build.mjs` để dựng lại HTML (xem `theory/README.md`). Thư mục `theory/src` và các tệp dựng không nằm trong gói npm.
 
 ## Chuyển tiến độ cũ
 
