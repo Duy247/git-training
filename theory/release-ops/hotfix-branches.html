@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhánh sửa lỗi khẩn - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 8/10</span></p>
+<h1>Nhánh sửa lỗi khẩn</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>hotfix-branches</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao bản sửa khẩn cho production phải xuất phát từ bản đang chạy, không phải từ <code>main</code>.</li>
+<li>Tạo hotfix branch từ tag phát hành và đặt tên theo quy ước.</li>
+<li>Kiểm tra hotfix chỉ chứa bản sửa, không kéo theo tính năng chưa phát hành.</li>
+<li>Hoàn tất hotfix: gắn tag bản vá và đưa bản sửa về nhánh phát triển.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bản 3.4.0 đang chạy trên production. Trong lúc đó <code>main</code> đã nhận thêm một dashboard mới cho bản 3.5, chưa qua QA. Chiều thứ sáu, bộ phận vận hành báo lãi suất hiển thị bị làm tròn sai. Phải sửa ngay. Câu hỏi đầu tiên: sửa trên nền nào?</p>
+<p>Nếu sửa trên <code>main</code> rồi phát hành, bạn đẩy luôn dashboard chưa test lên production. Một sự cố nhỏ có thể thành sự cố lớn. Vì vậy bản sửa khẩn cần xuất phát từ <strong>chính commit đang chạy trên production</strong>. Nếu nhóm gắn tag cho mỗi bản phát hành (như các bài trước), commit đó có tên rõ ràng: tag <code>v3.4.0</code>.</p>
+<p><strong>Hotfix branch</strong> là branch tạo từ tag phát hành để chứa đúng bản sửa khẩn và không gì khác. Quy ước tên phổ biến là tiền tố <code>hotfix/</code> kèm số phiên bản vá sẽ phát hành, ví dụ <code>hotfix/3.4.1</code>. Theo semver, bản vá lỗi tương thích chỉ tăng PATCH, nên từ <code>3.4.0</code> ta có <code>3.4.1</code>.</p>
+<p>Lệnh <code>git switch -c &lt;branch&gt; &lt;điểm-xuất-phát&gt;</code> nhận điểm xuất phát là bất kỳ commit nào, kể cả tag. Git bóc tag, lấy commit bên trong và tạo branch mới trỏ vào commit đó. Lưu ý <code>git switch &lt;tag&gt;</code> không kèm <code>-c</code> sẽ bị từ chối, vì <code>switch</code> chỉ chuyển sang branch; muốn đứng tại tag mà không tạo branch thì phải thêm <code>--detach</code>. Với hotfix, bạn cần branch để commit, nên luôn dùng <code>-c</code>.</p>
+<p>Sau khi tạo, hãy tự xác nhận hai điều:</p>
+<ol>
+<li>Tag phát hành là tổ tiên của hotfix: <code>git merge-base --is-ancestor v3.4.0 HEAD</code> thành công.</li>
+<li>Hotfix không chứa commit chưa phát hành: các commit trên <code>main</code> sau tag không nằm trong lịch sử hotfix.</li>
+</ol>
+<p>Khi bản sửa đã commit và test xong, phần kết thúc gồm ba việc:</p>
+<ul>
+<li>Gắn annotated tag cho bản vá (<code>v3.4.1</code>) trên commit cuối của hotfix. Đây là thứ được triển khai.</li>
+<li><strong>Đưa bản sửa ngược về nhánh phát triển</strong> (<code>main</code>, và release branch đang mở nếu có), bằng merge hoặc cherry-pick. Nếu bỏ bước này, bản 3.5 sẽ mang lại lỗi vừa sửa.</li>
+<li>Xóa hotfix branch khi đã về đủ nơi; tag giữ lại dấu vết.</li>
+</ul>
+<p>Hotfix khác release branch ở chỗ: release branch tách ra từ <code>main</code> để chuẩn bị bản <strong>sắp</strong> phát hành, còn hotfix tách ra từ tag để vá bản <strong>đã</strong> phát hành. Cả hai đều là branch bình thường về kỹ thuật; khác nhau ở điểm xuất phát và vòng đời.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot; tag: &quot;v3.4.0&quot;
+  branch hotfix/3.4.1
+  checkout main
+  commit id: &quot;Dashboard chưa phát hành&quot;
+  checkout hotfix/3.4.1
+  commit id: &quot;Sửa lãi suất&quot; tag: &quot;v3.4.1&quot;
+  checkout main
+  merge hotfix/3.4.1</pre>
+<p>Gốc của branch quyết định nó mang theo những gì. Ở sơ đồ trên, hotfix được tách ra từ tag <code>v3.4.0</code> nên không có dashboard. Hai lựa chọn điểm xuất phát:</p>
+<pre class="mermaid">flowchart LR
+  P[&quot;Tag v3.4.0 đang chạy production&quot;] --&gt;|&quot;git switch -c hotfix/3.4.1 v3.4.0&quot;| H[&quot;Hotfix chỉ có bản sửa&quot;]
+  M[&quot;Đầu main có dashboard chưa test&quot;] --&gt;|&quot;tạo branch từ main&quot;| X[&quot;Hotfix kéo theo tính năng chưa duyệt&quot;]
+  H --&gt; T[&quot;Tag v3.4.1, triển khai&quot;]
+  T --&gt;|&quot;merge hoặc cherry-pick&quot;| B[&quot;Bản sửa về main&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag --sort=-v:refname | head -1           # tag phát hành mới nhất
+git switch -c hotfix/3.4.1 v3.4.0             # tạo hotfix từ tag và chuyển sang
+git merge-base --is-ancestor v3.4.0 HEAD &amp;&amp; echo &quot;tag là tổ tiên&quot;
+git merge-base --is-ancestor main HEAD || echo &quot;main không nằm trong hotfix&quot;
+git log --oneline --graph --all --decorate    # nhìn toàn cảnh
+git tag -a v3.4.1 -m &quot;Hotfix 3.4.1&quot;           # gắn tag bản vá
+git merge --no-ff hotfix/3.4.1                # đưa bản sửa về main (đứng ở main)
+git tag --merged main                         # các tag đã nằm trong main
+git branch -d hotfix/3.4.1                    # dọn branch</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Release branch</th>
+<th>Hotfix branch</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Xuất phát từ</td>
+<td><code>main</code> tại thời điểm freeze</td>
+<td>Tag bản đang chạy production</td>
+</tr>
+<tr>
+<td>Mục đích</td>
+<td>Ổn định bản sắp phát hành</td>
+<td>Vá khẩn bản đã phát hành</td>
+</tr>
+<tr>
+<td>Phiên bản kết quả</td>
+<td>MINOR hoặc MAJOR mới</td>
+<td>Tăng PATCH</td>
+</tr>
+<tr>
+<td>Tiền tố phổ biến</td>
+<td><code>release/</code></td>
+<td><code>hotfix/</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p><code>v3.4.0</code> đang trên production, <code>main</code> đã có thêm dashboard chưa phát hành (object ID ở máy bạn sẽ khác). Thử chuyển thẳng sang tag:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch v3.4.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: a branch is expected, got tag &#39;v3.4.0&#39;
+hint: If you want to detach HEAD at the commit, try again with the --detach option.</code></pre></div>
+<p>Tạo hotfix branch từ tag:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c hotfix/3.4.1 v3.4.0
+git log --oneline -1
+ls</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;hotfix/3.4.1&#39;
+de0c7d1 Khởi tạo
+config.ini</code></pre></div>
+<p>Không có <code>next.txt</code> của dashboard: đúng nền production. Sửa và commit, rồi xác nhận gốc của branch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">printf &#39;lai_suat=0.055\n&#39; &gt; config.ini
+git commit -qam &quot;Sửa lãi suất làm tròn sai&quot;
+git merge-base --is-ancestor v3.4.0 HEAD &amp;&amp; echo &quot;v3.4.0 là tổ tiên của HEAD&quot;
+git merge-base --is-ancestor main HEAD || echo &quot;main không nằm trong hotfix&quot;
+git log --oneline --graph --all --decorate</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v3.4.0 là tổ tiên của HEAD
+main không nằm trong hotfix
+* c2b69db (HEAD -&gt; hotfix/3.4.1) Sửa lãi suất làm tròn sai
+| * 7e6f593 (main) Dashboard mới chưa phát hành
+|/
+* de0c7d1 (tag: v3.4.0) Khởi tạo</code></pre></div>
+<p>Gắn tag bản vá, đưa bản sửa về <code>main</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -a v3.4.1 -m &quot;Hotfix 3.4.1&quot;
+git switch -q main
+git merge --no-ff -q hotfix/3.4.1 -m &quot;Merge hotfix/3.4.1 về main&quot;
+git log --oneline --graph --decorate
+cat config.ini
+git tag --merged main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">*   6a34826 (HEAD -&gt; main) Merge hotfix/3.4.1 về main
+|\
+| * c2b69db (tag: v3.4.1, hotfix/3.4.1) Sửa lãi suất làm tròn sai
+* | 7e6f593 Dashboard mới chưa phát hành
+|/
+* de0c7d1 (tag: v3.4.0) Khởi tạo
+lai_suat=0.055
+v3.4.0
+v3.4.1</code></pre></div>
+<p>Để so sánh: nếu tạo branch từ <code>main</code> thay vì từ tag, <code>git ls-tree --name-only HEAD</code> trên branch đó liệt kê cả <code>config.ini</code> lẫn <code>next.txt</code>, tức dashboard chưa duyệt đã nằm trong &quot;bản vá&quot;.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tạo hotfix từ <code>main</code>.</strong> Lỗi phổ biến nhất, vì <code>git switch -c hotfix/...</code> không kèm điểm xuất phát sẽ lấy HEAD hiện tại. Luôn truyền tag phát hành vào lệnh và kiểm tra bằng <code>merge-base --is-ancestor</code>. Nếu đã lỡ, tạo lại branch từ tag và cherry-pick riêng commit sửa sang.</p>
+<p><strong>Quên đưa bản sửa về <code>main</code>.</strong> Production ổn, nhưng hai tuần sau bản 3.5 phát hành và lỗi quay lại. Merge hoặc cherry-pick về <code>main</code> là bước bắt buộc, không phải tùy chọn.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đừng commit lên detached HEAD sau khi checkout tag rồi định &quot;tạo branch sau&quot;. Commit đó dễ bị bỏ lại khi bạn chuyển đi. Tạo branch ngay từ đầu.</p>
+</aside>
+<p><strong>Nhồi thêm việc vào hotfix.</strong> &quot;Tiện thì sửa luôn cái này&quot; làm bản vá to ra, cần test nhiều hơn và tăng rủi ro. Hotfix chỉ chứa đúng bản sửa khẩn.</p>
+<p><strong>Chọn nhầm tag.</strong> Nếu production đang chạy <code>v3.3.2</code> chứ không phải bản mới nhất, hotfix phải xuất phát từ <code>v3.3.2</code>. Hỏi lại môi trường thực tế trước khi tạo branch.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git tag --merged main</code> cho biết các bản vá đã thật sự về <code>main</code> chưa; tag hotfix nào không có trong danh sách là dấu hiệu bạn quên một bước.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Sự cố production lúc 17 giờ: phí chuyển khoản liên ngân hàng tính sai cho một nhóm tài khoản. Bạn xác nhận với đội vận hành production đang chạy <code>v3.4.0</code>, tạo <code>hotfix/3.4.1</code> từ tag đó, viết một test tái hiện lỗi trước, rồi mới sửa. QA chỉ cần chạy bộ smoke test cộng test tái hiện, vì nền mã giống hệt bản đang chạy. Sau khi gắn <code>v3.4.1</code> và triển khai, bạn merge hotfix về <code>main</code> để bản 3.5 không mang lại lỗi.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có một tag phát hành cũ, và <code>main</code> đã tiến thêm một commit chưa phát hành. Bạn cần tạo hotfix branch với tên mà đề bài nêu, xuất phát từ tag đó, rồi commit một tệp sửa lỗi trên branch này. Trình kiểm tra so <strong>chính xác</strong> tên branch, tên tệp và nội dung tệp, xác nhận tag là tổ tiên của HEAD, <code>main</code> không có tệp sửa và working tree sạch. Câu hỏi kiến thức hỏi về tiền tố tên branch phù hợp cho sửa lỗi production. Hãy:</p>
+<ul>
+<li>Đọc kỹ đề bài bằng <code>git-training status</code> (hoặc trong bảng học) và chép đúng tên tệp và nội dung yêu cầu, kể cả dấu tiếng Việt.</li>
+<li>Xem <code>git tag</code> và <code>git log --oneline --graph --all --decorate</code> để biết tag nằm ở đâu.</li>
+<li>Sau khi commit, dùng <code>git merge-base --is-ancestor</code> để tự kiểm tra gốc của branch.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Hotfix vá bản đã phát hành, nên phải xuất phát từ tag của bản đang chạy production.</li>
+<li><code>git switch -c &lt;hotfix&gt; &lt;tag&gt;</code> tạo branch từ tag; thiếu điểm xuất phát sẽ lấy HEAD.</li>
+<li>Tiền tố <code>hotfix/</code> kèm số phiên bản vá giúp nhận diện; bản vá thường chỉ tăng PATCH.</li>
+<li>Kiểm tra gốc bằng <code>git merge-base --is-ancestor</code>.</li>
+<li>Gắn tag bản vá và luôn đưa bản sửa ngược về nhánh phát triển.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open hotfix-branches
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/release-branches.html" rel="prev"><small>Bài trước</small>Nhánh phát hành</a><a class="next" href="../release-ops/changelog-generation.html" rel="next"><small>Bài sau</small>Tạo CHANGELOG</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 8/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

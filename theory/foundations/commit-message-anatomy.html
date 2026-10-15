@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Thông điệp commit rõ nghĩa - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 9/10</span></p>
+<h1>Thông điệp commit rõ nghĩa</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>commit-message-anatomy</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Nắm cấu trúc chuẩn của thông điệp commit: subject, dòng trống, thân, trailer.</li>
+<li>Viết subject ngắn, cụ thể, nói rõ commit làm gì.</li>
+<li>Biết khi nào cần phần thân và nên viết gì trong đó.</li>
+<li>Làm quen với quy ước Conventional Commits và các loại (type) phổ biến.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Thông điệp commit là thứ duy nhất trong lịch sử giải thích <strong>ý định</strong> của thay đổi. Diff cho biết dòng nào đổi; thông điệp cho biết vì sao. Sáu tháng sau, khi ai đó chạy <code>git log</code> hay <code>git blame</code> để hiểu vì sao một test bị tắt, họ chỉ có thông điệp của bạn.</p>
+<p>Cấu trúc mà hầu hết công cụ Git hiểu:</p>
+<ol>
+<li><strong>Subject</strong>: dòng đầu, ngắn (nhiều nhóm giữ dưới khoảng 50 đến 72 ký tự), nói commit làm gì. Đây là dòng hiện trong <code>git log --oneline</code>, trong tiêu đề email patch và nhiều giao diện review.</li>
+<li><strong>Một dòng trống</strong>: Git và công cụ dựa vào dòng trống này để tách subject khỏi thân.</li>
+<li><strong>Thân</strong> (tùy chọn): giải thích lý do, bối cảnh, hệ quả, những gì đã cân nhắc. Không cần lặp lại diff.</li>
+<li><strong>Trailer</strong> (tùy chọn): các dòng <code>Khóa: giá trị</code> ở cuối, như <code>Refs: QA-123</code>, <code>Co-authored-by: ...</code>. Công cụ có thể đọc chúng tự động.</li>
+</ol>
+<p>Subject tốt trả lời được câu &quot;Nếu áp dụng, commit này sẽ...&quot;. Ví dụ &quot;Sửa kiểm tra độ dài OTP&quot; tốt hơn nhiều so với &quot;fix bug&quot; hay &quot;update&quot;.</p>
+<p><strong>Conventional Commits</strong> là một quy ước phổ biến, thêm tiền tố loại thay đổi vào subject theo dạng <code>type(scope): mô tả</code>. Phần scope trong ngoặc là tùy chọn. Các type thường gặp:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feat</code></td>
+<td>Thêm tính năng mới cho người dùng</td>
+</tr>
+<tr>
+<td><code>fix</code></td>
+<td>Sửa lỗi</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>Chỉ đổi tài liệu</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>Thêm hoặc sửa test</td>
+</tr>
+<tr>
+<td><code>refactor</code></td>
+<td>Đổi cấu trúc mã, không đổi hành vi</td>
+</tr>
+<tr>
+<td><code>chore</code></td>
+<td>Việc vặt: cấu hình, công cụ, phụ thuộc</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>Pipeline CI</td>
+</tr>
+</tbody></table></div>
+<p>Dấu <code>!</code> trước dấu hai chấm (ví dụ <code>feat!:</code>) hoặc trailer <code>BREAKING CHANGE:</code> báo hiệu thay đổi phá tương thích. Lợi ích chính của quy ước này: công cụ có thể tự gom commit thành changelog và gợi ý tăng phiên bản (track phát hành sẽ quay lại).</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  S[&quot;Subject: type, scope, mô tả ngắn&quot;] --&gt; B[&quot;Dòng trống&quot;]
+  B --&gt; T[&quot;Thân: lý do và bối cảnh&quot;]
+  T --&gt; R[&quot;Trailer: Refs, Co-authored-by&quot;]
+  S --&gt;|&quot;hiện trong&quot;| L[&quot;git log --oneline&quot;]
+  R --&gt;|&quot;đọc bằng&quot;| P[&quot;git interpret-trailers&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit                       # mở editor để viết thông điệp nhiều dòng
+git commit -m &quot;subject&quot;          # thông điệp một dòng
+git commit -m &quot;subject&quot; -m &quot;thân&quot; -m &quot;Refs: QA-123&quot;   # mỗi -m là một đoạn, cách bằng dòng trống
+git log -1 --format=%s           # chỉ subject của commit cuối
+git log -1 --format=%B           # toàn bộ thông điệp thô
+git log --format=&quot;%(trailers:key=Refs)&quot; -1   # đọc trailer</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Placeholder</th>
+<th>Nội dung</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>%s</code></td>
+<td>Subject</td>
+</tr>
+<tr>
+<td><code>%b</code></td>
+<td>Thân</td>
+</tr>
+<tr>
+<td><code>%B</code></td>
+<td>Toàn bộ thông điệp</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Bạn thêm kiểm tra độ dài OTP cho màn hình đăng nhập. Viết thông điệp ba đoạn bằng ba <code>-m</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;feat(login): thêm kiểm tra mã OTP&quot; \
+  -m &quot;Ngân hàng yêu cầu OTP 6 chữ số. Trước đây form chấp nhận mọi độ dài.&quot; \
+  -m &quot;Refs: QA-123&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 2d01539] feat(login): thêm kiểm tra mã OTP
+ 1 file changed, 1 insertion(+)
+ create mode 100644 bai.txt</code></pre></div>
+<p>Đọc lại toàn bộ và từng phần:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1 --format=%B
+git log -1 --format=%s
+git log -1 --format=&quot;%(trailers:key=Refs)&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">feat(login): thêm kiểm tra mã OTP
+
+Ngân hàng yêu cầu OTP 6 chữ số. Trước đây form chấp nhận mọi độ dài.
+
+Refs: QA-123
+
+feat(login): thêm kiểm tra mã OTP
+Refs: QA-123</code></pre></div>
+<p>Mỗi <code>-m</code> thành một đoạn, cách nhau bằng dòng trống, đúng cấu trúc chuẩn. Đo độ dài subject:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1 --format=%s | wc -m</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">34</code></pre></div>
+<p>Con số gồm cả ký tự xuống dòng; subject này nằm thoải mái dưới ngưỡng 72.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Subject chung chung.</strong> &quot;fix&quot;, &quot;update&quot;, &quot;wip&quot; không giúp ai. Hãy nêu đối tượng và hành động: &quot;Sửa timeout test chuyển khoản liên ngân hàng&quot;.</p>
+<p><strong>Dồn mọi thứ vào subject.</strong> Subject 150 ký tự bị cắt ở nhiều giao diện. Đưa phần giải thích xuống thân.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu không viết được subject ngắn vì commit làm quá nhiều việc, đó là dấu hiệu nên tách commit.</p>
+</aside>
+<p><strong>Quên dòng trống giữa subject và thân.</strong> Khi viết trong editor mà không có dòng trống, Git coi cả đoạn đầu là subject. Dùng nhiều <code>-m</code> hoặc nhớ để trống dòng thứ hai.</p>
+<p><strong>Sai cú pháp Conventional Commits.</strong> <code>feat:thêm</code> thiếu dấu cách, <code>Feat:</code> viết hoa, <code>feature:</code> sai tên type đều có thể khiến công cụ phân loại bỏ qua. Dạng chuẩn là chữ thường, dấu hai chấm, một dấu cách.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Conventional Commits là quy ước của nhóm, không phải yêu cầu của Git. Git chấp nhận mọi thông điệp không rỗng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm bạn sinh release note tự động từ lịch sử. Commit thêm bộ test mới cho tính năng sao kê dùng <code>test(statement): ...</code>, commit sửa lỗi làm tròn số dư dùng <code>fix(balance): ...</code> kèm trailer mã ticket. Khi đến ngày phát hành, công cụ gom đúng các mục <code>feat</code> và <code>fix</code> vào ghi chú, còn reviewer chỉ cần đọc subject là biết commit thuộc loại nào.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn một tệp chờ commit. Bạn cần commit nó với subject theo quy ước Conventional Commits, đúng loại dành cho tính năng mới, có thể kèm scope, và không quá dài. Câu hỏi đi kèm hỏi về tiền tố đó. Hãy:</p>
+<ul>
+<li>Ôn bảng type ở trên và cú pháp chính xác: chữ thường, dấu hai chấm, dấu cách.</li>
+<li>Nhớ stage tệp trước khi commit và giữ working tree sạch.</li>
+<li>Sau khi commit, đọc lại bằng <code>git log -1 --format=%s</code> và đếm độ dài.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Thông điệp gồm subject, dòng trống, thân tùy chọn và trailer tùy chọn.</li>
+<li>Subject ngắn, cụ thể, nói commit làm gì; thân giải thích vì sao.</li>
+<li>Mỗi <code>-m</code> tạo một đoạn riêng, tiện cho thân và trailer.</li>
+<li>Conventional Commits dùng <code>type(scope): mô tả</code>, <code>!</code> cho thay đổi phá tương thích.</li>
+<li>Thông điệp rõ giúp review, blame, changelog và chính bạn trong tương lai.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open commit-message-anatomy
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/head-and-refs.html" rel="prev"><small>Bài trước</small>HEAD và ref biểu tượng</a><a class="next" href="../foundations/file-modes.html" rel="next"><small>Bài sau</small>Quyền thực thi và symlink</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 9/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

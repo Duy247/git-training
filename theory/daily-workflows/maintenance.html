@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Bảo trì repository - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 4/12</span></p>
+<h1>Bảo trì repository</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>maintenance</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Kiểm tra tính toàn vẹn của kho object và hiểu các loại cảnh báo.</li>
+<li>Đo kích thước repository và số object rời, đã đóng gói.</li>
+<li>Chạy gom object, dọn ref, cập nhật commit-graph khi cần.</li>
+<li>Biết phạm vi tác động của từng lệnh trước khi chạy.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Repository Git là một cơ sở dữ liệu nhỏ. Theo thời gian, nó tích lũy object rời (mỗi object một tệp), object không còn ai tham chiếu (sau reset, rebase, xóa nhánh), và hàng nghìn ref. Git tự bảo trì phần lớn những việc này ở chế độ nền khi bạn chạy lệnh thường. Nhưng biết các lệnh bảo trì giúp bạn chẩn đoán khi repository chậm, phình to, hoặc nghi ngờ bị hỏng (ví dụ sau khi ổ đĩa đầy hoặc máy tắt đột ngột).</p>
+<p>Có hai nhóm việc khác nhau:</p>
+<p><strong>Kiểm tra.</strong> <code>git fsck</code> đi qua kho object, xác minh mỗi object đọc được, đúng định dạng, và kiểm tra các liên kết: commit trỏ tới tree có tồn tại, tree trỏ tới blob có tồn tại. Lệnh này chỉ đọc, không sửa gì. Nó có thể báo:</p>
+<ul>
+<li><code>dangling</code>: object tồn tại nhưng không ai trỏ tới (ví dụ blob bạn từng <code>git add</code> rồi bỏ). Đây thường là bình thường.</li>
+<li><code>missing</code> hoặc <code>corrupt</code>: object cần thiết bị thiếu hoặc hỏng. Đây là vấn đề thật.</li>
+</ul>
+<p><strong>Tối ưu.</strong> <code>git gc</code> gom object rời vào packfile, nén lại, đóng gói ref vào <code>packed-refs</code>, và dọn object không còn được tham chiếu nếu chúng đủ cũ (mặc định Git giữ object không tham chiếu ít nhất hai tuần, và các mục reflog còn lâu hơn, để bạn còn đường cứu). <code>git maintenance run</code> là giao diện mới hơn, cho phép chạy từng tác vụ riêng như <code>commit-graph</code>, <code>loose-objects</code>, <code>incremental-repack</code>, <code>pack-refs</code>.</p>
+<p>Nguyên tắc an toàn: kiểm tra trước, tối ưu sau, và hiểu rằng tối ưu có thể làm mất vĩnh viễn những object đã đủ cũ mà không còn được tham chiếu. Đừng chạy các lệnh dọn mạnh như <code>git gc --prune=now</code> hay <code>git reflog expire --expire=now --all</code> trên repository mà bạn còn hy vọng cứu commit cũ.</p>
+<p><code>git count-objects -vH</code> cho bạn bức tranh nhanh: bao nhiêu object rời, bao nhiêu object trong pack, tổng dung lượng.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;Nghi ngờ có vấn đề&quot;] --&gt; B[&quot;git fsck: chỉ đọc&quot;]
+  B --&gt;|&quot;chỉ có dangling&quot;| C[&quot;Bình thường&quot;]
+  B --&gt;|&quot;missing hoặc corrupt&quot;| D[&quot;Dừng, sao lưu, tìm bản tốt&quot;]
+  C --&gt; E[&quot;git count-objects -vH&quot;]
+  E --&gt;|&quot;nhiều object rời&quot;| F[&quot;git gc hoặc maintenance run&quot;]</pre>
+<pre class="mermaid">flowchart LR
+  L[&quot;Object rời: mỗi object một tệp&quot;] --&gt;|&quot;git gc&quot;| P[&quot;Packfile nén&quot;]
+  U[&quot;Object không tham chiếu, còn mới&quot;] --&gt;|&quot;git gc&quot;| K[&quot;Vẫn giữ để còn cứu&quot;]
+  O[&quot;Object không tham chiếu, đã cũ&quot;] --&gt;|&quot;git gc&quot;| X[&quot;Bị dọn&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Kiểm tra toàn vẹn (chỉ đọc)
+git fsck
+
+# Liệt kê object không truy cập được, bỏ qua reflog
+git fsck --unreachable --no-reflogs
+
+# Thống kê object, -H cho đơn vị dễ đọc
+git count-objects -vH
+
+# Gom và nén object, đóng gói ref, dọn object đủ cũ
+git gc
+
+# Chạy từng tác vụ bảo trì
+git maintenance run --task=commit-graph
+git maintenance run --task=loose-objects
+git maintenance run --task=pack-refs</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Đọc hay ghi</th>
+<th>Rủi ro</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git fsck</code></td>
+<td>Chỉ đọc</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>git count-objects</code></td>
+<td>Chỉ đọc</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>git gc</code></td>
+<td>Ghi</td>
+<td>Thấp, giữ object mới</td>
+</tr>
+<tr>
+<td><code>git maintenance run</code></td>
+<td>Ghi</td>
+<td>Thấp</td>
+</tr>
+<tr>
+<td><code>git gc --prune=now</code></td>
+<td>Ghi</td>
+<td>Mất object không tham chiếu ngay</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mới có vài commit, chưa đóng gói:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fsck
+git count-objects -vH</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">count: 12
+size: 48.00 KiB
+in-pack: 0
+packs: 0
+size-pack: 0 bytes
+prune-packable: 0
+garbage: 0
+size-garbage: 0 bytes</code></pre></div>
+<p><code>git fsck</code> không in gì nghĩa là không phát hiện vấn đề. Giờ mình stage một tệp rồi bỏ, và tạo một commit rồi reset bỏ nó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fsck
+git fsck --unreachable --no-reflogs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">dangling blob a9a5aecf429fd8a0d81fbd5fd37006bfa498d5c1
+unreachable blob a9a5aecf429fd8a0d81fbd5fd37006bfa498d5c1
+unreachable commit 13d2ce7ac85371a7ca8feb823d95bbab84dd7543</code></pre></div>
+<p>Lần đầu chỉ thấy blob, vì commit bị reset vẫn còn trong reflog nên được coi là còn dùng. Bỏ qua reflog thì thấy cả commit. Chạy gc rồi đo lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git gc
+git count-objects -vH</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">count: 0
+size: 0 bytes
+in-pack: 14
+packs: 2
+size-pack: 3.50 KiB
+prune-packable: 0
+garbage: 0
+size-garbage: 0 bytes</code></pre></div>
+<p>Object rời đã vào pack, dung lượng giảm mạnh. Object không tham chiếu vẫn được giữ vì còn mới.</p>
+<p>Để thấy fsck báo lỗi thật, mình cố ý ghi đè tệp của một blob trong repository thử nghiệm:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: inflate: data stream error (incorrect header check)
+error: unable to unpack header of .git/objects/ce/013625030ba8dba906f756967f9e9ca394464a
+error: ce013625030ba8dba906f756967f9e9ca394464a: object corrupt or missing: .git/objects/ce/013625030ba8dba906f756967f9e9ca394464a
+missing blob ce013625030ba8dba906f756967f9e9ca394464a</code></pre></div>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Chỉ làm hỏng object có chủ đích trong thư mục tạm. Với repository thật bị báo <code>corrupt</code>, hãy sao lưu nguyên thư mục trước khi thử sửa, và ưu tiên lấy lại object từ remote hoặc bản clone khác.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Hoảng khi thấy <code>dangling</code>.</strong> Đó thường là phần thừa bình thường sau reset hay rebase. Chỉ <code>missing</code> và <code>corrupt</code> mới cần xử lý.</p>
+<p><strong>Chạy <code>gc --prune=now</code> để &quot;dọn sạch&quot;.</strong> Bạn mất lưới an toàn cho commit vừa bỏ. Dùng <code>git gc</code> mặc định trừ khi biết chắc mình muốn gì.</p>
+<p><strong>Bảo trì repository đang có lệnh Git khác chạy.</strong> Ví dụ IDE đang fetch. Git có khóa, nhưng tốt nhất chạy bảo trì khi không có thao tác khác.</p>
+<p><strong>Nhầm bảo trì với giảm kích thước lịch sử.</strong> <code>gc</code> nén tốt hơn nhưng không xóa tệp lớn đã commit. Muốn bỏ tệp lớn khỏi lịch sử là việc viết lại lịch sử, khác hẳn (xem track điều tra).</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>git maintenance start</code> đăng ký tác vụ chạy định kỳ với bộ lập lịch của hệ điều hành. Nó thay đổi cấu hình hệ thống của bạn, nên chỉ bật khi hiểu và muốn điều đó.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Máy CI của nhóm QA giữ sẵn một bản clone lớn của repository ứng dụng để tiết kiệm thời gian. Sau vài tháng, bước checkout chậm dần. Bạn chạy <code>git count-objects -vH</code> thấy hàng chục nghìn object rời, chạy <code>git fsck</code> xác nhận không hỏng, rồi lên lịch <code>git maintenance run --task=loose-objects --task=incremental-repack</code> vào khung giờ không có pipeline. Thời gian checkout trở lại bình thường.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi lệnh nào kiểm tra tính toàn vẹn của object. Hãy ôn sự khác nhau giữa lệnh chỉ đọc để kiểm tra và lệnh ghi để tối ưu ở bảng trên.</p>
+<p>Bạn có thể tự chạy các lệnh chỉ đọc trong repository bài tập để xem kết quả. Tránh chạy lệnh dọn mạnh, dù trong sandbox, cho tới khi hiểu rõ tác động.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git fsck</code> kiểm tra toàn vẹn kho object, chỉ đọc.</li>
+<li><code>dangling</code> thường vô hại; <code>missing</code> và <code>corrupt</code> là vấn đề thật.</li>
+<li><code>git count-objects -vH</code> cho biết số object rời, trong pack và dung lượng.</li>
+<li><code>git gc</code> và <code>git maintenance run</code> tối ưu, nhưng giữ object mới để còn cứu.</li>
+<li>Tránh <code>--prune=now</code> khi còn cần khôi phục commit cũ.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open maintenance
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/aliases.html" rel="prev"><small>Bài trước</small>Alias tiết kiệm thao tác</a><a class="next" href="../daily-workflows/conventional-commits.html" rel="next"><small>Bài sau</small>Thông điệp commit có cấu trúc</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 4/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Thao tác tệp bằng Git - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 2/10</span></p>
+<h1>Thao tác tệp bằng Git</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>file-operations</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao đổi tên hay xóa tệp bằng lệnh của hệ điều hành chỉ làm &quot;một nửa&quot; việc với Git.</li>
+<li>Dùng <code>git mv</code> để đổi tên hoặc di chuyển tệp và stage kết quả trong một bước.</li>
+<li>Phân biệt <code>git rm</code> (xóa khỏi ổ đĩa và index) với <code>git rm --cached</code> (chỉ ngừng theo dõi).</li>
+<li>Biết Git nhận ra một lần đổi tên như thế nào và cách xem lịch sử của tệp đã đổi tên.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Git theo dõi tệp qua ba nơi: working tree (thư mục trên ổ đĩa), index (bản chụp sẽ đi vào commit kế tiếp) và HEAD (commit gần nhất). Khi bạn đổi tên tệp bằng <code>mv</code> của shell hay bằng trình quản lý tệp, chỉ working tree thay đổi. Với Git, lúc đó có một tệp cũ &quot;biến mất&quot; và một tệp mới &quot;chưa được theo dõi&quot;. Bạn phải tự <code>git add</code> tệp mới và ghi nhận việc xóa tệp cũ thì index mới khớp.</p>
+<p><code>git mv</code> gói hai việc đó làm một: đổi tên trên ổ đĩa <strong>và</strong> cập nhật index cùng lúc. Sau lệnh, <code>git status --short</code> hiện ngay một dòng <code>R</code> (renamed), sẵn sàng để commit. Tương tự, <code>git rm</code> xóa tệp khỏi ổ đĩa và ghi việc xóa vào index trong một bước.</p>
+<p>Một điều nhiều người không để ý: Git <strong>không lưu thao tác đổi tên</strong> như một sự kiện riêng. Commit chỉ chứa một cây thư mục đầy đủ. Khi bạn xem <code>git status</code>, <code>git diff</code> hay <code>git log</code>, Git so hai cây, thấy một đường dẫn mất đi và một đường dẫn mới xuất hiện với nội dung giống hệt (hoặc gần giống), rồi suy ra đó là đổi tên. Vì thế <code>git mv</code> và cách &quot;mv rồi add&quot; cho ra commit giống nhau; khác biệt nằm ở sự tiện lợi và ít sót bước. Hệ quả thực tế: nếu bạn vừa đổi tên vừa sửa gần hết nội dung trong cùng một commit, Git có thể không nhận ra đó là đổi tên nữa. Nên tách đổi tên và sửa nội dung thành hai commit.</p>
+<p>Với xóa tệp, có hai ý định khác nhau:</p>
+<ul>
+<li>Bỏ hẳn tệp khỏi dự án: <code>git rm &lt;tệp&gt;</code>. Tệp mất khỏi ổ đĩa và commit kế tiếp không còn nó.</li>
+<li>Giữ tệp ở máy nhưng ngừng đưa vào Git, ví dụ tệp cấu hình cục bộ lỡ commit: <code>git rm --cached &lt;tệp&gt;</code>. Tệp còn trên ổ đĩa, trở thành untracked. Thường bạn thêm nó vào <code>.gitignore</code> ngay sau đó.</li>
+</ul>
+<p><code>git rm</code> có một lớp bảo vệ: nếu tệp đang có thay đổi chưa commit, Git từ chối xóa để bạn không mất công sức, trừ khi bạn chủ động thêm <code>-f</code>.</p>
+<p>Cuối cùng, nhớ rằng mọi thao tác này chỉ đổi index và working tree. Lịch sử cũ vẫn chứa tệp với tên cũ. Xóa một tệp chứa bí mật bằng <code>git rm</code> không xóa nó khỏi các commit trước; việc đó cần công cụ viết lại lịch sử, có bài riêng trong track forensics.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph S1[&quot;Dùng mv của shell&quot;]
+    A1[&quot;mv tệp&quot;] --&gt; A2[&quot;Working tree đổi&quot;]
+    A2 --&gt; A3[&quot;Index còn tên cũ&quot;]
+    A3 --&gt;|&quot;git add -A&quot;| A4[&quot;Index khớp&quot;]
+  end
+  subgraph S2[&quot;Dùng git mv&quot;]
+    B1[&quot;git mv tệp&quot;] --&gt; B2[&quot;Working tree và index cùng đổi&quot;]
+  end
+  A4 --&gt; C[&quot;git commit&quot;]
+  B2 --&gt; C</pre>
+<pre class="mermaid">flowchart LR
+  F[&quot;Tệp đang được theo dõi&quot;] --&gt;|&quot;git rm&quot;| G[&quot;Mất khỏi ổ đĩa và index&quot;]
+  F --&gt;|&quot;git rm --cached&quot;| H[&quot;Còn trên ổ đĩa, thành untracked&quot;]
+  H --&gt;|&quot;thêm vào .gitignore&quot;| I[&quot;Git bỏ qua về sau&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git mv &lt;cũ&gt; &lt;mới&gt;              # đổi tên và stage
+git mv &lt;tệp&gt; &lt;thư-mục&gt;/        # di chuyển vào thư mục khác
+git mv -n &lt;cũ&gt; &lt;mới&gt;           # chạy thử, chỉ in ra sẽ làm gì
+git rm &lt;tệp&gt;                   # xóa khỏi ổ đĩa và index
+git rm --cached &lt;tệp&gt;          # ngừng theo dõi, giữ tệp trên ổ đĩa
+git rm -r &lt;thư-mục&gt;            # xóa cả thư mục
+git add -A                     # ghi nhận mọi thêm, xóa, đổi tên đã làm bằng tay
+git log --follow -- &lt;tệp&gt;      # lịch sử của một tệp qua các lần đổi tên
+git ls-files                   # xem index đang theo dõi những tệp nào</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Working tree</th>
+<th>Index</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mv a b</code></td>
+<td>Đổi</td>
+<td>Không đổi</td>
+</tr>
+<tr>
+<td><code>git mv a b</code></td>
+<td>Đổi</td>
+<td>Đổi, hiện là rename</td>
+</tr>
+<tr>
+<td><code>rm a</code></td>
+<td>Xóa</td>
+<td>Không đổi</td>
+</tr>
+<tr>
+<td><code>git rm a</code></td>
+<td>Xóa</td>
+<td>Ghi nhận xóa</td>
+</tr>
+<tr>
+<td><code>git rm --cached a</code></td>
+<td>Giữ</td>
+<td>Ghi nhận xóa</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Một repository tài liệu test có ba tệp đã commit: <code>testplan.md</code>, <code>run.log</code>, <code>local.env</code>. Mình đổi tên kế hoạch test, xóa log và ngừng theo dõi tệp cấu hình cục bộ (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git mv testplan.md ke-hoach-test.md
+git status --short
+git rm run.log
+git rm --cached local.env
+git status --short
+ls</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">R  testplan.md -&gt; ke-hoach-test.md
+rm &#39;run.log&#39;
+rm &#39;local.env&#39;
+R  testplan.md -&gt; ke-hoach-test.md
+D  local.env
+D  run.log
+?? local.env
+ke-hoach-test.md
+local.env</code></pre></div>
+<p><code>local.env</code> vẫn nằm trên ổ đĩa nhưng đã thành untracked. Thêm vào <code>.gitignore</code> rồi commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">echo local.env &gt; .gitignore
+git add .gitignore
+git commit -qm &quot;Đổi tên kế hoạch test, dọn log, bỏ theo dõi local.env&quot;
+git show --stat --oneline HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">88162ae Đổi tên kế hoạch test, dọn log, bỏ theo dõi local.env
+ .gitignore                      | 1 +
+ testplan.md =&gt; ke-hoach-test.md | 0
+ local.env                       | 1 -
+ run.log                         | 1 -
+ 4 files changed, 1 insertion(+), 2 deletions(-)</code></pre></div>
+<p>So sánh với cách dùng <code>mv</code> thường để chuyển tệp vào thư mục <code>docs</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">mkdir docs
+mv ke-hoach-test.md docs/
+git status --short
+git add -A
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> D ke-hoach-test.md
+?? docs/
+R  ke-hoach-test.md -&gt; docs/ke-hoach-test.md</code></pre></div>
+<p>Trước <code>git add -A</code>, Git chỉ thấy một tệp bị xóa và một thư mục lạ. Sau khi stage, nó nhận ra đây là đổi tên. Sau khi commit, <code>--follow</code> lần được lịch sử qua cả hai lần đổi tên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -qm &quot;Chuyển kế hoạch test vào docs&quot;
+git log --oneline --follow -- docs/ke-hoach-test.md</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">def531e Chuyển kế hoạch test vào docs
+88162ae Đổi tên kế hoạch test, dọn log, bỏ theo dõi local.env
+d41caf1 Thêm tài liệu test</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong><code>git rm</code> từ chối vì tệp đang sửa.</strong> Thông báo là:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: the following file has local modifications:
+    docs/ke-hoach-test.md
+(use --cached to keep the file, or -f to force removal)</code></pre></div>
+<p>Hãy commit hoặc bỏ thay đổi trước, hoặc dùng <code>--cached</code> nếu chỉ muốn ngừng theo dõi. Chỉ dùng <code>-f</code> khi chắc chắn không cần nội dung đó.</p>
+<p><strong>Gõ sai đường dẫn nguồn.</strong> <code>git mv</code> báo <code>fatal: bad source</code> khi tệp nguồn không được theo dõi hoặc không tồn tại. Kiểm tra bằng <code>git ls-files</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Sau <code>git rm --cached</code>, nếu bạn chưa thêm tệp vào <code>.gitignore</code> mà lại chạy <code>git add -A</code> hay <code>git add .</code>, tệp sẽ bị stage trở lại. Thêm vào <code>.gitignore</code> ngay.</p>
+</aside>
+<p><strong>Đổi tên và sửa nhiều nội dung cùng lúc.</strong> Git có thể hiện là một tệp xóa và một tệp mới, khó review và <code>--follow</code> không nối được lịch sử. Tách thành hai commit.</p>
+<p><strong>Nghĩ rằng <code>git rm</code> xóa bí mật khỏi lịch sử.</strong> Nó chỉ xóa khỏi commit kế tiếp. Các commit cũ vẫn giữ nội dung; nếu đó là khóa thật, hãy thu hồi khóa.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trên Windows và macOS, đổi tên chỉ khác chữ hoa chữ thường (ví dụ <code>readme.md</code> thành <code>README.md</code>) bằng trình quản lý tệp thường không được Git ghi nhận. <code>git mv</code> xử lý trường hợp này đúng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Dự án test automation của bạn đổi quy ước đặt tên: mọi tệp kịch bản phải nằm dưới <code>tests/e2e/</code> với tiền tố module. Bạn dùng <code>git mv</code> cho từng tệp, commit riêng phần đổi tên trước, rồi mới sửa import ở commit sau. Reviewer thấy commit đầu toàn dòng <code>R</code> với 0 dòng thay đổi, xác nhận nhanh không có logic nào bị động vào. Sau này ai cần truy lịch sử một kịch bản vẫn dùng <code>git log --follow</code> được.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có một tệp đã commit. Bạn cần đổi tên nó theo tên mới mà đề bài nêu, giữ nguyên nội dung, rồi commit sao cho HEAD có tệp mới, không còn tệp cũ và working tree sạch. Câu hỏi kiến thức hỏi về lệnh làm được cả đổi tên lẫn stage trong một bước. Hãy:</p>
+<ul>
+<li>Xem <code>git status --short</code> ngay sau khi đổi tên để chắc chắn thấy dòng rename đã staged.</li>
+<li>Kiểm tra lại bằng <code>git show --stat HEAD</code> sau khi commit.</li>
+<li>Đảm bảo không còn thay đổi nào chưa commit.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Đổi tên bằng shell chỉ đổi working tree; index phải được cập nhật riêng.</li>
+<li><code>git mv</code> đổi tên và stage cùng lúc; <code>git rm</code> xóa và stage cùng lúc.</li>
+<li><code>git rm --cached</code> ngừng theo dõi nhưng giữ tệp, thường đi kèm <code>.gitignore</code>.</li>
+<li>Git suy ra đổi tên bằng cách so nội dung, không lưu sự kiện đổi tên.</li>
+<li><code>git log --follow</code> xem lịch sử tệp qua các lần đổi tên.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open file-operations
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/tagging.html" rel="prev"><small>Bài trước</small>Đánh dấu phiên bản</a><a class="next" href="../release-ops/stash-cherry-pick.html" rel="next"><small>Bài sau</small>Stash và cherry-pick</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 2/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

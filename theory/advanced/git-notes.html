@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ghi chú trên commit - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 9/13</span></p>
+<h1>Ghi chú trên commit</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>git-notes</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu notes là gì và vì sao thêm notes không đổi object ID của commit.</li>
+<li>Thêm, xem, nối, xóa ghi chú bằng <code>git notes</code>.</li>
+<li>Dùng namespace notes riêng cho từng loại thông tin.</li>
+<li>Biết notes không tự đi theo khi push và fetch.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Commit trong Git là bất biến: object ID được tính từ nội dung, gồm tree, parent, tác giả, thời gian và message. Đổi bất kỳ thứ gì, kể cả một chữ trong message, là tạo commit khác. Vậy nếu sau khi commit đã chia sẻ, bạn muốn gắn thêm thông tin như &quot;đã qua review&quot;, &quot;build số 1234 đạt&quot;, &quot;đã kiểm thử trên môi trường UAT&quot; thì sao? Amend sẽ đổi ID và làm phiền mọi người.</p>
+<p>Git notes giải quyết bằng cách lưu ghi chú ở chỗ khác. Mỗi ghi chú là một blob, và Git giữ một cây ánh xạ từ object ID của commit tới blob ghi chú đó. Cây này được commit vào một ref riêng, mặc định là <code>refs/notes/commits</code>. Commit gốc không bị đụng tới, nên ID giữ nguyên.</p>
+<p>Khi bạn chạy <code>git log</code> hoặc <code>git show</code>, Git tra ref notes và hiện ghi chú dưới phần message, sau dòng &quot;Notes:&quot;. Đây chỉ là hiển thị; message thật của commit không đổi.</p>
+<p>Bạn có thể có nhiều nhóm ghi chú bằng cách dùng ref khác, ví dụ <code>refs/notes/qa</code> cho kết quả kiểm thử và <code>refs/notes/review</code> cho người duyệt. Tùy chọn <code>--ref=qa</code> chọn nhóm khi thêm, <code>--notes=qa</code> chọn nhóm khi xem log.</p>
+<p>Một commit chỉ có một ghi chú trong mỗi nhóm. Muốn thêm nội dung, dùng <code>append</code>; muốn thay, dùng <code>add -f</code> hoặc <code>edit</code>.</p>
+<p>Điểm hay bị bỏ qua: notes là ref nằm ngoài <code>refs/heads</code> và <code>refs/tags</code>, nên <code>git push</code> và <code>git fetch</code> mặc định không mang chúng đi. Muốn chia sẻ, bạn push ref notes một cách tường minh và cấu hình fetch cho nó.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  C[&quot;Commit 8b004e9: message không đổi&quot;]
+  N[&quot;refs/notes/commits&quot;] --&gt; NC[&quot;Commit của notes&quot;]
+  NC --&gt; NT[&quot;Tree ánh xạ ID commit tới blob&quot;]
+  NT --&gt; B[&quot;Blob: Đã xem xét&quot;]
+  B -.-&gt;|&quot;gắn với&quot;| C
+  L[&quot;git log&quot;] --&gt;|&quot;tra notes khi hiển thị&quot;| N</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;git notes add&quot;] --&gt; S[&quot;Có ghi chú&quot;]
+  S --&gt;|&quot;git notes append&quot;| S
+  S --&gt;|&quot;git notes add -f&quot;| S
+  S --&gt;|&quot;git notes remove&quot;| E[&quot;Không còn ghi chú&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Thêm ghi chú cho HEAD (hoặc commit bất kỳ)
+git notes add -m &quot;Đã xem xét&quot; HEAD
+
+# Xem ghi chú của một commit
+git notes show HEAD
+
+# Nối thêm nội dung vào ghi chú hiện có
+git notes append -m &quot;CI: 120 test đạt&quot; HEAD
+
+# Thay ghi chú hiện có
+git notes add -f -m &quot;Nội dung mới&quot; HEAD
+
+# Liệt kê: ID blob ghi chú và ID commit được ghi chú
+git notes list
+
+# Dùng nhóm ghi chú riêng
+git notes --ref=qa add -m &quot;Regression pass&quot; HEAD
+git log -1 --notes=qa
+
+# Xóa ghi chú
+git notes remove HEAD
+
+# Chia sẻ notes lên remote (không tự động khi push thường)
+git push origin refs/notes/commits</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh con</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>add</code></td>
+<td>Tạo ghi chú, lỗi nếu đã có (trừ khi <code>-f</code>)</td>
+</tr>
+<tr>
+<td><code>append</code></td>
+<td>Nối thêm vào ghi chú</td>
+</tr>
+<tr>
+<td><code>show</code></td>
+<td>In ghi chú</td>
+</tr>
+<tr>
+<td><code>edit</code></td>
+<td>Mở editor sửa ghi chú</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>Liệt kê cặp ghi chú và đối tượng</td>
+</tr>
+<tr>
+<td><code>remove</code></td>
+<td>Xóa ghi chú</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Ghi lại ID của HEAD, thêm ghi chú, rồi kiểm tra ID lần nữa (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-parse HEAD
+git notes add -m &quot;Đã xem xét&quot; HEAD
+git notes show HEAD
+git rev-parse HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">8b004e9f78cf9587386eedaaf6dda5f862c37d48
+Đã xem xét
+8b004e9f78cf9587386eedaaf6dda5f862c37d48</code></pre></div>
+<p>ID không đổi. Log hiện ghi chú bên dưới message:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit 8b004e9f78cf9587386eedaaf6dda5f862c37d48
+Author: Duy &lt;duy@example.invalid&gt;
+Date:   Thu Oct 15 23:44:25 2026 +0700
+
+    Khởi tạo
+
+Notes:
+    Đã xem xét</code></pre></div>
+<p>Ghi chú nằm ở đâu? Ở một ref riêng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show-ref</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">8b004e9f78cf9587386eedaaf6dda5f862c37d48 refs/heads/main
+6cbc02b71df99336a198596375cf8de809eb346f refs/notes/commits</code></pre></div>
+<p>Thêm lần nữa bằng <code>add</code> sẽ lỗi; dùng <code>append</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git notes add -m &quot;lần hai&quot; HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: Cannot add notes. Found existing notes for object 8b004e9f78cf9587386eedaaf6dda5f862c37d48. Use &#39;-f&#39; to overwrite existing notes</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git notes append -m &quot;CI: 120 test đạt&quot; HEAD
+git notes show</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Đã xem xét
+
+CI: 120 test đạt</code></pre></div>
+<p>Nhóm ghi chú riêng cho QA:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git notes --ref=qa add -m &quot;Regression pass&quot; HEAD
+git log -1 --notes=qa --format=&quot;%s | %N&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Khởi tạo | Regression pass</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git notes show</code> không kèm đối số sẽ dùng HEAD. Nhưng ghi rõ <code>HEAD</code> hoặc ID trong script giúp người đọc khỏi phải đoán.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tưởng notes đã lên remote sau khi push nhánh.</strong> Không. Push ref notes tường minh, và người khác cần fetch <code>refs/notes/*</code> mới thấy.</p>
+<p><strong>Dùng <code>add</code> khi đã có ghi chú.</strong> Git báo lỗi để tránh ghi đè vô tình. Dùng <code>append</code> để nối, hoặc <code>-f</code> nếu thật sự muốn thay.</p>
+<p><strong>Không thấy ghi chú nhóm riêng trong log.</strong> <code>git log</code> mặc định chỉ hiện <code>refs/notes/commits</code>. Thêm <code>--notes=qa</code> (hoặc cấu hình <code>notes.displayRef</code>).</p>
+<p><strong>Ghi chú &quot;mất&quot; sau rebase.</strong> Rebase tạo commit mới, ghi chú gắn với ID cũ. Git có cấu hình <code>notes.rewriteRef</code> để chép notes khi rebase hoặc amend; nếu chưa bật, bạn cần thêm lại.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Notes phù hợp cho metadata bổ sung sau khi commit. Thông tin cốt lõi như lý do thay đổi vẫn nên nằm trong message.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Sau mỗi lần chạy regression trên bản release candidate, pipeline của nhóm QA gắn một ghi chú vào commit được kiểm thử trong nhóm <code>refs/notes/qa</code>, ví dụ &quot;UAT 2026-10-15: 412 đạt, 3 bỏ qua&quot;. Commit trên nhánh release không đổi ID, tag phát hành vẫn trỏ đúng chỗ, mà ai cần biết commit đó đã được kiểm thử ra sao chỉ cần <code>git log --notes=qa</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu gắn một ghi chú có nội dung cụ thể vào HEAD của repository bài tập, sao cho lệnh xem ghi chú của HEAD hiển thị đúng nội dung đó. Câu hỏi kiến thức hỏi lệnh dùng để xem ghi chú của HEAD.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Đọc kỹ nội dung ghi chú yêu cầu, gồm cả dấu tiếng Việt.</li>
+<li>Ôn sự khác nhau giữa các lệnh con <code>add</code>, <code>append</code>, <code>show</code>.</li>
+<li>Sau khi thêm, kiểm tra lại bằng cách xem ghi chú và xác nhận ID của HEAD không đổi.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Notes gắn thông tin vào commit mà không đổi object ID.</li>
+<li>Ghi chú được lưu dưới ref riêng, mặc định <code>refs/notes/commits</code>.</li>
+<li>Mỗi commit có tối đa một ghi chú trong mỗi nhóm; dùng <code>append</code> để nối.</li>
+<li>Nhóm khác chọn bằng <code>--ref</code> khi thêm, <code>--notes</code> khi xem.</li>
+<li>Notes không tự push hay fetch cùng nhánh.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open git-notes
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/cherry-pick-series.html" rel="prev"><small>Bài trước</small>Chép chuỗi commit</a><a class="next" href="../advanced/sparse-checkout.html" rel="next"><small>Bài sau</small>Checkout thưa</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 9/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

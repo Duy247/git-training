@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tìm trong mã và lịch sử - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 2/10</span></p>
+<h1>Tìm trong mã và lịch sử</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>grep-pickaxe</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Tìm nhanh một chuỗi trong các tệp đang được theo dõi bằng <code>git grep</code>.</li>
+<li>Tìm trong một commit hoặc một phiên bản cũ mà không cần checkout.</li>
+<li>Dùng pickaxe <code>git log -S</code> để tìm commit đã thêm hoặc xóa một chuỗi.</li>
+<li>Biết chọn công cụ nào cho câu hỏi &quot;ở đâu bây giờ&quot; và câu hỏi &quot;từ khi nào&quot;.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Có hai câu hỏi tìm kiếm rất khác nhau, và Git có công cụ riêng cho từng câu.</p>
+<p><strong>&quot;Chuỗi này đang nằm ở đâu?&quot;</strong> Đây là việc của <code>git grep</code>. Nó giống <code>grep -r</code>, nhưng chỉ tìm trong tệp Git theo dõi (bỏ qua <code>node_modules</code>, thư mục build và mọi thứ bị ignore), nên nhanh và ít nhiễu. Điểm mạnh đặc biệt: bạn có thể truyền một commit, nhánh hay tag, và <code>git grep</code> tìm thẳng trong snapshot đó mà không đụng tới working tree. &quot;Tuần trước, ở bản release, chuỗi này có không?&quot; trả lời được trong một lệnh.</p>
+<p><strong>&quot;Chuỗi này xuất hiện (hoặc biến mất) từ commit nào?&quot;</strong> Đây là việc của <strong>pickaxe</strong>: <code>git log -S &lt;chuỗi&gt;</code>. Thay vì tìm trong nội dung tệp, nó đi qua từng commit và hỏi: commit này có làm <strong>thay đổi số lần xuất hiện</strong> của chuỗi không? Commit thêm chuỗi (số lần tăng) và commit xóa chuỗi (số lần giảm) đều khớp. Commit chỉ sửa dòng xung quanh mà giữ nguyên chuỗi thì không khớp.</p>
+<p><code>git log</code> liệt kê từ mới đến cũ. Nếu chuỗi từng được thêm, xóa, rồi thêm lại, bạn sẽ thấy nhiều commit. Muốn biết lần <strong>đầu tiên</strong>, thêm <code>--reverse</code> để đảo thứ tự, commit đầu danh sách là lần sớm nhất. Thêm <code>-p</code> để xem luôn diff của các commit tìm được.</p>
+<p>Hai công cụ bổ sung cho nhau rất tự nhiên. Ví dụ, bạn nghi một khóa demo bị lộ: <code>git grep</code> cho biết HEAD còn chứa nó không; pickaxe cho biết commit nào đã đưa nó vào và commit nào đã xóa. Bài pickaxe chuyên sâu sau sẽ so sánh <code>-S</code> với biến thể <code>-G</code> dùng biểu thức chính quy.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  Q[&quot;Bạn đang tìm gì?&quot;] --&gt; N[&quot;Chuỗi đang nằm ở đâu&quot;]
+  Q --&gt; W[&quot;Commit nào thêm hoặc xóa chuỗi&quot;]
+  N --&gt;|&quot;snapshot hiện tại hoặc một commit&quot;| G[&quot;git grep chuỗi&quot;]
+  W --&gt;|&quot;duyệt lịch sử&quot;| S[&quot;git log -S chuỗi&quot;]
+  S --&gt;|&quot;thêm --reverse&quot;| F[&quot;Lần xuất hiện sớm nhất trước&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git grep &lt;mẫu&gt;                    # tìm trong tệp được theo dõi ở working tree
+git grep -n &lt;mẫu&gt;                 # kèm số dòng
+git grep -i &lt;mẫu&gt;                 # không phân biệt hoa thường
+git grep -c &lt;mẫu&gt;                 # đếm số dòng khớp mỗi tệp
+git grep &lt;mẫu&gt; &lt;commit&gt;           # tìm trong snapshot của commit
+git grep &lt;mẫu&gt; -- &#39;*.txt&#39;         # giới hạn theo đường dẫn
+git log -S &lt;chuỗi&gt; --oneline      # commit làm đổi số lần xuất hiện chuỗi
+git log -S &lt;chuỗi&gt; --oneline --reverse   # cũ nhất trước
+git log -S &lt;chuỗi&gt; -p             # kèm diff
+git log -S &lt;chuỗi&gt; --all          # tìm trên mọi nhánh</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Câu hỏi</th>
+<th>Công cụ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HEAD còn chứa chuỗi không?</td>
+<td><code>git grep</code></td>
+</tr>
+<tr>
+<td>Bản cũ có chứa không?</td>
+<td><code>git grep &lt;mẫu&gt; &lt;commit&gt;</code></td>
+</tr>
+<tr>
+<td>Ai thêm, khi nào?</td>
+<td><code>git log -S</code> rồi <code>git show</code></td>
+</tr>
+<tr>
+<td>Lần đầu tiên?</td>
+<td><code>git log -S --reverse</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mẫu từng có dòng <code>API_KEY_DEMO=abc123</code> trong cấu hình. Đầu tiên, HEAD còn không?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git grep -n API_KEY_DEMO; echo &quot;exit=$?&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">exit=1</code></pre></div>
+<p>Không còn (mã thoát 1 nghĩa là không có kết quả). Ở một commit cũ thì sao?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git grep -n API_KEY_DEMO b14bd70</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b14bd70:config.txt:4:API_KEY_DEMO=abc123</code></pre></div>
+<p>Có, ở dòng 4 của tệp tên cũ. Giờ hỏi lịch sử: commit nào thêm, commit nào xóa?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S API_KEY_DEMO --oneline
+git log -S API_KEY_DEMO --oneline --reverse</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+b622b70 Thêm khóa demo
+b622b70 Thêm khóa demo
+eedf5e9 Xóa khóa demo</code></pre></div>
+<p>Với <code>--reverse</code>, commit đưa chuỗi vào lần đầu đứng trên cùng. Xem commit xóa kèm diff:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S API_KEY_DEMO -p --oneline -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+diff --git a/conf/app.conf b/conf/app.conf
+index 41a38b1..87c8b3b 100644
+--- a/conf/app.conf
++++ b/conf/app.conf
+@@ -1,4 +1,3 @@
+ env=uat
+ timeout=5
+ retry=3
+-API_KEY_DEMO=abc123</code></pre></div>
+<p>Lưu ý commit đổi tên tệp ở giữa không hiện ra: nó chỉ di chuyển tệp, số lần xuất hiện chuỗi không đổi.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>git grep</code> để hỏi về lịch sử.</strong> Không có kết quả ở HEAD không có nghĩa chuỗi chưa từng tồn tại. Hỏi lịch sử bằng <code>-S</code>.</p>
+<p><strong>Quên <code>--reverse</code> khi tìm lần đầu.</strong> Mặc định commit mới nhất đứng trước, nên bạn dễ đọc nhầm commit xóa thành commit thêm. Hoặc đọc diff bằng <code>-p</code> để thấy dấu <code>+</code> hay <code>-</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Nếu chuỗi bạn tìm là bí mật thật (token, mật khẩu), việc nó đã bị xóa ở HEAD không có nghĩa là an toàn. Nó vẫn nằm trong commit cũ. Thu hồi bí mật trước, rồi mới bàn chuyện dọn lịch sử.</p>
+</aside>
+<p><strong>Chuỗi có ký tự đặc biệt với shell.</strong> Đặt trong ngoặc đơn: <code>git log -S &#39;a b$c&#39;</code>.</p>
+<p><strong>Chỉ tìm trên nhánh hiện tại.</strong> Commit nằm ở nhánh khác không hiện ra. Thêm <code>--all</code> khi cần tìm khắp nơi.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git grep</code> cũng nhận nhiều commit một lúc, ví dụ <code>git grep chuỗi $(git rev-list --all)</code>, nhưng với repository lớn cách này chậm; pickaxe thường hiệu quả hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trong buổi review bảo mật, có người hỏi &quot;mã khóa API demo của môi trường test có từng bị commit không?&quot;. Bạn chạy <code>git grep</code> trên <code>main</code> và trên các tag release để trả lời hiện trạng, rồi <code>git log -S ... --all --reverse</code> để chỉ ra commit đầu tiên đưa nó vào. Kết quả giúp nhóm biết từ phiên bản nào cần coi khóa là đã lộ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có tệp <code>app.txt</code> với vài commit. Câu hỏi yêu cầu bạn tìm subject của commit đầu tiên đã thêm một chuỗi mẫu cụ thể. Hãy:</p>
+<ul>
+<li>Thử <code>git grep</code> để biết chuỗi đó hiện có ở đâu.</li>
+<li>Dùng pickaxe để liệt kê commit làm thay đổi số lần xuất hiện của chuỗi, và chú ý thứ tự.</li>
+<li>Xác nhận bằng <code>git show</code> rằng commit tìm được thực sự thêm chuỗi (dòng có dấu <code>+</code>).</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git grep</code> tìm trong tệp được theo dõi, ở working tree hoặc ở một commit bất kỳ.</li>
+<li><code>git log -S</code> tìm commit làm thay đổi số lần xuất hiện một chuỗi.</li>
+<li><code>--reverse</code> đưa commit cũ nhất lên đầu, tiện khi tìm lần xuất hiện đầu tiên.</li>
+<li><code>-p</code> kèm diff để phân biệt commit thêm với commit xóa.</li>
+<li>Không còn ở HEAD không có nghĩa là chưa từng có trong lịch sử.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open grep-pickaxe
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/blame.html" rel="prev"><small>Bài trước</small>Truy tác giả từng dòng</a><a class="next" href="../inspection/shortlog.html" rel="next"><small>Bài sau</small>Tổng hợp commit theo tác giả</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 2/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đồng bộ cứng với origin - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 12/12</span></p>
+<h1>Đồng bộ cứng với origin</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>hard-reset-to-origin</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đưa nhánh local về đúng trạng thái của nhánh trên remote, bỏ hết thay đổi local.</li>
+<li>Hiểu vì sao phải fetch trước, và mốc đích thật sự là gì.</li>
+<li>Biết chính xác những gì bị mất, những gì còn lại sau thao tác.</li>
+<li>Tạo lưới an toàn trước khi chạy một lệnh không thể hoàn tác hoàn toàn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Đôi khi nhánh local của bạn đã rối tới mức sửa không bõ: thử nghiệm lung tung, commit nhầm, merge sai. Điều bạn muốn là: &quot;cho nhánh của mình <strong>giống hệt</strong> nhánh trên server, như vừa clone xong&quot;. Đó là việc của <code>git reset --hard</code> với mốc đích là nhánh remote-tracking tương ứng.</p>
+<p>Nhớ lại ba trees: <code>reset --hard &lt;mốc&gt;</code> dời nhánh hiện tại sang <code>&lt;mốc&gt;</code>, ghi đè index và working tree theo commit đó. Khi mốc là nhánh remote-tracking (ví dụ <code>origin/main</code>), kết quả là nhánh local trùng khớp với bản mà Git biết về server.</p>
+<p>Chú ý cụm &quot;bản mà Git biết&quot;. Nhánh remote-tracking là <strong>bản chụp local</strong> của nhánh trên server, chỉ được cập nhật khi bạn <code>git fetch</code> (hoặc <code>pull</code>). Nếu bạn không fetch, mốc đích có thể đã cũ nhiều ngày. Vì vậy thao tác chuẩn luôn có hai bước: <strong>fetch</strong>, rồi <strong>reset</strong>.</p>
+<p>Những gì <strong>mất</strong> sau lệnh này:</p>
+<ul>
+<li>Commit local chưa push: không còn trên nhánh (vẫn trong reflog một thời gian).</li>
+<li>Sửa đổi chưa commit của tệp tracked, cả staged lẫn unstaged: mất hẳn, không có trong reflog.</li>
+</ul>
+<p>Những gì <strong>còn lại</strong>:</p>
+<ul>
+<li>Tệp untracked: <code>reset</code> không đụng tới. Muốn working tree sạch hoàn toàn, cần thêm <code>git clean</code>.</li>
+<li>Các nhánh khác, stash, tag: không bị ảnh hưởng.</li>
+</ul>
+<p>Vì phần sửa đổi chưa commit không thể cứu, đây là lệnh nên chạy <strong>có lưới an toàn</strong>: tạo một nhánh backup tại vị trí hiện tại để giữ commit local, và stash (hoặc commit tạm) những sửa đổi còn muốn giữ.</p>
+<p>Lệnh này an toàn cho remote: nó chỉ thay đổi repository local của bạn. Nó <strong>khác hẳn</strong> việc force push, thứ ghi đè nhánh trên server.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  F[&quot;git fetch&quot;] --&gt; C{&quot;Còn gì muốn giữ?&quot;}
+  C -- &quot;Commit local&quot; --&gt; B[&quot;git branch backup&quot;]
+  C -- &quot;Sửa dở&quot; --&gt; S[&quot;git stash&quot;]
+  C -- &quot;Không&quot; --&gt; R
+  B --&gt; R[&quot;git reset --hard nhánh remote&quot;]
+  S --&gt; R
+  R --&gt; K{&quot;Còn untracked?&quot;}
+  K -- &quot;Có&quot; --&gt; CL[&quot;git clean -n rồi -f&quot;]
+  K -- &quot;Không&quot; --&gt; D[&quot;Khớp với server&quot;]
+  CL --&gt; D</pre>
+<pre class="mermaid">gitGraph
+  commit id: &quot;8159fa6 Khởi tạo&quot;
+  branch backup/truoc-reset
+  commit id: &quot;fc82c00 Thử nghiệm local&quot;
+  checkout main
+  commit id: &quot;b3cceed Cập nhật từ đồng nghiệp&quot;</pre>
+<p>Sau khi reset, <code>main</code> đứng ở <code>b3cceed</code> cùng với <code>origin/main</code>; commit thử nghiệm vẫn được giữ trên nhánh backup.</p>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch                          # cập nhật nhánh remote-tracking
+git status -sb                     # xem ahead/behind so với upstream
+git log --oneline &lt;remote&gt;/&lt;nhánh&gt;..&lt;nhánh&gt;   # commit local sẽ bị bỏ
+git diff --stat                    # sửa đổi chưa commit sẽ bị mất
+git branch backup/&lt;tên&gt;            # lưới an toàn cho commit local
+git reset --hard &lt;remote&gt;/&lt;nhánh&gt;  # khớp nhánh local với bản remote
+git reset --hard @{u}              # cùng ý nghĩa, dùng upstream đã cấu hình
+git clean -n                       # xem tệp untracked còn lại</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Sau reset --hard về remote</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Commit local chưa push</td>
+<td>Rời khỏi nhánh, còn trong reflog</td>
+</tr>
+<tr>
+<td>Sửa đổi tracked chưa commit</td>
+<td>Mất hẳn</td>
+</tr>
+<tr>
+<td>Tệp untracked</td>
+<td>Còn nguyên</td>
+</tr>
+<tr>
+<td>Nhánh trên server</td>
+<td>Không đổi</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh local đang có một commit thử nghiệm, README đang sửa dở, và một tệp rác:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch
+git status -sb
+git log --oneline origin/main..main
+git diff --stat</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">## main...origin/main [ahead 1]
+ M README.md
+?? rac.txt
+fc82c00 Thử nghiệm local
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)</code></pre></div>
+<p>Mình đã biết chính xác sẽ bỏ một commit và một sửa đổi. Tạo backup cho commit, rồi reset:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch backup/truoc-reset
+git reset --hard origin/main
+git status -sb</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 8159fa6 Khởi tạo
+## main...origin/main
+?? rac.txt</code></pre></div>
+<p>Nhánh đã khớp với remote, nhưng <code>rac.txt</code> vẫn còn. Commit thử nghiệm vẫn có trên nhánh backup:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clean -n
+git log --oneline -1 backup/truoc-reset</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Would remove rac.txt
+fc82c00 Thử nghiệm local</code></pre></div>
+<p>Vì sao fetch quan trọng: sau đó, đồng nghiệp push một commit mới. Trước khi fetch, <code>status</code> vẫn báo khớp. Sau khi fetch thì khác:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch
+git status -sb
+git reset --hard origin/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">From /tmp/gt/u12b/o
+   8159fa6..b3cceed  main       -&gt; origin/main
+## main...origin/main [behind 1]
+?? rac.txt
+HEAD is now at b3cceed Cập nhật từ đồng nghiệp</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên fetch.</strong> Reset về một bản chụp cũ; bạn nghĩ đã khớp với server nhưng thật ra vẫn thiếu commit mới.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Sửa đổi chưa commit bị <code>reset --hard</code> xóa thì không cứu được bằng reflog. Luôn xem <code>git diff --stat</code> và <code>git status</code> trước, stash những gì còn muốn giữ.</p>
+</aside>
+<p><strong>Reset về sai nhánh remote.</strong> Đang ở nhánh <code>test/abc</code> mà reset về <code>origin/main</code> sẽ biến nhánh test thành bản sao của <code>main</code>. Kiểm tra <code>git branch --show-current</code>, hoặc dùng <code>@{u}</code> để Git tự lấy upstream của nhánh hiện tại.</p>
+<p><strong>Tưởng working tree đã sạch.</strong> Tệp untracked còn lại có thể làm test chạy khác với máy CI. Dùng <code>git clean -n</code> để xem, rồi <code>-f</code> khi chắc chắn.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Commit local bị bỏ vẫn có thể cứu bằng reflog, như bài trước. Tạo nhánh backup trước chỉ là cách nhanh và chắc chắn hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Máy test dùng chung của nhóm QA có một clone của repository kịch bản kiểm thử ngân hàng số. Ai đó đã sửa tạm vài tệp và commit thử trực tiếp trên <code>main</code> của máy đó, làm kết quả chạy đêm sai lệch. Bạn fetch, xem những gì sẽ bị bỏ, tạo nhánh backup cho chắc, rồi đồng bộ cứng và dọn tệp rác, để máy test chạy đúng phiên bản trên server.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập là một sandbox: <code>main</code> có commit local và sửa đổi chưa commit mà đề bài cho phép bỏ. Bạn cần đưa HEAD về đúng commit của nhánh tương ứng trên remote và để working tree sạch. Hãy tự xác định mốc đích phù hợp từ <code>git status -sb</code> và <code>git branch -vv</code>, rồi so <code>git rev-parse HEAD</code> với hash của mốc đó.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>reset --hard</code> về nhánh remote-tracking làm nhánh local khớp với bản Git biết về server.</li>
+<li>Luôn fetch trước, vì nhánh remote-tracking chỉ cập nhật khi fetch.</li>
+<li>Commit local còn trong reflog; sửa đổi tracked chưa commit thì mất hẳn.</li>
+<li>Tệp untracked còn lại; dọn bằng <code>git clean</code>.</li>
+<li>Tạo nhánh backup và stash trước khi chạy để có lưới an toàn.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open hard-reset-to-origin
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/stash-as-undo.html" rel="prev"><small>Bài trước</small>Stash để tạm cất</a><a class="next" href="../remote/remotes-push-pull.html" rel="next"><small>Bài sau</small>Remote, push và pull (Remote và GitHub mô phỏng)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 12/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

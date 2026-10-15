@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tạo CHANGELOG - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 9/10</span></p>
+<h1>Tạo CHANGELOG</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>changelog-generation</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vai trò của tệp changelog và khác biệt giữa changelog với <code>git log</code>.</li>
+<li>Lấy danh sách thay đổi giữa hai bản phát hành bằng các lệnh Git có sẵn.</li>
+<li>Nhóm thay đổi theo loại nhờ commit message có cấu trúc.</li>
+<li>Viết và commit một mục changelog gọn, có ích cho người đọc.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git log</code> ghi lại <strong>mọi</strong> commit: sửa chính tả, đổi tên biến, commit &quot;thử lại CI&quot;. Lịch sử đó quý cho lập trình viên, nhưng người dùng sản phẩm, đội QA hay bộ phận vận hành chỉ cần biết: bản mới <strong>khác gì</strong> bản cũ, có gì phải lưu ý khi nâng cấp. Đó là việc của changelog.</p>
+<p>Theo quy ước rộng rãi, changelog là một tệp Markdown tên <code>CHANGELOG.md</code> đặt ở gốc repository. Tệp được sắp theo phiên bản, mới nhất ở trên cùng. Mỗi phiên bản có một tiêu đề gồm số phiên bản và ngày phát hành, bên dưới là các mục thay đổi chia theo nhóm, ví dụ &quot;Tính năng&quot;, &quot;Sửa lỗi&quot;, &quot;Thay đổi phá tương thích&quot;, &quot;Gỡ bỏ&quot;. Nhiều nhóm giữ thêm một mục &quot;Chưa phát hành&quot; ở đầu tệp để gom dần thay đổi trước khi chốt số.</p>
+<p>Viết changelog không có nghĩa là chép nguyên <code>git log</code>. Một mục changelog tốt viết cho người đọc ngoài nhóm phát triển: mô tả ảnh hưởng, không mô tả cách làm. &quot;Sửa làm tròn phí chuyển khoản&quot; có ích; &quot;refactor hàm calcFee&quot; thì không. Commit thuần nội bộ như <code>test:</code>, <code>chore:</code>, <code>docs:</code> thường không cần xuất hiện.</p>
+<p>Git giúp phần thu thập nguyên liệu:</p>
+<ul>
+<li><strong>Phạm vi</strong>: các commit kể từ bản trước là <code>&lt;tag-cũ&gt;..HEAD</code>. Tag gần nhất lấy bằng <code>git describe --tags --abbrev=0</code>.</li>
+<li><strong>Định dạng</strong>: <code>git log --format=&#39;- %s&#39;</code> in mỗi commit thành một gạch đầu dòng với subject. <code>%h</code> thêm object ID rút gọn nếu muốn truy vết.</li>
+<li><strong>Lọc</strong>: <code>--grep</code> lọc theo thông điệp, <code>--no-merges</code> bỏ merge commit, <code>--reverse</code> sắp từ cũ tới mới.</li>
+<li><strong>Tổng hợp theo người</strong>: <code>git shortlog</code> nhóm subject theo tác giả, hữu ích cho phần cảm ơn người đóng góp.</li>
+</ul>
+<p>Chất lượng changelog phụ thuộc trực tiếp vào chất lượng commit message. Nếu nhóm theo Conventional Commits (<code>feat:</code>, <code>fix:</code>, <code>feat(otp):</code>...), việc phân nhóm gần như tự động: lọc <code>^feat</code> cho tính năng, <code>^fix</code> cho sửa lỗi. Đó cũng là cách các công cụ sinh changelog tự động hoạt động: đọc commit trong khoảng giữa hai tag, phân loại theo type, rồi đề xuất cả số phiên bản tiếp theo theo semver. Dù dùng công cụ, nên có người đọc lại trước khi phát hành, vì commit message viết cho lập trình viên, còn changelog viết cho người dùng.</p>
+<p>Cuối cùng, changelog là một tệp được theo dõi như mọi tệp khác: bạn sửa nó, stage và commit, thường ngay trước khi gắn tag phát hành, để tag trỏ vào commit có changelog đầy đủ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;Tag bản trước&quot;] --&gt; B[&quot;git log tag..HEAD&quot;]
+  B --&gt; C[&quot;Lọc theo type: feat, fix&quot;]
+  C --&gt; D[&quot;Viết lại cho người đọc&quot;]
+  D --&gt; E[&quot;Thêm mục vào CHANGELOG.md&quot;]
+  E --&gt; F[&quot;git add và git commit&quot;]
+  F --&gt; G[&quot;Gắn tag bản mới&quot;]</pre>
+<pre class="mermaid">flowchart TD
+  L[&quot;Commit kể từ v1.4.0&quot;] --&gt; F1[&quot;feat: hai commit&quot;]
+  L --&gt; F2[&quot;fix: một commit&quot;]
+  L --&gt; F3[&quot;test, docs, chore&quot;]
+  F1 --&gt; S1[&quot;Mục Tính năng&quot;]
+  F2 --&gt; S2[&quot;Mục Sửa lỗi&quot;]
+  F3 --&gt; S3[&quot;Thường bỏ qua&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git describe --tags --abbrev=0                 # tag gần nhất
+git log --oneline v1.4.0..HEAD                 # commit kể từ bản trước
+git log --format=&#39;- %s (%h)&#39; v1.4.0..HEAD      # dạng gạch đầu dòng kèm ID
+git log --reverse --no-merges --format=&#39;- %s&#39; v1.4.0..HEAD
+git log --format=&#39;- %s&#39; --grep=&#39;^feat&#39; v1.4.0..HEAD   # chỉ tính năng
+git log --format=&#39;- %s&#39; --grep=&#39;^fix&#39; v1.4.0..HEAD    # chỉ sửa lỗi
+git shortlog v1.4.0..HEAD                      # nhóm theo tác giả</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Placeholder của <code>--format</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>%s</code></td>
+<td>Subject (dòng đầu thông điệp)</td>
+</tr>
+<tr>
+<td><code>%h</code></td>
+<td>Object ID rút gọn</td>
+</tr>
+<tr>
+<td><code>%an</code></td>
+<td>Tên tác giả</td>
+</tr>
+<tr>
+<td><code>%ad</code></td>
+<td>Ngày tác giả, theo <code>--date</code></td>
+</tr>
+<tr>
+<td><code>%b</code></td>
+<td>Phần thân thông điệp</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có tag <code>v1.4.0</code> và năm commit sau đó (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline v1.4.0..HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">8590b6e docs: cập nhật README
+05de00b feat(otp): cho phép gửi lại OTP sau 60 giây
+3f54a0c test: bổ sung test hạn mức ngày
+7fd71d4 fix: sửa làm tròn phí chuyển khoản
+8ce1450 feat: thêm xuất sao kê PDF</code></pre></div>
+<p>Lọc theo loại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --format=&#39;- %s&#39; --grep=&#39;^feat&#39; v1.4.0..HEAD
+git log --format=&#39;- %s&#39; --grep=&#39;^fix&#39; v1.4.0..HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">- feat(otp): cho phép gửi lại OTP sau 60 giây
+- feat: thêm xuất sao kê PDF
+- fix: sửa làm tròn phí chuyển khoản</code></pre></div>
+<p>Ghép thành một mục changelog. Đoạn script nhỏ này lấy tag gần nhất, lọc theo type, sắp từ cũ tới mới và bỏ tiền tố type bằng <code>sed</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">LAST=$(git describe --tags --abbrev=0)
+{
+  echo &quot;# Changelog&quot;; echo
+  echo &quot;## [1.5.0] - 2026-10-16&quot;; echo
+  echo &quot;### Tính năng&quot;
+  git log --reverse --format=&#39;- %s&#39; --grep=&#39;^feat&#39; $LAST..HEAD | sed -E &#39;s/^- feat(\([^)]*\))?: /- /&#39;
+  echo; echo &quot;### Sửa lỗi&quot;
+  git log --reverse --format=&#39;- %s&#39; --grep=&#39;^fix&#39; $LAST..HEAD | sed -E &#39;s/^- fix(\([^)]*\))?: /- /&#39;
+} &gt; CHANGELOG.md
+cat CHANGELOG.md</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"># Changelog
+
+## [1.5.0] - 2026-10-16
+
+### Tính năng
+- thêm xuất sao kê PDF
+- cho phép gửi lại OTP sau 60 giây
+
+### Sửa lỗi
+- sửa làm tròn phí chuyển khoản</code></pre></div>
+<p>Có tính năng mới tương thích nên số tiếp theo là MINOR, như bài semver. Đọc lại, sửa câu chữ nếu cần, rồi commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add CHANGELOG.md
+git commit -qm &quot;docs: viết CHANGELOG cho 1.5.0&quot;
+git show --stat --oneline HEAD
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">4489e61 docs: viết CHANGELOG cho 1.5.0
+ CHANGELOG.md | 10 ++++++++++
+ 1 file changed, 10 insertions(+)</code></pre></div>
+<p><code>git status --short</code> không in gì: working tree sạch. Trong dự án đã có changelog, bạn chèn mục mới lên trên các mục cũ thay vì ghi đè cả tệp như script ví dụ.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Chép nguyên <code>git log</code> vào changelog.</strong> Người đọc phải lội qua commit nội bộ và thông điệp khó hiểu. Lọc, gộp và viết lại theo góc nhìn người dùng.</p>
+<p><strong>Sai phạm vi commit.</strong> Dùng nhầm tag cũ hơn khiến thay đổi của bản trước xuất hiện lại. Kiểm tra <code>git describe --tags --abbrev=0</code> và nhớ hai chấm <code>A..B</code> nghĩa là &quot;có trong B nhưng không có trong A&quot;.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Ghi đè <code>CHANGELOG.md</code> bằng <code>&gt;</code> trong script sẽ xóa lịch sử các phiên bản trước. Với tệp đã có nội dung, chèn mục mới vào đầu (sau tiêu đề) hoặc sửa tay.</p>
+</aside>
+<p><strong>Quên commit changelog trước khi gắn tag.</strong> Tag trỏ vào commit chưa có ghi chú, và bản phát hành thiếu tài liệu. Commit changelog trước, gắn tag sau.</p>
+<p><strong>Commit message không có cấu trúc.</strong> Không có <code>feat:</code> hay <code>fix:</code> thì lọc tự động vô dụng. Thống nhất quy ước commit trong nhóm (xem bài Conventional Commits trong track daily-workflows).</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Ghi chú &quot;thay đổi phá tương thích&quot; luôn đặt lên đầu mục phiên bản, kèm hướng dẫn nâng cấp. Đó là phần người đọc cần nhất.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trước mỗi đợt UAT, đội QA cần biết phạm vi để lên kế hoạch test. Thay vì hỏi từng lập trình viên, bạn lấy <code>git log</code> từ tag bản trước, lọc <code>feat</code> và <code>fix</code>, rồi đối chiếu với mục mới trong <code>CHANGELOG.md</code> mà nhóm phát triển viết. Mỗi mục &quot;Sửa lỗi&quot; trở thành một test case xác nhận, mỗi mục &quot;Tính năng&quot; trở thành một nhóm test mới; commit nào thay đổi hành vi mà không có trong changelog là dấu hiệu cần hỏi lại.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn vài commit, trong đó có một commit thêm tính năng và một commit sửa lỗi. Bạn cần tạo tệp changelog theo quy ước, nhắc tới cả hai thay đổi đó (dựa trên subject commit), rồi commit tệp sao cho HEAD chứa nó và working tree sạch. Trình kiểm tra cũng đếm số commit, nên chỉ cần thêm đúng một commit. Câu hỏi kiến thức hỏi tên tệp thường dùng để ghi thay đổi theo phiên bản. Hãy:</p>
+<ul>
+<li>Dùng <code>git log --oneline</code> hoặc <code>git log --format=&#39;- %s&#39;</code> để lấy chính xác subject của hai commit.</li>
+<li>Kiểm tra nội dung tệp trước khi commit, giữ đúng chữ và dấu tiếng Việt.</li>
+<li>Kết thúc bằng <code>git show --stat HEAD</code> và <code>git status --short</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Changelog tóm tắt thay đổi theo phiên bản cho người đọc, khác với <code>git log</code> đầy đủ.</li>
+<li>Quy ước phổ biến: <code>CHANGELOG.md</code> ở gốc, mới nhất ở trên, chia nhóm theo loại thay đổi.</li>
+<li><code>git log &lt;tag&gt;..HEAD</code> với <code>--format</code>, <code>--grep</code>, <code>--no-merges</code> là nguyên liệu chính.</li>
+<li>Commit message có cấu trúc giúp phân nhóm và đề xuất số phiên bản.</li>
+<li>Commit changelog trước khi gắn tag phát hành.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open changelog-generation
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/hotfix-branches.html" rel="prev"><small>Bài trước</small>Nhánh sửa lỗi khẩn</a><a class="next" href="../release-ops/commit-signing.html" rel="next"><small>Bài sau</small>Ký commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 9/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

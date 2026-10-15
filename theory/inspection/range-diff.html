@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>So sánh hai chuỗi commit - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 10/10</span></p>
+<h1>So sánh hai chuỗi commit</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>range-diff</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vấn đề mà <code>git range-diff</code> giải quyết: so sánh hai phiên bản của cùng một chuỗi commit.</li>
+<li>Đọc output: các ký hiệu <code>=</code>, <code>!</code>, <code>&lt;</code>, <code>&gt;</code> và phần diff lồng.</li>
+<li>Dùng ba cách viết dải: base chung, hai dải riêng, và ba chấm.</li>
+<li>Điều chỉnh độ nhạy ghép cặp bằng <code>--creation-factor</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn gửi nhánh <code>topic</code> gồm hai commit để review. Reviewer góp ý, bạn sửa một commit bằng amend hoặc rebase tương tác, đồng thời rebase cả nhánh lên <code>main</code> mới. Giờ reviewer hỏi: &quot;Lần này bạn đã sửa gì so với lần trước?&quot;.</p>
+<p><code>git diff topic-v1 topic</code> không trả lời được câu đó. Nó so hai <strong>snapshot</strong>, nên kéo theo cả những thay đổi của <code>main</code> mà rebase mang vào, trộn lẫn với chỉnh sửa thật của bạn. Thứ reviewer cần là so sánh <strong>từng commit</strong> của phiên bản cũ với commit tương ứng của phiên bản mới. Đó chính là <code>git range-diff</code>.</p>
+<p>Range-diff nhận hai dải commit. Với mỗi dải, nó tính patch của từng commit, rồi <strong>ghép cặp</strong> commit cũ với commit mới dựa trên độ giống nhau của patch (thông điệp cũng góp phần). Kết quả là một bảng:</p>
+<ul>
+<li><code>=</code>: cặp commit có patch giống hệt. Commit chỉ bị rebase, không đổi nội dung.</li>
+<li><code>!</code>: cặp commit được ghép nhưng patch khác. Ngay bên dưới là <strong>diff của hai patch</strong>: dòng bắt đầu <code>-</code> là thuộc patch cũ, <code>+</code> là thuộc patch mới. Vì patch tự nó đã có dấu <code>+</code>/<code>-</code>, bạn sẽ thấy hai cột dấu, như <code>-+nhap ma</code> và <code>++nhap ma 6 chu so</code>.</li>
+<li><code>&lt;</code>: commit chỉ có ở dải cũ (bị bỏ, hoặc không ghép được).</li>
+<li><code>&gt;</code>: commit chỉ có ở dải mới (mới thêm, hoặc không ghép được).</li>
+</ul>
+<p>Ba cách chỉ dải:</p>
+<ol>
+<li><code>git range-diff &lt;base&gt; &lt;cũ&gt; &lt;mới&gt;</code>: tương đương <code>&lt;base&gt;..&lt;cũ&gt;</code> và <code>&lt;base&gt;..&lt;mới&gt;</code>.</li>
+<li><code>git range-diff &lt;base1&gt;..&lt;cũ&gt; &lt;base2&gt;..&lt;mới&gt;</code>: chỉ định hai dải rõ ràng.</li>
+<li><code>git range-diff &lt;cũ&gt;...&lt;mới&gt;</code>: tự tìm merge base; tiện nhưng có thể kéo cả commit của nhánh nền vào phía mới.</li>
+</ol>
+<p>Khi commit chỉ nhỏ và bị sửa đáng kể, thuật toán có thể không nhận ra chúng là một cặp, và hiển thị một <code>&lt;</code> và một <code>&gt;</code> riêng. <code>--creation-factor=&lt;phần-trăm&gt;</code> (mặc định 60) nới lỏng điều kiện ghép; tăng lên để range-diff mạnh dạn ghép hơn.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph V1[&quot;topic-v1, trên main cũ&quot;]
+    A1[&quot;Thêm test login&quot;]
+    B1[&quot;Thêm test OTP&quot;]
+  end
+  subgraph V2[&quot;topic, trên main mới&quot;]
+    A2[&quot;Thêm test login&quot;]
+    B2[&quot;Thêm test OTP đã sửa&quot;]
+  end
+  A1 --&gt;|&quot;= giống hệt&quot;| A2
+  B1 --&gt;|&quot;! khác, kèm diff của patch&quot;| B2</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git range-diff &lt;base&gt; &lt;cũ&gt; &lt;mới&gt;              # hai dải chung base
+git range-diff &lt;base1&gt;..&lt;cũ&gt; &lt;base2&gt;..&lt;mới&gt;   # hai dải tường minh
+git range-diff &lt;cũ&gt;...&lt;mới&gt;                   # tự tìm merge base
+git range-diff --creation-factor=95 &lt;base&gt; &lt;cũ&gt; &lt;mới&gt;   # ghép cặp dễ hơn
+git branch &lt;tên-cũ&gt;                           # giữ lại phiên bản cũ trước khi rebase
+git reflog &lt;nhánh&gt;                            # tìm đầu nhánh cũ nếu quên giữ</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Ký hiệu</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>=</code></td>
+<td>Cặp commit có patch giống hệt</td>
+</tr>
+<tr>
+<td><code>!</code></td>
+<td>Cặp commit có patch khác, diff lồng bên dưới</td>
+</tr>
+<tr>
+<td><code>&lt;</code></td>
+<td>Chỉ có ở dải cũ</td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>Chỉ có ở dải mới</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Trước khi sửa, mình giữ phiên bản cũ bằng <code>git branch topic-v1</code>. Sau đó rebase <code>topic</code> lên <code>main</code> mới và amend commit OTP. Hai phiên bản:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --graph --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* ec96bd9 Thêm test OTP
+* 7777973 Thêm test login
+* 236fd51 Main tiến thêm
+| * 5c01a0b Thêm test OTP
+| * 1b2cda1 Thêm test login
+|/  
+* 7e1e491 Khởi tạo</code></pre></div>
+<p>So sánh thẳng snapshot lẫn cả thay đổi của <code>main</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --stat topic-v1 topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> main.txt | 1 +
+ otp.txt  | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)</code></pre></div>
+<p>Range-diff với base là <code>main</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git range-diff main topic-v1 topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1:  1b2cda1 = 1:  7777973 Thêm test login
+2:  5c01a0b &lt; -:  ------- Thêm test OTP
+-:  ------- &gt; 2:  ec96bd9 Thêm test OTP</code></pre></div>
+<p>Commit login giống hệt. Commit OTP nhỏ và bị sửa, nên không được ghép cặp. Nới điều kiện:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git range-diff --creation-factor=95 main topic-v1 topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1:  1b2cda1 = 1:  7777973 Thêm test login
+2:  5c01a0b ! 2:  ec96bd9 Thêm test OTP
+    @@ Commit message
+      ## otp.txt (new) ##
+     @@
+     +test otp
+    -+nhap ma
+    ++nhap ma 6 chu so
+     +kiem tra ket qua
+     +thoat</code></pre></div>
+<p>Giờ reviewer thấy đúng một điều: dòng <code>nhap ma</code> thành <code>nhap ma 6 chu so</code>. Thay đổi <code>main.txt</code> của nhánh nền không làm nhiễu. Dạng ba chấm sẽ liệt kê thêm commit của <code>main</code> với dấu <code>&gt;</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git range-diff topic-v1...topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">-:  ------- &gt; 1:  236fd51 Main tiến thêm
+1:  1b2cda1 = 2:  7777973 Thêm test login
+...</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>git diff</code> giữa hai phiên bản nhánh sau rebase.</strong> Thay đổi của nhánh nền trộn vào. Dùng range-diff.</p>
+<p><strong>Không giữ phiên bản cũ.</strong> Sau rebase, đầu nhánh cũ chỉ còn trong reflog. Tạo nhánh hoặc tag tạm trước khi viết lại lịch sử, hoặc tìm lại bằng <code>git reflog &lt;nhánh&gt;</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nhiều người đặt tên kiểu <code>topic-v1</code>, <code>topic-v2</code> cho mỗi vòng review; range-diff giữa hai tên liền kề là &quot;changelog&quot; cho reviewer.</p>
+</aside>
+<p><strong>Đọc nhầm hai cột dấu.</strong> Cột đầu là &quot;patch cũ hay mới&quot;, cột sau là &quot;dòng thêm hay bớt trong patch&quot;. <code>-+x</code> nghĩa là patch cũ có thêm dòng <code>x</code>; <code>++y</code> nghĩa là patch mới thêm dòng <code>y</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Ba chấm tiện nhưng thường đưa cả commit của nhánh nền vào với dấu <code>&gt;</code>. Dạng có base tường minh cho kết quả sạch hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn gửi nhánh bổ sung năm commit test cho luồng mở tài khoản trực tuyến. Reviewer góp ý hai chỗ; bạn sửa bằng rebase tương tác và đồng thời rebase lên <code>main</code> mới. Thay vì viết lại mô tả dài, bạn dán output <code>git range-diff main review-v1 review-v2</code> vào bình luận: ba commit <code>=</code>, hai commit <code>!</code> với đúng phần đã sửa. Reviewer duyệt lại trong vài phút.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi khái niệm: bạn cần nêu lệnh so sánh hai dải commit thay vì hai snapshot. Hãy tự thử trong repository bài tập: tạo một nhánh có hai commit, giữ một bản sao tên khác, sửa một commit bằng amend, rồi so sánh hai phiên bản bằng <code>git diff</code> và bằng lệnh trong bài để cảm nhận sự khác biệt.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git range-diff</code> so sánh từng commit của hai phiên bản cùng một chuỗi commit.</li>
+<li><code>=</code> là giống hệt, <code>!</code> là khác (kèm diff của patch), <code>&lt;</code> và <code>&gt;</code> là chỉ có ở một bên.</li>
+<li>Dạng <code>&lt;base&gt; &lt;cũ&gt; &lt;mới&gt;</code> cho kết quả sạch nhất.</li>
+<li><code>--creation-factor</code> nới hoặc siết điều kiện ghép cặp.</li>
+<li>Giữ lại phiên bản cũ trước khi rebase để so sánh dễ dàng.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open range-diff
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/diff-strategies.html" rel="prev"><small>Bài trước</small>Các cách xem diff</a><a class="next" href="../undo/revert-vs-reset.html" rel="next"><small>Bài sau</small>Revert và reset (Hoàn tác và cứu hộ)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 10/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

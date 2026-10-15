@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Làm việc cặp - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 6/8</span></p>
+<h1>Làm việc cặp</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>pair-workflows</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu mô hình làm việc cặp (pair programming): người gõ (driver) và người quan sát (navigator).</li>
+<li>Tổ chức commit trong buổi làm cặp: nhỏ, message rõ, đổi vai đều đặn.</li>
+<li>Ghi nhận đóng góp bằng nhiều trailer: <code>Co-authored-by:</code> và <code>Reviewed-by:</code>.</li>
+<li>Tìm lại commit theo trailer khi cần truy vết.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Trong làm việc cặp, hai người cùng giải một vấn đề. <strong>Driver</strong> cầm bàn phím, gõ code. <strong>Navigator</strong> đọc theo, nghĩ trước một bước, phát hiện lỗi, đặt câu hỏi. Sau một khoảng thời gian (nhiều nhóm dùng 15 đến 30 phút) hai người đổi vai. Một biến thể là &quot;mob&quot;: cả nhóm nhỏ cùng một màn hình, xoay vòng driver.</p>
+<p>Git không biết gì về làm việc cặp, nhưng vài thói quen giúp lịch sử phản ánh đúng thực tế:</p>
+<ul>
+<li><strong>Commit nhỏ, thường xuyên</strong>: mỗi lần hoàn thành một bước nhỏ có test, commit. Khi đổi vai trên hai máy, người kia chỉ cần pull.</li>
+<li><strong>Message rõ ràng</strong>: hai người cùng thống nhất subject. Đây cũng là lúc tự review message.</li>
+<li><strong>Ghi công</strong>: người không commit được ghi bằng <code>Co-authored-by:</code>.</li>
+<li><strong>Ghi người review</strong>: nếu có người thứ ba (hoặc navigator, theo quy ước của nhóm) xem lại trước khi commit, ghi bằng <code>Reviewed-by:</code>. Đây cũng là một trailer quen thuộc trong nhiều dự án.</li>
+</ul>
+<p>Một commit có thể có nhiều trailer, mỗi trailer một dòng trong cùng khối cuối message. Thứ tự thường không quan trọng với Git, nhưng nhóm nên thống nhất một thứ tự cho dễ đọc.</p>
+<p>Khi đổi vai giữa hai máy, cách đơn giản là đẩy nhánh làm việc lên remote rồi người kia kéo về. Một số nhóm dùng nhánh tạm với các commit &quot;WIP&quot; để chuyển giao, rồi gộp lại trước khi mở PR. Nếu làm vậy, hãy đảm bảo trailer được giữ trong commit cuối cùng.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant D as &quot;Driver: Duy&quot;
+  participant N as &quot;Navigator: Lan&quot;
+  participant R as &quot;Reviewer: Mai&quot;
+  D-&gt;&gt;N: &quot;gõ bước nhỏ, chạy test&quot;
+  N--&gt;&gt;D: &quot;góp ý, nghĩ bước tiếp&quot;
+  D-&gt;&gt;D: &quot;commit kèm Co-authored-by Lan&quot;
+  D-&gt;&gt;N: &quot;đổi vai&quot;
+  R--&gt;&gt;D: &quot;xem lại, đồng ý&quot;
+  D-&gt;&gt;D: &quot;thêm trailer Reviewed-by Mai&quot;</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Commit kèm hai trailer bằng nhiều -m
+git commit -m &quot;Subject&quot; \
+  -m &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot; \
+  -m &quot;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&quot;
+
+# Hoặc bằng --trailer
+git commit -m &quot;Subject&quot; --trailer &quot;Co-authored-by: ...&quot; --trailer &quot;Reviewed-by: ...&quot;
+
+# Thêm trailer vào commit vừa tạo (chưa push)
+git commit --amend --no-edit --trailer &quot;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&quot;
+
+# Thử trailer trên một message bất kỳ mà không commit
+printf &#39;Sửa lỗi\n\nMô tả.\n&#39; | git interpret-trailers --trailer &#39;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&#39;
+
+# Tìm commit có người review
+git log --format=&#39;%h %s&#39; --grep=&#39;^Reviewed-by:&#39;</code></pre></div>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Mỗi <code>-m</code> tạo một đoạn mới, nên ba <code>-m</code> ở trên sinh ra hai trailer nằm ở hai đoạn, cách nhau một dòng trống. Git chỉ coi đoạn cuối là khối trailer. Nếu cần cả hai được nhận là trailer, hãy dùng <code>--trailer</code> hoặc viết hai dòng liền nhau trong editor.</p>
+</aside>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Thử <code>interpret-trailers</code> để thấy Git đặt trailer ở đâu, không cần commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">printf &#39;Sửa lỗi\n\nMô tả.\n&#39; | git interpret-trailers --trailer &#39;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Sửa lỗi
+
+Mô tả.
+
+Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;</code></pre></div>
+<p>Trong buổi làm cặp, Duy gõ, Lan và Minh cùng góp ý. Commit với hai đồng tác giả (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Thêm kịch bản đăng xuất&quot; \
+  --trailer &quot;Co-authored-by: Minh Tran &lt;minh@example.invalid&gt;&quot; \
+  --trailer &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 20e586d] Thêm kịch bản đăng xuất
+ 1 file changed, 1 insertion(+)
+ create mode 100644 logout.txt</code></pre></div>
+<p>Mai review xong và đồng ý. Commit chưa push, nên bổ sung trailer bằng amend:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit --amend --no-edit --trailer &quot;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&quot;
+git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 95aab61] Thêm kịch bản đăng xuất
+ Date: Fri Oct 16 00:18:59 2026 +0700
+ 1 file changed, 1 insertion(+)
+ create mode 100644 logout.txt
+Thêm kịch bản đăng xuất
+
+Co-authored-by: Minh Tran &lt;minh@example.invalid&gt;
+Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;
+Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;</code></pre></div>
+<p>Ba trailer nằm chung một khối. Để ý ID đổi từ <code>20e586d</code> sang <code>95aab61</code> vì amend tạo commit mới. Tìm commit đã qua review:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --format=&#39;%h %s&#39; --grep=&#39;^Reviewed-by:&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">95aab61 Thêm kịch bản đăng xuất</code></pre></div>
+<p>Để kiểm chứng phần lưu ý về nhiều <code>-m</code>, thử trên một repository nháp:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Làm việc cặp&quot; \
+  -m &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot; \
+  -m &quot;Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;&quot;
+git log -1 --format=&#39;[%(trailers)]&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[Reviewed-by: Mai Tran &lt;mai@example.invalid&gt;
+]</code></pre></div>
+<p>Hai dòng vẫn có trong message, nhưng Git chỉ nhận dòng ở đoạn cuối là trailer.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Tạo một commit template cho nhóm (<code>git config commit.template .gitmessage</code>) có sẵn dòng <code>Co-authored-by:</code> để điền tên, giảm việc quên ghi công khi làm cặp.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Một người giữ bàn phím cả buổi.</strong> Navigator mất tập trung, lợi ích của làm cặp giảm. Đổi vai đều đặn.</p>
+<p><strong>Commit một cục lớn cuối buổi.</strong> Khó review, khó quay lại khi một bước sai. Commit sau mỗi bước nhỏ có test.</p>
+<p><strong>Ghi <code>Reviewed-by:</code> cho người chưa thật sự xem.</strong> Trailer này là một lời xác nhận; ghi sai làm mất giá trị của nó.</p>
+<p><strong>Amend thêm trailer sau khi đã push.</strong> Phải force-push, ảnh hưởng người khác. Thêm trailer trước khi push.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Nếu nhóm gộp các commit WIP trước khi mở PR, kiểm tra commit cuối vẫn còn đủ trailer. Khi squash, Git ghép message của các commit, và trailer có thể nằm lẫn giữa message thay vì ở đoạn cuối.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA làm cặp để viết bộ test hồi quy cho tính năng chuyển khoản định kỳ. Mỗi 25 phút đổi driver, mỗi bước test xanh là một commit có <code>Co-authored-by:</code>. Trước khi push, trưởng nhóm review nhanh và được ghi <code>Reviewed-by:</code>. Khi kiểm toán nội bộ hỏi &quot;thay đổi này ai viết, ai xem?&quot;, lịch sử Git trả lời được ngay.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn một tệp chưa commit. Bạn cần commit tệp đó với hai trailer theo đề: một ghi người cùng viết, một ghi người review, đúng tên và email được cho. Hãy tự chọn cách tạo trailer, rồi kiểm tra bằng <code>git log -1 --format=%B</code>. Câu hỏi kiến thức hỏi trailer ghi nhận người cùng lập trình.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Làm việc cặp gồm driver và navigator, đổi vai đều đặn.</li>
+<li>Commit nhỏ, message thống nhất, đẩy nhánh lên remote khi đổi máy.</li>
+<li><code>Co-authored-by:</code> ghi người cùng viết, <code>Reviewed-by:</code> ghi người xem lại.</li>
+<li>Nhiều trailer nằm chung khối cuối message; <code>--trailer</code> giúp đặt đúng chỗ.</li>
+<li>Thêm trailer trước khi push; amend sau khi push đòi hỏi force-push.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open pair-workflows
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/co-authoring.html" rel="prev"><small>Bài trước</small>Ghi công đồng tác giả</a><a class="next" href="../teamwork/repo-onboarding.html" rel="next"><small>Bài sau</small>Giúp thành viên mới bắt đầu</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 6/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

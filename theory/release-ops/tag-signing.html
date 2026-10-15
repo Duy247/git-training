@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ký tag - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 6/10</span></p>
+<h1>Ký tag</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>tag-signing</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu chữ ký trên tag chứng minh điều gì và không chứng minh điều gì.</li>
+<li>Ký một annotated tag bằng khóa GPG hoặc khóa SSH và kiểm tra lại chữ ký.</li>
+<li>Biết vì sao cùng một tag lại &quot;Good signature&quot; ở máy này nhưng không kiểm được ở máy khác.</li>
+<li>Thử nghiệm an toàn với khóa dùng một lần, không đụng tới khóa và cấu hình thật.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Tên người gắn tag trong object tag chỉ là chữ do cấu hình <code>user.name</code> và <code>user.email</code> sinh ra. Ai cũng có thể đặt tên mình là trưởng nhóm phát hành rồi gắn tag <code>v4.0.0</code>. Khi tag là căn cứ để triển khai lên production, nhóm cần một bằng chứng mạnh hơn: <strong>chữ ký số</strong>.</p>
+<p>Ký tag dựa trên cặp khóa. Bạn giữ khóa riêng (private key) và công bố khóa công khai (public key). Khi chạy <code>git tag -s</code>, Git tạo một annotated tag như bình thường, rồi nhờ chương trình ký (mặc định là <code>gpg</code>, hoặc <code>ssh-keygen</code> nếu bạn chọn định dạng SSH) tính chữ ký trên nội dung object tag bằng khóa riêng. Chữ ký được nối vào cuối thông điệp của object tag. Vì object tag chứa ID của commit đích, mà ID commit lại phụ thuộc vào toàn bộ cây tệp và lịch sử phía sau, nên một chữ ký hợp lệ ràng buộc cả bản mã được phát hành.</p>
+<p>Khi kiểm tra bằng <code>git tag -v</code>, Git đưa nội dung và chữ ký cho chương trình kiểm tra. Kết quả chỉ có ý nghĩa nếu máy kiểm tra <strong>có khóa công khai và tin khóa đó</strong> thuộc về đúng người. Đây là chỗ hay gây nhầm lẫn:</p>
+<ul>
+<li>Chữ ký hợp lệ chứng minh: nội dung tag không bị sửa từ lúc ký, và người ký nắm khóa riêng tương ứng.</li>
+<li>Nó không tự chứng minh khóa đó là của ai. Việc gắn khóa với một con người là chuyện của quy trình: keyring GPG được xác minh, danh sách allowed signers cho SSH, hoặc nền tảng hosting lưu khóa của tài khoản.</li>
+</ul>
+<p>Vì vậy, đầu ra của lệnh kiểm tra <strong>phụ thuộc hoàn toàn vào thiết lập khóa ở máy chạy lệnh</strong>. Cùng một tag, máy có khóa công khai thì báo chữ ký tốt; máy không có thì báo không kiểm tra được; nếu là SSH mà chưa cấu hình tệp allowed signers thì Git từ chối kiểm tra.</p>
+<p>Một số điểm cấu hình:</p>
+<ul>
+<li><code>user.signingKey</code> chọn khóa: với GPG là key ID, với SSH là đường dẫn tệp khóa công khai.</li>
+<li><code>gpg.format</code> là <code>openpgp</code> (mặc định) hoặc <code>ssh</code>.</li>
+<li><code>gpg.ssh.allowedSignersFile</code> trỏ tới tệp liệt kê email và khóa SSH công khai được tin.</li>
+<li><code>tag.gpgSign = true</code> khiến mọi annotated tag đều được ký.</li>
+<li><code>git tag -u &lt;key&gt;</code> ký bằng một khóa cụ thể thay vì khóa cấu hình.</li>
+</ul>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong ứng dụng luyện tập, bài này được <strong>mô phỏng</strong>: đây là bài câu hỏi, trình kiểm tra không tạo khóa thật, không gọi <code>gpg</code> hay dịch vụ nào. Các ví dụ dưới đây được chạy bằng khóa dùng một lần trong thư mục <code>/tmp</code>, để bạn thấy đầu ra thật nếu muốn tự thử.</p>
+</aside>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant D as Người phát hành
+  participant G as Git
+  participant K as gpg hoặc ssh-keygen
+  participant V as Người kiểm tra
+  D-&gt;&gt;G: git tag -s v3.1.0
+  G-&gt;&gt;K: nội dung object tag
+  K--&gt;&gt;G: chữ ký bằng khóa riêng
+  G-&gt;&gt;G: lưu object tag kèm chữ ký
+  V-&gt;&gt;G: git tag -v v3.1.0
+  G-&gt;&gt;K: nội dung và chữ ký
+  K--&gt;&gt;V: kết quả tùy khóa công khai đang có</pre>
+<pre class="mermaid">flowchart LR
+  T[&quot;Tag đã ký&quot;] --&gt; Q{&quot;Máy kiểm tra có khóa công khai được tin?&quot;}
+  Q --&gt;|&quot;có&quot;| G1[&quot;Good signature&quot;]
+  Q --&gt;|&quot;không có khóa&quot;| G2[&quot;Không kiểm tra được&quot;]
+  Q --&gt;|&quot;SSH chưa có allowed signers&quot;| G3[&quot;Git từ chối kiểm tra&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -s &lt;tên&gt; -m &quot;Thông điệp&quot;      # tạo annotated tag có chữ ký
+git tag -u &lt;key&gt; &lt;tên&gt; -m &quot;...&quot;       # ký bằng một khóa cụ thể
+git tag -v &lt;tên&gt;                      # kiểm tra chữ ký của tag
+git cat-file -p &lt;tên&gt;                 # xem object tag, chữ ký nằm cuối
+git config user.signingKey &lt;key&gt;      # chọn khóa ký
+git config gpg.format ssh             # dùng khóa SSH thay vì GPG
+git config gpg.ssh.allowedSignersFile &lt;tệp&gt;   # danh sách khóa SSH được tin
+git config tag.gpgSign true           # luôn ký annotated tag</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn của <code>git tag</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-a</code></td>
+<td>Annotated tag, không ký</td>
+</tr>
+<tr>
+<td><code>-s</code></td>
+<td>Annotated tag có chữ ký bằng khóa mặc định</td>
+</tr>
+<tr>
+<td><code>-u &lt;key&gt;</code></td>
+<td>Annotated tag có chữ ký bằng khóa chỉ định</td>
+</tr>
+<tr>
+<td><code>-v</code></td>
+<td>Kiểm tra chữ ký của tag có sẵn</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mọi thứ dưới đây dùng khóa và cấu hình tạm, không chạm vào <code>~/.gnupg</code>, <code>~/.ssh</code> hay <code>~/.gitconfig</code> thật:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">export GIT_CONFIG_GLOBAL=/tmp/rx-gitconfig     # config global tạm
+export GNUPGHOME=/tmp/rx-gnupg                 # keyring GPG tạm
+mkdir -m 700 &quot;$GNUPGHOME&quot;
+gpg --batch --passphrase &#39;&#39; --quick-generate-key &quot;Lan QA &lt;lan@example.com&gt;&quot; ed25519 sign 1d
+gpg --list-secret-keys --keyid-format=long</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">sec   ed25519/93A0E043482C8D29 2026-10-15 [SC] [expires: 2026-10-16]
+      56114CE12742BEF5B8BDBC1893A0E043482C8D29
+uid                 [ultimate] Lan QA &lt;lan@example.com&gt;</code></pre></div>
+<p>Khóa không có passphrase và hết hạn sau một ngày, chỉ để thử. Ngày tạo hiển thị theo giờ UTC. Ký tag bằng khóa này rồi xem object tag (đã lược phần giữa chữ ký):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config user.signingKey 93A0E043482C8D29
+git tag -s v3.1.0 -m &quot;Phát hành 3.1.0&quot;
+git cat-file -p v3.1.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">object b576b6629172f41d775bfd78033dc415884223ba
+type commit
+tag v3.1.0
+tagger Lan QA &lt;lan@example.com&gt; 1792085711 +0700
+
+Phát hành 3.1.0
+-----BEGIN PGP SIGNATURE-----
+...
+-----END PGP SIGNATURE-----</code></pre></div>
+<p>Kiểm tra ở chính máy có khóa (phần nội dung tag in kèm đã lược):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -v v3.1.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gpg: Signature made Fri Oct 16 00:35:11 2026 +07
+gpg:                using EDDSA key 56114CE12742BEF5B8BDBC1893A0E043482C8D29
+gpg: Good signature from &quot;Lan QA &lt;lan@example.com&gt;&quot; [ultimate]</code></pre></div>
+<p>Chữ <code>[ultimate]</code> xuất hiện vì đây là khóa do chính keyring này tạo. Giờ giả lập một máy khác chưa có khóa công khai, bằng một <code>GNUPGHOME</code> trống:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">GNUPGHOME=/tmp/rx-gnupg-empty git tag -v v3.1.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gpg: Signature made Fri Oct 16 00:35:11 2026 +07
+gpg:                using EDDSA key 56114CE12742BEF5B8BDBC1893A0E043482C8D29
+gpg: Can&#39;t check signature: No public key</code></pre></div>
+<p>Lệnh thoát với mã 1. Tag vẫn y nguyên; chỉ máy kiểm tra thiếu khóa. Một annotated tag không ký thì báo <code>error: no signature found</code>.</p>
+<p>Cách làm với khóa SSH tạm:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">ssh-keygen -q -t ed25519 -N &#39;&#39; -C &quot;lan@example.com&quot; -f /tmp/rx-ssh-key
+echo &quot;lan@example.com $(cat /tmp/rx-ssh-key.pub)&quot; &gt; /tmp/rx-allowed-signers
+git config gpg.format ssh
+git config user.signingKey /tmp/rx-ssh-key.pub
+git tag -s v3.2.0 -m &quot;Phát hành 3.2.0&quot;
+git tag -v v3.2.0</code></pre></div>
+<p>Nếu chưa đặt <code>gpg.ssh.allowedSignersFile</code>, Git từ chối:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: gpg.ssh.allowedSignersFile needs to be configured and exist for ssh signature verification</code></pre></div>
+<p>Sau khi chạy <code>git config gpg.ssh.allowedSignersFile /tmp/rx-allowed-signers</code>, kết quả là (dòng đầu, phần nội dung tag đã lược):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Good &quot;git&quot; signature for lan@example.com with ED25519 key SHA256:JHZEkXBT+f6I4e9Jyw/fTEZ94AHobqHwjOTxTFhae4w</code></pre></div>
+<p>Dấu vân tay khóa ở máy bạn sẽ khác. Thử xong, xóa <code>/tmp/rx-gnupg</code>, <code>/tmp/rx-ssh-key*</code> và tệp config tạm.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Kết luận tag giả vì máy mình báo &quot;No public key&quot;.</strong> Đó là thiếu khóa ở máy kiểm tra, không phải chữ ký sai. Lấy khóa công khai từ nguồn tin cậy của nhóm rồi kiểm tra lại.</p>
+<p><strong>Tin vào &quot;Good signature&quot; mà không hỏi khóa của ai.</strong> Kẻ xấu có thể ký bằng khóa riêng của họ với tên giả. Chỉ tin khi khóa nằm trong danh sách đã được nhóm xác minh.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Khi thử nghiệm, đừng sinh khóa vào <code>~/.gnupg</code> hay <code>~/.ssh</code> thật và đừng sửa <code>~/.gitconfig</code>. Dùng <code>GNUPGHOME</code>, <code>GIT_CONFIG_GLOBAL</code> và đường dẫn trong <code>/tmp</code> như ví dụ.</p>
+</aside>
+<p><strong>Ký bằng <code>-s</code> mà Git báo không tìm thấy khóa bí mật.</strong> <code>user.signingKey</code> trỏ sai, hoặc email trên khóa không khớp <code>user.email</code> khi không đặt <code>signingKey</code>. Kiểm tra bằng <code>gpg --list-secret-keys --keyid-format=long</code>.</p>
+<p><strong>Nghĩ chữ ký bảo vệ được tag khỏi bị xóa hay dời.</strong> Chữ ký chỉ chứng minh nội dung; ai có quyền push vẫn có thể xóa tag trên remote. Bảo vệ tag là việc của quyền truy cập trên server.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Thêm <code>-u &lt;key&gt;</code> khi bạn có nhiều khóa và muốn chắc chắn tag được ký bằng khóa phát hành, không phải khóa cá nhân.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Pipeline triển khai của một hệ thống nội bộ chỉ cho phép đưa lên production những tag do nhóm phát hành ký. Bước đầu của pipeline chạy <code>git tag -v</code> với keyring chỉ chứa khóa công khai của ba người được ủy quyền; tag không ký hoặc ký bằng khóa lạ sẽ bị dừng. Với QA, điều này có nghĩa build bạn test trên UAT và build lên production có thể được đối chiếu bằng chữ ký và commit đích, không chỉ bằng tên tag.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này là bài câu hỏi được mô phỏng: không cần tạo khóa, không cần chạy <code>gpg</code>. Câu hỏi hỏi về tùy chọn của <code>git tag</code> để tạo tag có chữ ký bằng khóa đã cấu hình. Hãy ôn lại bảng tùy chọn ở trên và phân biệt tùy chọn tạo annotated tag thường, tùy chọn ký bằng khóa mặc định, và tùy chọn ký bằng khóa chỉ định. Nếu muốn tự thử, làm theo phần ví dụ với khóa tạm trong <code>/tmp</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Chữ ký tag chứng minh nội dung không đổi và người ký nắm khóa riêng.</li>
+<li>Ai sở hữu khóa là chuyện của quy trình tin cậy, không phải của chữ ký.</li>
+<li><code>git tag -s</code> ký, <code>-u</code> chọn khóa, <code>git tag -v</code> kiểm tra.</li>
+<li>Kết quả kiểm tra phụ thuộc vào khóa công khai và allowed signers ở máy chạy lệnh.</li>
+<li>Thử nghiệm bằng khóa tạm trong <code>/tmp</code>; trong ứng dụng, bài này được mô phỏng.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open tag-signing
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/annotated-vs-lightweight-tags.html" rel="prev"><small>Bài trước</small>Hai kiểu tag</a><a class="next" href="../release-ops/release-branches.html" rel="next"><small>Bài sau</small>Nhánh phát hành</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 6/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

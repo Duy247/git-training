@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Chép chuỗi commit - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 8/13</span></p>
+<h1>Chép chuỗi commit</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>cherry-pick-series</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu cherry-pick làm gì: áp lại bản vá của commit lên nhánh hiện tại.</li>
+<li>Chép một dải commit bằng cú pháp phạm vi <code>A..B</code> và <code>A^..B</code>.</li>
+<li>Giữ đúng thứ tự phụ thuộc khi chép nhiều commit.</li>
+<li>Xử lý xung đột giữa chuỗi bằng <code>--continue</code>, <code>--skip</code>, <code>--abort</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git cherry-pick</code> lấy thay đổi mà một commit đã đưa vào (sự khác biệt giữa commit đó và parent của nó), rồi áp thay đổi đó lên HEAD hiện tại để tạo một commit mới. Commit mới có cùng tác giả và message, nhưng là object khác: parent khác, committer và thời gian commit có thể khác, nên object ID khác.</p>
+<p>Khi chỉ cần một commit, bạn đưa đúng một tên commit. Khi cần cả một chuỗi, cherry-pick nhận phạm vi giống <code>git log</code>:</p>
+<ul>
+<li><code>main..source</code>: mọi commit có trong source nhưng không có trong main. Đây là cách tự nhiên để nói &quot;những gì riêng của nhánh source&quot;.</li>
+<li><code>A..B</code>: các commit từ sau A tới B, không gồm A.</li>
+<li><code>A^..B</code>: gồm cả A, vì bắt đầu từ parent của A.</li>
+</ul>
+<p>Git áp các commit trong phạm vi theo thứ tự từ cũ tới mới, đúng thứ tự chúng được tạo. Điều này quan trọng: commit sau thường dựa vào commit trước, ví dụ commit thứ hai sửa tệp mà commit thứ nhất tạo ra. Nếu bạn liệt kê tay từng ID theo thứ tự lộn xộn, Git sẽ áp đúng thứ tự bạn ghi, và có thể xung đột.</p>
+<p>Cherry-pick hữu ích khi bạn cần một phần công việc mà không muốn kéo cả nhánh: đưa bản sửa lỗi sang nhánh release, mang vài commit từ một nhánh thử nghiệm bị bỏ dở. Nhưng nó tạo bản sao, nên cùng một thay đổi sẽ có hai commit ở hai nhánh. Nếu sau này hai nhánh merge, Git thường nhận ra nội dung giống nhau và không xung đột, nhưng lịch sử sẽ có hai bản.</p>
+<p>Tùy chọn <code>-x</code> thêm dòng &quot;(cherry picked from commit ...)&quot; vào message, giúp sau này lần ra nguồn gốc. Nhiều nhóm yêu cầu <code>-x</code> khi backport.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch source
+  checkout source
+  commit id: &quot;Nguồn A&quot;
+  commit id: &quot;Nguồn B&quot;
+  checkout main
+  commit id: &quot;Main riêng&quot;
+  cherry-pick id: &quot;Nguồn A&quot;
+  cherry-pick id: &quot;Nguồn B&quot;</pre>
+<pre class="mermaid">flowchart LR
+  P[&quot;Phạm vi main..source&quot;] --&gt; L[&quot;Danh sách: A rồi B&quot;]
+  L --&gt; A1[&quot;Áp bản vá A lên HEAD&quot;]
+  A1 --&gt; A2[&quot;Áp bản vá B lên kết quả&quot;]
+  A1 --&gt;|&quot;xung đột&quot;| X[&quot;Dừng: sửa, add, continue&quot;]
+  A2 --&gt; D[&quot;Hai commit mới trên main&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Chép một commit
+git cherry-pick &lt;commit&gt;
+
+# Chép mọi commit riêng của source sang nhánh hiện tại, theo thứ tự
+git cherry-pick main..source
+
+# Chép từ A tới B, gồm cả A
+git cherry-pick A^..B
+
+# Ghi nguồn gốc vào message
+git cherry-pick -x &lt;commit&gt;
+
+# Khi dừng vì xung đột
+git cherry-pick --continue
+git cherry-pick --skip
+git cherry-pick --abort
+
+# Xem commit nào của source đã có bản tương đương ở main (dấu trừ là đã có)
+git cherry -v main source</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cú pháp</th>
+<th>Gồm những commit nào</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>X</code></td>
+<td>Chỉ X</td>
+</tr>
+<tr>
+<td><code>A..B</code></td>
+<td>Sau A tới B</td>
+</tr>
+<tr>
+<td><code>A^..B</code></td>
+<td>Từ A tới B</td>
+</tr>
+<tr>
+<td><code>main..source</code></td>
+<td>Có ở source, không có ở main</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh source có &quot;Nguồn A&quot; (tạo <code>a.txt</code>) và &quot;Nguồn B&quot; (tạo <code>b.txt</code>). Main có commit riêng &quot;Main riêng&quot;. Object ID trên máy bạn sẽ khác.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git log --oneline main..source</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">12e7243 Nguồn B
+ff790f9 Nguồn A</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cherry-pick main..source</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 1f679ab] Nguồn A
+ Date: Thu Oct 15 23:44:25 2026 +0700
+ 1 file changed, 1 insertion(+)
+ create mode 100644 a.txt
+[main 249bf24] Nguồn B
+ Date: Thu Oct 15 23:44:25 2026 +0700
+ 1 file changed, 1 insertion(+)
+ create mode 100644 b.txt</code></pre></div>
+<p>Dòng <code>Date:</code> xuất hiện vì cherry-pick giữ ngày tác giả của commit gốc. Kiểm tra:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline -4
+git cherry -v main source</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">249bf24 Nguồn B
+1f679ab Nguồn A
+0af9d8c Main riêng
+8b004e9 Khởi tạo
+- ff790f97995f21fff4779c93a48c080e30b16ee5 Nguồn A
+- 12e724326c09d23ffa4c6bf6ac86c24ad208e681 Nguồn B</code></pre></div>
+<p><code>git cherry</code> đánh dấu trừ cho cả hai, nghĩa là main đã có thay đổi tương đương dù ID khác.</p>
+<p>Chép một đoạn có cả điểm đầu, kèm <code>-x</code>. Nhánh source có &quot;Sửa 1&quot;, &quot;Sửa 2&quot;, &quot;Sửa 3&quot;; mình chỉ lấy hai commit cuối:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cherry-pick -x source~1^..source
+git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Sửa 3
+
+(cherry picked from commit 275e125f336aff9b83f8d5239f791492586d5703)</code></pre></div>
+<p>Khi gặp xung đột, Git dừng ở commit đó:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">CONFLICT (add/add): Merge conflict in c.txt
+error: could not apply d198aa7... C1
+hint: After resolving the conflicts, mark them with
+hint: &quot;git add/rm &lt;pathspec&gt;&quot;, then run
+hint: &quot;git cherry-pick --continue&quot;.</code></pre></div>
+<p>Sửa tệp, <code>git add</code>, rồi <code>git cherry-pick --continue</code> để Git tiếp tục những commit còn lại trong chuỗi.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trước khi chép một dải dài, chạy <code>git log --oneline --reverse main..source</code> để thấy đúng thứ tự Git sẽ áp.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Phạm vi thiếu commit đầu.</strong> <code>A..B</code> không gồm A. Nếu muốn có A, dùng <code>A^..B</code>. Kiểm tra bằng <code>git log --oneline A..B</code> trước.</p>
+<p><strong>Đứng sai nhánh.</strong> Cherry-pick áp lên nhánh hiện tại. Chạy <code>git branch --show-current</code> trước khi chép.</p>
+<p><strong>Chép commit merge.</strong> Commit merge có nhiều parent nên Git không biết lấy diff so với parent nào; nó báo lỗi trừ khi bạn chỉ định <code>-m 1</code>. Thường nên chép các commit thường thay vì commit merge.</p>
+<p><strong>Bỏ dở giữa chuỗi.</strong> Nếu bạn quên <code>--continue</code> hoặc <code>--abort</code>, repository vẫn ở trạng thái cherry-pick dở. <code>git status</code> sẽ nhắc. Chọn một trong ba lối ra rồi mới làm việc khác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Cherry-pick tạo bản sao. Nếu bạn thực sự cần toàn bộ nhánh, merge hoặc rebase thường hợp lý hơn và giữ lịch sử rõ ràng hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhánh <code>feature/otp-retry</code> có năm commit, trong đó hai commit cuối thêm bộ test kiểm tra giới hạn số lần gửi lại OTP. Nhóm muốn bộ test này chạy ngay trên <code>main</code> để bắt lỗi sớm, còn tính năng thì chưa merge. Bạn xác định đúng hai commit, chép bằng một phạm vi gồm cả commit đầu, dùng <code>-x</code> để reviewer biết chúng đến từ đâu, rồi chạy lại test trên main.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có nhánh source với hai commit riêng, còn main đã có một commit riêng. Bạn cần mang cả hai commit sang main, đúng thứ tự, mỗi commit thành một commit mới. Câu hỏi kiến thức hỏi lệnh dùng để sao chép một commit sang nhánh hiện tại.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Xác nhận bạn đang ở main.</li>
+<li>Liệt kê commit riêng của source và để ý thứ tự cũ, mới.</li>
+<li>Chọn cú pháp phạm vi phù hợp để có đủ hai commit.</li>
+<li>Sau khi xong, kiểm tra <code>git log -2 --format=%s</code> và nội dung hai tệp.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Cherry-pick áp lại bản vá của commit lên HEAD, tạo commit mới.</li>
+<li>Phạm vi <code>main..source</code> lấy mọi commit riêng của source, áp từ cũ tới mới.</li>
+<li><code>A..B</code> bỏ A, <code>A^..B</code> gồm A.</li>
+<li><code>-x</code> ghi lại nguồn gốc, hữu ích khi backport.</li>
+<li>Xung đột giữa chuỗi xử lý bằng <code>--continue</code>, <code>--skip</code> hoặc <code>--abort</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open cherry-pick-series
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/splitting-commit.html" rel="prev"><small>Bài trước</small>Tách một commit</a><a class="next" href="../advanced/git-notes.html" rel="next"><small>Bài sau</small>Ghi chú trên commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 8/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

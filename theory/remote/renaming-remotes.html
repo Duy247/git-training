@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đổi tên và xóa remote - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 7/12</span></p>
+<h1>Đổi tên và xóa remote</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>renaming-remotes</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đổi tên một remote mà vẫn giữ URL và các thiết lập theo dõi.</li>
+<li>Xóa một remote không còn dùng và hiểu những gì bị dọn theo.</li>
+<li>Biết đổi tên và xóa remote không ảnh hưởng gì tới server.</li>
+<li>Xử lý các lỗi thường gặp: trùng tên, tên không tồn tại, nhánh mất upstream.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Tên remote chỉ là <strong>nhãn local</strong> cho một địa chỉ. Bạn có thể muốn đổi nhãn vì nhiều lý do: dự án chuyển từ fork sang repository chính và bạn muốn <code>origin</code> trỏ về bản mới, quy ước của đội dùng tên khác, hoặc bạn clone từ một bản sao lưu và muốn đặt tên phản ánh đúng vai trò.</p>
+<p><code>git remote rename &lt;cũ&gt; &lt;mới&gt;</code> làm nhiều việc hơn bạn tưởng, và đó là lý do nên dùng nó thay vì tự sửa <code>.git/config</code>:</p>
+<ul>
+<li>Đổi tên mục cấu hình <code>remote.&lt;cũ&gt;</code> thành <code>remote.&lt;mới&gt;</code>, <strong>giữ nguyên URL</strong>.</li>
+<li>Đổi tên mọi nhánh remote-tracking: <code>&lt;cũ&gt;/main</code> thành <code>&lt;mới&gt;/main</code>, và cập nhật refspec fetch tương ứng.</li>
+<li>Cập nhật cấu hình upstream của các nhánh local đang theo dõi remote đó (<code>branch.&lt;nhánh&gt;.remote</code>).</li>
+</ul>
+<p><code>git remote remove &lt;tên&gt;</code> (hoặc <code>rm</code>) thì ngược lại, xóa sạch dấu vết của remote <strong>ở local</strong>:</p>
+<ul>
+<li>Xóa mục cấu hình của remote.</li>
+<li>Xóa mọi nhánh remote-tracking <code>&lt;tên&gt;/*</code>.</li>
+<li>Gỡ thiết lập upstream của những nhánh local đang theo dõi remote đó. Sau đó <code>git pull</code> không tham số sẽ không biết lấy từ đâu.</li>
+</ul>
+<p>Điểm quan trọng: <strong>cả hai thao tác chỉ thay đổi repository của bạn</strong>. Không có gì được gửi tới server; repository trên server, các nhánh trên đó và các clone của người khác giữ nguyên. Xóa remote chỉ có nghĩa là &quot;mình không còn ghi nhớ địa chỉ này nữa&quot;; muốn dùng lại, chỉ cần <code>git remote add</code>.</p>
+<p>Các nhánh local và commit của bạn cũng không bị đụng tới. Chỉ những ref dưới <code>refs/remotes/&lt;tên&gt;/</code> biến mất, và chúng tái tạo được bằng một lần fetch nếu thêm lại remote.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph T[&quot;Trước khi đổi tên&quot;]
+    A1[&quot;remote origin: ../s.git&quot;]
+    A2[&quot;origin/main&quot;]
+    A3[&quot;main theo dõi origin/main&quot;]
+  end
+  subgraph S[&quot;Sau git remote rename origin noi-bo&quot;]
+    B1[&quot;remote noi-bo: ../s.git&quot;]
+    B2[&quot;noi-bo/main&quot;]
+    B3[&quot;main theo dõi noi-bo/main&quot;]
+  end
+  A1 --&gt; B1
+  A2 --&gt; B2
+  A3 --&gt; B3</pre>
+<pre class="mermaid">flowchart TD
+  R[&quot;git remote remove tên&quot;] --&gt; C[&quot;Xóa cấu hình remote&quot;]
+  R --&gt; RT[&quot;Xóa nhánh remote-tracking tên/*&quot;]
+  R --&gt; U[&quot;Gỡ upstream của nhánh local liên quan&quot;]
+  R -. &quot;không đụng tới&quot; .-&gt; SV[&quot;Repository trên server&quot;]
+  R -. &quot;không đụng tới&quot; .-&gt; LB[&quot;Nhánh local và commit&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote rename &lt;cũ&gt; &lt;mới&gt;     # đổi tên, giữ URL và tracking
+git remote remove &lt;tên&gt;          # xóa remote ở local (rm cũng được)
+git remote -v                    # kiểm tra tên và URL
+git branch -r                    # xem nhánh remote-tracking
+git branch -vv                   # xem upstream của từng nhánh local
+git config --get branch.&lt;nhánh&gt;.remote   # remote mà nhánh đang theo dõi
+git remote set-url &lt;tên&gt; &lt;URL&gt;   # đổi URL mà không đổi tên</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Muốn làm gì</th>
+<th>Lệnh</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Đổi nhãn, giữ địa chỉ</td>
+<td><code>git remote rename</code></td>
+</tr>
+<tr>
+<td>Đổi địa chỉ, giữ nhãn</td>
+<td><code>git remote set-url</code></td>
+</tr>
+<tr>
+<td>Quên hẳn remote ở local</td>
+<td><code>git remote remove</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai remote, <code>main</code> theo dõi <code>origin/main</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -vv
+git branch -r</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* main 321a168 [origin/main] Khởi tạo
+  cu/main
+  origin/main</code></pre></div>
+<p>Đổi tên <code>origin</code> thành <code>noi-bo</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote rename origin noi-bo
+git remote -v
+git branch -vv
+git branch -r</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">cu	../old.git (fetch)
+cu	../old.git (push)
+noi-bo	../s.git (fetch)
+noi-bo	../s.git (push)
+* main 321a168 [noi-bo/main] Khởi tạo
+  cu/main
+  noi-bo/main</code></pre></div>
+<p>URL giữ nguyên, nhánh remote-tracking và upstream của <code>main</code> đã được đổi theo. Đổi sang một tên đã có thì bị từ chối:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: remote cu already exists.</code></pre></div>
+<p>Xóa remote <code>cu</code> không còn dùng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote remove cu
+git branch -r</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">  noi-bo/main</code></pre></div>
+<p>Còn nếu xóa chính remote mà <code>main</code> đang theo dõi, nhánh mất upstream:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote remove noi-bo
+git branch -vv
+git pull</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* main 321a168 Khởi tạo
+There is no tracking information for the current branch.
+Please specify which branch you want to merge with.</code></pre></div>
+<p>Repository <code>s.git</code> trên &quot;server&quot; vẫn còn nguyên nhánh <code>main</code>.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tự sửa <code>.git/config</code> để đổi tên.</strong> Bạn đổi được mục cấu hình nhưng các nhánh remote-tracking và upstream vẫn mang tên cũ, gây lỗi khó hiểu. Dùng <code>git remote rename</code>.</p>
+<p><strong>Gõ sai tên khi xóa.</strong> Git báo <code>error: No such remote: &#39;khong-co&#39;</code> và không làm gì. Kiểm tra bằng <code>git remote</code> trước.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Xóa remote không xóa gì trên server. Nếu mục tiêu là xóa một nhánh trên server, đó là việc của <code>git push &lt;remote&gt; --delete &lt;nhánh&gt;</code>.</p>
+</aside>
+<p><strong>Quên đặt lại upstream sau khi xóa và thêm lại remote.</strong> Thêm lại remote cùng tên không tự khôi phục upstream. Fetch, rồi <code>git branch --set-upstream-to=&lt;remote&gt;/&lt;nhánh&gt;</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi chỉ đổi giao thức (HTTPS sang SSH) hay server đổi địa chỉ, dùng <code>set-url</code> thay vì xóa rồi thêm lại; cấu hình tracking không bị gỡ.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Repository kịch bản kiểm thử của nhóm vừa được chuyển từ fork cá nhân của trưởng nhóm sang tổ chức chung của khối ngân hàng bán lẻ. Bạn đổi tên remote cũ thành <code>fork-cu</code> để còn tham khảo, thêm <code>origin</code> trỏ về địa chỉ mới, fetch và đặt upstream cho <code>main</code>. Một tuần sau, khi chắc không cần nữa, bạn xóa <code>fork-cu</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có một remote mang tên mặc định. Bạn cần đổi nó sang tên đề bài yêu cầu, đồng thời giữ nguyên địa chỉ. Kiểm tra bằng <code>git remote -v</code>: tên cũ phải biến mất, tên mới phải trỏ đúng địa chỉ ban đầu.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Tên remote là nhãn local; đổi hay xóa không ảnh hưởng server.</li>
+<li><code>git remote rename</code> giữ URL và đổi theo nhánh remote-tracking, upstream.</li>
+<li><code>git remote remove</code> xóa cấu hình, nhánh remote-tracking và upstream liên quan.</li>
+<li>Đổi địa chỉ mà giữ tên thì dùng <code>set-url</code>.</li>
+<li>Đừng sửa tay <code>.git/config</code> để đổi tên remote.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open renaming-remotes
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/multiple-remotes.html" rel="prev"><small>Bài trước</small>Nhiều remote</a><a class="next" href="../remote/prune-stale-branches.html" rel="next"><small>Bài sau</small>Dọn nhánh remote cũ</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 7/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

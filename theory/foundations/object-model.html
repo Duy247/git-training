@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Mô hình object - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 7/10</span></p>
+<h1>Mô hình object</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>object-model</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Biết ba loại object chính Git lưu cho mỗi snapshot: blob, tree, commit.</li>
+<li>Hiểu vì sao object ID phụ thuộc vào nội dung và hệ quả của điều đó.</li>
+<li>Tự mở từng object bằng <code>git cat-file</code> để thấy chúng liên kết với nhau thế nào.</li>
+<li>Giải thích được vì sao hai tệp giống hệt nhau chỉ tốn một object.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bên dưới các lệnh quen thuộc, Git là một <strong>kho object định danh theo nội dung</strong>. Mỗi thứ Git lưu đều được nén và đặt tên bằng một mã băm (hash) tính từ chính nội dung đó. Mặc định là SHA-1, 40 ký tự hex. Cùng nội dung thì cùng ID, khác một byte thì ID khác hoàn toàn.</p>
+<p>Một snapshot được xây từ ba loại object:</p>
+<p><strong>Blob</strong> chứa đúng các byte của một tệp. Blob không biết tên tệp, không biết quyền, không biết nó nằm trong thư mục nào. Chỉ có nội dung. Vì vậy hai tệp <code>hello.txt</code> và <code>copy.txt</code> có nội dung giống nhau sẽ dùng chung một blob.</p>
+<p><strong>Tree</strong> là một thư mục. Mỗi dòng của tree gồm mode (loại tệp và quyền), loại object, ID, và tên. Dòng có thể trỏ tới blob (tệp) hoặc tree khác (thư mục con). Tên tệp và quyền nằm ở đây chứ không nằm trong blob.</p>
+<p><strong>Commit</strong> gắn một tree gốc với ngữ cảnh: tác giả, người commit, thời gian, thông điệp, và một hoặc nhiều <strong>parent</strong> (commit cha). Commit đầu tiên không có parent; merge commit có từ hai parent. Chuỗi parent chính là lịch sử.</p>
+<p>Ngoài ra còn loại thứ tư là <strong>annotated tag</strong>, sẽ gặp ở track phát hành.</p>
+<p>Hệ quả của việc định danh theo nội dung:</p>
+<ul>
+<li>Không sửa được object đã có. &quot;Sửa&quot; một commit (amend, rebase) thực chất là tạo commit mới với ID mới.</li>
+<li>Snapshot không chép lại tệp không đổi. Commit mới chỉ tạo blob cho tệp đã đổi; tree mới tái sử dụng ID của blob và tree con cũ.</li>
+<li>Toàn vẹn dữ liệu: nếu một byte bị hỏng, ID tính lại sẽ không khớp và Git phát hiện được.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  C2[&quot;commit: Thêm bản sao&quot;] --&gt;|&quot;parent&quot;| C1[&quot;commit: Snapshot đầu&quot;]
+  C2 --&gt;|&quot;tree&quot;| T2[&quot;tree gốc mới&quot;]
+  C1 --&gt;|&quot;tree&quot;| T1[&quot;tree gốc cũ&quot;]
+  T2 --&gt;|&quot;copy.txt&quot;| B1[&quot;blob: Xin chào&quot;]
+  T2 --&gt;|&quot;hello.txt&quot;| B1
+  T2 --&gt;|&quot;docs&quot;| TD[&quot;tree docs&quot;]
+  T1 --&gt;|&quot;hello.txt&quot;| B1
+  T1 --&gt;|&quot;docs&quot;| TD
+  TD --&gt;|&quot;guide.txt&quot;| B2[&quot;blob: Hướng dẫn&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -t &lt;object&gt;    # loại object: blob, tree, commit, tag
+git cat-file -p &lt;object&gt;    # in nội dung object dễ đọc
+git cat-file -s &lt;object&gt;    # kích thước nội dung (byte)
+git ls-tree HEAD            # liệt kê tree gốc của HEAD
+git rev-parse HEAD^{tree}   # ID tree gốc của commit
+git hash-object &lt;tệp&gt;       # tính ID blob của tệp mà không lưu
+git count-objects -v        # thống kê object trong kho</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cú pháp</th>
+<th>Trỏ tới</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>HEAD</code></td>
+<td>Commit hiện tại</td>
+</tr>
+<tr>
+<td><code>HEAD^{tree}</code></td>
+<td>Tree gốc của commit đó</td>
+</tr>
+<tr>
+<td><code>HEAD:docs</code></td>
+<td>Tree của thư mục <code>docs</code> trong commit</td>
+</tr>
+<tr>
+<td><code>HEAD:hello.txt</code></td>
+<td>Blob của tệp trong commit</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có <code>hello.txt</code> và <code>docs/guide.txt</code>, một commit. Mở commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -t HEAD
+git cat-file -p HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit
+tree 5ce63369541ce89a5c3dc1a4914d4c17e9aea30c
+author Duy Van &lt;duy@example.invalid&gt; 1792029600 +0700
+committer Duy Van &lt;duy@example.invalid&gt; 1792029600 +0700
+
+Snapshot đầu</code></pre></div>
+<p>Commit đầu tiên không có dòng <code>parent</code>. Đi tiếp vào tree:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p 5ce63369541ce89a5c3dc1a4914d4c17e9aea30c
+git cat-file -p HEAD:docs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">040000 tree 247f08eb56f7d411f10d001eddf468beedeb5095	docs
+100644 blob 66bef6f22c397f27b9bcecfee90b7a31865dedc8	hello.txt
+100644 blob 4b77fd271d2ce02df2be521f056509218a8eb67c	guide.txt</code></pre></div>
+<p>Và đến blob, nơi thực sự chứa byte:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -t HEAD:hello.txt
+git cat-file -p HEAD:hello.txt
+echo &quot;Xin chào&quot; | git hash-object --stdin</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">blob
+Xin chào
+66bef6f22c397f27b9bcecfee90b7a31865dedc8</code></pre></div>
+<p><code>hash-object</code> tính ra đúng ID blob trong tree: ID chỉ phụ thuộc nội dung. Giờ chép tệp thành <code>copy.txt</code> và commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git ls-tree HEAD
+git count-objects -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 blob 66bef6f22c397f27b9bcecfee90b7a31865dedc8	copy.txt
+040000 tree 247f08eb56f7d411f10d001eddf468beedeb5095	docs
+100644 blob 66bef6f22c397f27b9bcecfee90b7a31865dedc8	hello.txt
+count: 7
+...</code></pre></div>
+<p>Hai tên, một blob. Tree <code>docs</code> cũng được dùng lại. Tổng chỉ bảy object: hai blob, tree <code>docs</code>, hai tree gốc, hai commit. ID trên máy bạn cho blob và tree sẽ giống hệt (vì cùng nội dung), còn ID commit sẽ khác do tác giả và thời gian khác.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ blob lưu tên tệp.</strong> Đổi tên tệp không tạo blob mới; chỉ tree thay đổi. Đây là lý do Git phát hiện đổi tên bằng cách so nội dung.</p>
+<p><strong>Nghĩ commit lưu diff.</strong> Commit trỏ tới một snapshot đầy đủ. Diff được tính lúc bạn xem, bằng cách so hai tree.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Về lưu trữ vật lý, Git có thể nén nhiều object vào packfile và lưu theo dạng delta. Đó là tối ưu ở tầng lưu trữ, không đổi mô hình snapshot mà bạn làm việc.</p>
+</aside>
+<p><strong>Dùng <code>cat-file -p</code> trên ID không đầy đủ quá ngắn.</strong> Nếu ID rút gọn trùng nhiều object, Git báo mơ hồ. Dùng ít nhất 7 ký tự hoặc cú pháp <code>HEAD:đường-dẫn</code>.</p>
+<p><strong>Sửa tay tệp trong <code>.git/objects</code>.</strong> Object bị nén zlib và được kiểm tra bằng hash; sửa tay chỉ làm hỏng kho. Luôn dùng lệnh Git.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bộ test của bạn có hàng trăm tệp dữ liệu JSON mẫu, nhiều tệp giống hệt nhau giữa các thư mục kịch bản. Hiểu mô hình blob, bạn yên tâm rằng repository không phình to vì những bản sao này: Git chỉ lưu mỗi nội dung một lần. Khi review, bạn cũng biết đổi tên thư mục dữ liệu không làm lịch sử nặng thêm.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git cat-file -p HEAD</code> là cách nhanh nhất để xem một commit thô có những trường gì, hữu ích khi gỡ lỗi tool đọc metadata commit.</p>
+</aside>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Câu hỏi của bài hỏi loại object nào chứa trực tiếp nội dung byte của tệp. Hãy dùng <code>git cat-file -t</code> và <code>-p</code> trong repository bài tập, đi từ <code>HEAD</code> xuống tree rồi xuống từng mục, và để ý loại object nào in ra đúng nội dung tệp mà không có tên hay quyền đi kèm.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Git lưu blob (nội dung), tree (thư mục, tên, mode) và commit (tree gốc, parent, metadata).</li>
+<li>Object ID là hash của nội dung; cùng nội dung thì cùng ID.</li>
+<li>Object không sửa được; &quot;sửa&quot; lịch sử là tạo object mới.</li>
+<li>Snapshot tái sử dụng blob và tree không đổi nên rất tiết kiệm.</li>
+<li><code>git cat-file -t/-p</code> và <code>git ls-tree</code> cho phép bạn tự đi qua đồ thị object.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open object-model
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/three-trees.html" rel="prev"><small>Bài trước</small>Ba vùng trạng thái</a><a class="next" href="../foundations/head-and-refs.html" rel="next"><small>Bài sau</small>HEAD và ref biểu tượng</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 7/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

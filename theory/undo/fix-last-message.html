@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sửa thông điệp cuối - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 7/12</span></p>
+<h1>Sửa thông điệp cuối</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>fix-last-message</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đổi subject hoặc body của commit cuối mà không thay nội dung tệp.</li>
+<li>Sửa message ngay trên dòng lệnh, không cần mở editor.</li>
+<li>Tránh vô tình kéo theo những thay đổi đang stage.</li>
+<li>Biết cách kiểm tra message sau khi sửa và giới hạn của thao tác này.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Lỗi message hay gặp nhất là gõ vội: thiếu dấu tiếng Việt, sai mã ticket, viết &quot;fix&quot; chung chung. Nếu commit đó vẫn là <strong>commit cuối</strong> và <strong>chưa được chia sẻ</strong>, bạn có thể thay message của nó.</p>
+<p>Cơ chế giống bài trước: <code>git commit --amend</code> tạo một commit mới thay thế commit cuối, cùng parent. Điểm khác là lần này bạn chỉ quan tâm tới message, nên có hai việc cần chú ý.</p>
+<p>Thứ nhất là <strong>cách nhập message</strong>. Không có tùy chọn, amend mở editor với message cũ để bạn sửa; tiện khi cần sửa body nhiều dòng. Với <code>-m</code>, bạn đưa message mới ngay trên dòng lệnh, editor không mở, và message cũ bị thay hoàn toàn. Có thể lặp <code>-m</code> để có nhiều đoạn: đoạn đầu là subject, các đoạn sau thành body, cách nhau một dòng trống.</p>
+<p>Thứ hai là <strong>index</strong>. Amend luôn lấy index hiện tại làm nội dung commit mới. Nếu lúc đó bạn đã stage một tệp khác cho commit tiếp theo, tệp đó sẽ lặng lẽ chui vào commit cuối. Muốn chắc chắn chỉ đổi message, có hai cách: kiểm tra <code>git status</code> để index không có gì mới, hoặc dùng <code>--only</code> không kèm pathspec. Với <code>--only</code>, Git dựng commit từ tree của commit cuối, bỏ qua những gì đang stage; phần stage vẫn còn nguyên trong index để bạn commit sau.</p>
+<p>Vì hash commit thay đổi, quy tắc an toàn vẫn như cũ: đã push lên nhánh chung thì đừng sửa. Message sai trên nhánh chung thường chấp nhận để nguyên; nhiều đội dùng ghi chú trong PR thay vì viết lại lịch sử.</p>
+<p>Còn nếu message sai không nằm ở commit cuối? Amend không với tới được. Bạn cần rebase tương tác (<code>git rebase -i</code>) và đánh dấu <code>reword</code> cho commit đó, một công cụ nằm ở bài khác.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;3703cec message sai&quot;] -- &quot;amend với message mới&quot; --&gt; B[&quot;e577082 message đúng&quot;]
+  T[&quot;Tree giữ nguyên: kich-ban.txt&quot;] --- A
+  T --- B
+  I[&quot;Index: ghi-chu.txt đang stage&quot;] -. &quot;--only bỏ qua&quot; .-&gt; B</pre>
+<pre class="mermaid">flowchart TD
+  S{&quot;Sai ở commit nào?&quot;} -- &quot;Commit cuối, chưa push&quot; --&gt; A[&quot;Amend với message mới&quot;]
+  S -- &quot;Commit cũ hơn, chưa push&quot; --&gt; R[&quot;Rebase tương tác, chọn reword&quot;]
+  S -- &quot;Đã lên nhánh chung&quot; --&gt; K[&quot;Giữ nguyên, ghi chú trong PR&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1 --format=%s                  # đọc subject hiện tại
+git commit --amend                      # mở editor để sửa message
+git commit --amend -m &quot;&lt;subject mới&gt;&quot;   # sửa ngay, không mở editor
+git commit --amend -m &quot;&lt;subject&gt;&quot; -m &quot;&lt;body&gt;&quot;   # subject và body
+git commit --amend --only -m &quot;&lt;subject&gt;&quot;        # bỏ qua những gì đang stage
+git rev-list --count HEAD               # đếm commit để chắc số lượng không đổi</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-m</code></td>
+<td>Thay toàn bộ message, không mở editor</td>
+</tr>
+<tr>
+<td><code>-m</code> lặp lại</td>
+<td>Mỗi lần là một đoạn</td>
+</tr>
+<tr>
+<td><code>--only</code> (không pathspec)</td>
+<td>Giữ tree của commit cuối, không lấy index</td>
+</tr>
+<tr>
+<td><code>--no-edit</code></td>
+<td>Ngược lại: giữ message, chỉ đổi nội dung</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Commit cuối có subject không dấu, và mình đang stage sẵn một tệp cho việc tiếp theo:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">3703cec Them kich ban dang nhap
+321a168 Khởi tạo
+A  ghi-chu.txt</code></pre></div>
+<p>Sửa message nhưng không muốn <code>ghi-chu.txt</code> đi theo:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit --amend --only -m &quot;Thêm kịch bản đăng nhập&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main e577082] Thêm kịch bản đăng nhập
+ Date: Thu Oct 15 09:00:00 2026 +0700
+ 1 file changed, 1 insertion(+)
+ create mode 100644 kich-ban.txt</code></pre></div>
+<p>Kiểm tra: tệp đang stage vẫn chờ trong index, commit chỉ chứa tệp cũ, số commit vẫn là hai:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -s
+git log --oneline --stat -1
+git rev-list --count HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">A  ghi-chu.txt
+e577082 Thêm kịch bản đăng nhập
+ kich-ban.txt | 1 +
+ 1 file changed, 1 insertion(+)
+2</code></pre></div>
+<p>Thêm body bằng hai lần <code>-m</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit --amend --only -m &quot;Thêm kịch bản đăng nhập&quot; -m &quot;Bao gồm trường hợp sai mật khẩu.&quot;
+git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Thêm kịch bản đăng nhập
+
+Bao gồm trường hợp sai mật khẩu.</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên giá trị sau <code>-m</code>.</strong> Git báo ngay:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: switch `m&#39; requires a value</code></pre></div>
+<p><strong>Không đặt message trong ngoặc kép.</strong> Shell tách message có dấu cách thành nhiều đối số; Git hiểu các từ sau là pathspec và báo lỗi. Luôn bọc message bằng ngoặc kép.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Khoảng trắng ở đầu message được giữ nguyên. Thử <code>-m &quot;  khoảng trắng  &quot;</code> cho subject <code>[  khoảng trắng]</code> khi in bằng <code>--format=&quot;[%s]&quot;</code>: đầu còn hai dấu cách, chỉ đuôi bị cắt. Một hệ thống so khớp subject chính xác sẽ coi đó là sai.</p>
+</aside>
+<p><strong>Vô tình gộp tệp đang stage.</strong> Nếu không dùng <code>--only</code>, mọi thứ trong index đi vào commit cuối. Chạy <code>git status</code> trước khi amend.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn đọc nhanh message vừa sửa, <code>git log -1 --format=%s</code> chỉ in subject, tiện so với yêu cầu của ticket hay quy ước của đội.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Quy ước của đội QA là subject bắt đầu bằng mã ticket, ví dụ <code>QA-310: Kiểm thử hạn mức rút tiền ATM</code>. Bạn commit vội mà quên mã ticket, và bot kiểm tra quy ước trên PR sẽ báo lỗi. Trước khi push, bạn sửa lại message của commit cuối bằng một lệnh, kiểm tra subject, rồi mới push lần đầu.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có commit cuối với subject gõ sai, và đề bài cho subject đúng. Bạn cần đổi message mà không tạo commit mới và không mở editor. Hãy gõ chính xác subject yêu cầu, kể cả dấu tiếng Việt, rồi kiểm tra subject và số commit sau khi sửa, và chắc chắn working tree sạch.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Amend thay commit cuối bằng commit mới; dùng để sửa message khi chưa chia sẻ.</li>
+<li><code>-m</code> thay message không qua editor; lặp <code>-m</code> để có body.</li>
+<li><code>--only</code> không pathspec giữ nội dung commit, bỏ qua phần đang stage.</li>
+<li>Bọc message trong ngoặc kép và kiểm tra lại bằng <code>git log -1 --format=%s</code>.</li>
+<li>Commit cũ hơn cần rebase tương tác với <code>reword</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open fix-last-message
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/recovering-lost-commits.html" rel="prev"><small>Bài trước</small>Cứu commit thất lạc</a><a class="next" href="../undo/resetting-single-file.html" rel="next"><small>Bài sau</small>Hoàn tác một tệp</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 7/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

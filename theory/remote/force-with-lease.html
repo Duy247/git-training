@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Force push có kiểm tra - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 10/12</span></p>
+<h1>Force push có kiểm tra</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>force-with-lease</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu khi nào cần force push và vì sao <code>--force</code> trần trụi nguy hiểm.</li>
+<li>Nắm cách <code>--force-with-lease</code> kiểm tra trước khi ghi đè.</li>
+<li>Thấy được lỗ hổng của nó khi fetch mà chưa tích hợp, và cách <code>--force-if-includes</code> vá lại.</li>
+<li>Áp dụng quy tắc an toàn khi viết lại lịch sử trên nhánh đã push.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bình thường remote chỉ nhận push fast-forward. Nhưng sau khi bạn amend, rebase hay squash một nhánh đã push, lịch sử local không còn nối tiếp lịch sử trên server; push thường bị từ chối với <code>non-fast-forward</code>. Lúc đó bạn cần <strong>force push</strong>: yêu cầu server bỏ qua kiểm tra và đặt nhánh về đúng commit của bạn.</p>
+<p><code>git push --force</code> làm đúng như vậy, <strong>vô điều kiện</strong>. Nếu trong lúc bạn rebase, một đồng nghiệp đã push thêm commit vào cùng nhánh, <code>--force</code> xóa commit đó khỏi server mà không hề báo.</p>
+<p><code>--force-with-lease</code> thêm một điều kiện: &quot;chỉ ghi đè nếu nhánh trên server <strong>vẫn đang ở vị trí mà mình nghĩ</strong>&quot;. Vị trí &quot;mình nghĩ&quot; mặc định là nhánh remote-tracking của bạn, tức <code>origin/&lt;nhánh&gt;</code> ở lần fetch gần nhất. Nếu server đã đổi (ai đó push thêm), lease không khớp và push bị từ chối với <code>stale info</code>. Bạn có thể ghi rõ giá trị kỳ vọng: <code>--force-with-lease=&lt;nhánh&gt;:&lt;hash&gt;</code>.</p>
+<p><strong>Lỗ hổng.</strong> Vì kỳ vọng lấy từ <code>origin/&lt;nhánh&gt;</code>, bất cứ thứ gì cập nhật nó đều &quot;gia hạn&quot; lease. Nếu bạn (hoặc IDE tự động) chạy <code>git fetch</code> mà <strong>chưa tích hợp</strong> commit mới, <code>origin/&lt;nhánh&gt;</code> đã khớp với server, và <code>--force-with-lease</code> sẽ vui vẻ ghi đè commit của đồng nghiệp mà bạn chưa từng nhìn thấy. Ví dụ bên dưới cho thấy đúng điều này.</p>
+<p><strong><code>--force-if-includes</code></strong> (có từ Git 2.30) vá lỗ hổng đó: ngoài lease, Git kiểm tra rằng đầu nhánh remote-tracking đã từng có mặt trong lịch sử local của bạn (qua reflog). Fetch thôi chưa đủ; bạn phải thật sự tích hợp commit đó. Dùng cả hai cùng lúc.</p>
+<p>Quy tắc an toàn:</p>
+<ul>
+<li>Chỉ viết lại lịch sử trên nhánh mà bạn là người duy nhất dùng, hoặc đã thống nhất với người cùng làm.</li>
+<li><strong>Không bao giờ</strong> force push lên nhánh chung như <code>main</code>; nhiều đội cấm hẳn bằng branch protection.</li>
+<li>Luôn dùng <code>--force-with-lease --force-if-includes</code> thay cho <code>--force</code>.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant A as Bạn
+  participant S as Server
+  participant L as Lan
+  A-&gt;&gt;S: push test/QA-40
+  L-&gt;&gt;S: push thêm Ca 2
+  A-&gt;&gt;A: amend commit
+  A-&gt;&gt;S: push --force-with-lease
+  S--&gt;&gt;A: rejected, stale info
+  A-&gt;&gt;S: git fetch, chưa tích hợp
+  A-&gt;&gt;S: push --force-with-lease
+  Note over S: Ca 2 của Lan bị ghi đè</pre>
+<pre class="mermaid">flowchart TD
+  P[&quot;Cần ghi đè nhánh trên server&quot;] --&gt; Q{&quot;Server còn ở vị trí mình biết?&quot;}
+  Q -- &quot;Không&quot; --&gt; R1[&quot;Từ chối: stale info&quot;]
+  Q -- &quot;Có&quot; --&gt; I{&quot;Có --force-if-includes?&quot;}
+  I -- &quot;Không&quot; --&gt; OK[&quot;Ghi đè&quot;]
+  I -- &quot;Có&quot; --&gt; J{&quot;Mình đã tích hợp đầu nhánh đó?&quot;}
+  J -- &quot;Chưa&quot; --&gt; R2[&quot;Từ chối: remote ref updated since checkout&quot;]
+  J -- &quot;Rồi&quot; --&gt; OK</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push --force-with-lease                      # ghi đè nếu server khớp origin/&lt;nhánh&gt;
+git push --force-with-lease --force-if-includes  # thêm kiểm tra đã tích hợp
+git push --force-with-lease=&lt;nhánh&gt;:&lt;hash&gt;       # ghi rõ vị trí kỳ vọng
+git log --oneline HEAD..origin/&lt;nhánh&gt;           # commit trên server mình chưa có
+git config push.useForceIfIncludes true          # bật --force-if-includes mặc định</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Kiểm tra trước khi ghi đè</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--force</code></td>
+<td>Không kiểm tra gì</td>
+</tr>
+<tr>
+<td><code>--force-with-lease</code></td>
+<td>Server vẫn ở vị trí ghi trong <code>origin/&lt;nhánh&gt;</code></td>
+</tr>
+<tr>
+<td>Thêm <code>--force-if-includes</code></td>
+<td>Và vị trí đó đã nằm trong lịch sử local</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình đã push nhánh <code>test/QA-40</code>, sau đó amend commit. Push thường bị từ chối:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> ! [rejected]        test/QA-40 -&gt; test/QA-40 (non-fast-forward)</code></pre></div>
+<p>Lúc này chưa ai khác push, nên lease khớp:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push --force-with-lease</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To /tmp/gt/r10/s.git
+ + 3fc2c0e...95815c2 test/QA-40 -&gt; test/QA-40 (forced update)</code></pre></div>
+<p>Lan push thêm &quot;Ca 2 của Lan&quot;. Mình amend lần nữa và thử lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push --force-with-lease</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To /tmp/gt/r10/s.git
+ ! [rejected]        test/QA-40 -&gt; test/QA-40 (stale info)
+error: failed to push some refs to &#39;/tmp/gt/r10/s.git&#39;</code></pre></div>
+<p>Lease đã bảo vệ commit của Lan. Nhưng giờ mình fetch rồi push ngay, <strong>không tích hợp</strong>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch
+git push --force-with-lease
+git log --oneline origin/test/QA-40 -3</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">From /tmp/gt/r10/s
+   95815c2..5d78e8f  test/QA-40 -&gt; origin/test/QA-40
+To /tmp/gt/r10/s.git
+ + 5d78e8f...d54aeaf test/QA-40 -&gt; test/QA-40 (forced update)
+d54aeaf Ca 1 sửa lần hai
+321a168 Khởi tạo</code></pre></div>
+<p>Commit của Lan đã biến khỏi server. Lặp lại tình huống với &quot;Ca 3 của Lan&quot;, lần này thêm <code>--force-if-includes</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch
+git push --force-with-lease --force-if-includes</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> ! [rejected]        test/QA-40 -&gt; test/QA-40 (remote ref updated since checkout)
+error: failed to push some refs to &#39;/tmp/gt/r10/s.git&#39;
+hint: Updates were rejected because the tip of the remote-tracking branch has
+hint: been updated since the last checkout. If you want to integrate the
+hint: remote changes, use &#39;git pull&#39; before pushing again.</code></pre></div>
+<p>Git từ chối vì mình chưa tích hợp commit mới. Lúc này cần xem <code>git log HEAD..origin/test/QA-40</code>, rebase hoặc merge cho đủ, rồi mới push.</p>
+<p>Dạng ghi rõ kỳ vọng: sai hash thì bị từ chối, đúng thì được ghi đè:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">$ git push --force-with-lease=test/QA-40:d54aeaf
+ ! [rejected]        test/QA-40 -&gt; test/QA-40 (stale info)
+$ git push --force-with-lease=test/QA-40:98928aa
+ + 98928aa...3cd4b29 test/QA-40 -&gt; test/QA-40 (forced update)</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>--force</code> theo thói quen.</strong> Một lần sai là mất công việc của người khác. Đặt alias cho dạng an toàn và quên <code>--force</code> đi.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>--force-with-lease</code> một mình không an toàn nếu có gì đó fetch ngầm (nhiều IDE tự fetch định kỳ). Luôn thêm <code>--force-if-includes</code>, hoặc bật <code>push.useForceIfIncludes</code>.</p>
+</aside>
+<p><strong>Force push lên nhánh chung.</strong> Mọi người đã kéo lịch sử cũ sẽ bị phân kỳ. Với nhánh chung, dùng revert hoặc commit sửa.</p>
+<p><strong>Thấy <code>stale info</code> rồi chỉ fetch và thử lại.</strong> Đó chính là kịch bản làm mất commit. Đọc commit mới trước, tích hợp, rồi mới push.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trước khi force push, chạy <code>git log --oneline HEAD..origin/&lt;nhánh&gt;</code>. Danh sách không rỗng nghĩa là có commit trên server sẽ bị mất.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn và một đồng nghiệp cùng viết bộ test cho luồng mở thẻ tín dụng trên một nhánh. Bạn rebase để gọn lịch sử trước khi mở PR. Nhờ thói quen push với <code>--force-with-lease --force-if-includes</code>, khi đồng nghiệp vừa đẩy thêm ca kiểm thử thẻ phụ, Git từ chối, bạn tích hợp commit đó rồi mới đẩy lại. Không ai mất việc.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi. Câu hỏi hỏi về tùy chọn bảo vệ commit mới của đồng đội khi bạn buộc phải ghi đè nhánh trên server. Hãy ôn lại sự khác nhau giữa các cách force push trong bài và điều kiện mà mỗi cách kiểm tra.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Force push cần khi viết lại lịch sử nhánh đã push; <code>--force</code> không kiểm tra gì.</li>
+<li><code>--force-with-lease</code> chỉ ghi đè khi server còn ở vị trí ghi trong nhánh remote-tracking.</li>
+<li>Fetch mà không tích hợp làm lease mất tác dụng.</li>
+<li><code>--force-if-includes</code> đòi bạn đã thật sự tích hợp đầu nhánh remote.</li>
+<li>Không force push lên nhánh chung.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open force-with-lease
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/pushing-tags.html" rel="prev"><small>Bài trước</small>Đẩy tag</a><a class="next" href="../remote/github-cli.html" rel="next"><small>Bài sau</small>GitHub CLI cơ bản</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 10/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

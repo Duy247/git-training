@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cập nhật nhánh sống lâu - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 11/12</span></p>
+<h1>Cập nhật nhánh sống lâu</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>rebasing-long-lived</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao nhánh tính năng cần được cập nhật theo main định kỳ.</li>
+<li>Rebase nhánh lên main mới và xử lý xung đột từng commit.</li>
+<li>So sánh rebase với merge main vào nhánh khi cập nhật.</li>
+<li>Đẩy nhánh đã rebase lên remote một cách an toàn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Dù cố giữ nhánh ngắn, đôi khi một nhánh vẫn phải sống vài ngày hoặc vài tuần. Trong thời gian đó, main tiếp tục nhận thay đổi. Nhánh càng lệch, xung đột khi gộp càng lớn, và bạn càng khó biết mã của mình còn chạy đúng với main mới hay không. Cách phòng là cập nhật nhánh theo main thường xuyên, mỗi lần một ít.</p>
+<p>Có hai cách cập nhật:</p>
+<ul>
+<li><strong>Merge main vào nhánh</strong>: tạo merge commit trên nhánh. An toàn, không viết lại lịch sử, nhưng nhánh có thêm nhiều merge commit khiến lịch sử khó đọc.</li>
+<li><strong>Rebase nhánh lên main</strong>: Git tạm cất các commit riêng của nhánh, đưa nhánh tới đầu main mới, rồi áp lại từng commit riêng lên trên. Kết quả là lịch sử thẳng, như thể bạn vừa bắt đầu nhánh từ main mới nhất.</li>
+</ul>
+<p>Rebase viết lại commit: mỗi commit được áp lại thành commit mới có object ID mới. Với nhánh chỉ mình bạn dùng, điều này không vấn đề gì. Với nhánh đã push và người khác cũng dựa vào, rebase buộc bạn force push và người khác phải đồng bộ lại. Quy ước phổ biến: rebase thoải mái trên nhánh cá nhân; nhánh chung thì thống nhất trước hoặc dùng merge.</p>
+<p>Khi rebase gặp xung đột, Git dừng ở commit gây xung đột (không phải ở cuối như merge). Bạn sửa tệp cho commit đó, <code>git add</code>, rồi <code>git rebase --continue</code>. Nếu nhánh có nhiều commit cùng chạm một vùng mã mà main cũng sửa, bạn có thể phải giải quyết nhiều lần. Đó là cái giá của lịch sử thẳng, và là lý do nên rebase sớm, thường xuyên, khi xung đột còn nhỏ.</p>
+<p>Sau khi rebase một nhánh đã push, remote vẫn giữ các commit cũ. <code>git push</code> thường sẽ bị từ chối vì không phải fast-forward. Dùng <code>git push --force-with-lease</code>: nó chỉ ghi đè nếu nhánh trên remote vẫn đúng là thứ bạn đã thấy lần fetch cuối, tránh xóa nhầm commit người khác vừa push.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<p>Trước khi rebase:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Nền&quot;
+  branch feature
+  commit id: &quot;Báo cáo bước 1&quot;
+  commit id: &quot;Báo cáo bước 2&quot;
+  checkout main
+  commit id: &quot;Main 1&quot;
+  commit id: &quot;Main 2&quot;</pre>
+<p>Sau khi rebase, hai commit báo cáo là bản mới nằm trên Main 2:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Nền&quot;
+  commit id: &quot;Main 1&quot;
+  commit id: &quot;Main 2&quot;
+  branch feature
+  commit id: &quot;Báo cáo bước 1 mới&quot;
+  commit id: &quot;Báo cáo bước 2 mới&quot;</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Cập nhật main trước (nếu làm với remote)
+git switch main
+git pull
+
+# Quay lại nhánh và rebase lên main
+git switch feature/bao-cao
+git rebase main
+
+# Khi dừng vì xung đột
+git status
+git add &lt;tệp đã sửa&gt;
+git rebase --continue
+# hoặc bỏ qua commit đang áp, hoặc hủy toàn bộ
+git rebase --skip
+git rebase --abort
+
+# Kiểm tra main đã là tổ tiên của nhánh
+git merge-base --is-ancestor main feature/bao-cao &amp;&amp; echo &quot;main là tổ tiên&quot;
+
+# Đẩy nhánh đã rebase lên remote an toàn
+git push --force-with-lease</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cách cập nhật</th>
+<th>Lịch sử</th>
+<th>Viết lại commit</th>
+<th>Hợp với</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git merge main</code></td>
+<td>Có merge commit</td>
+<td>Không</td>
+<td>Nhánh chung</td>
+</tr>
+<tr>
+<td><code>git rebase main</code></td>
+<td>Thẳng</td>
+<td>Có</td>
+<td>Nhánh cá nhân</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh <code>feature/bao-cao</code> có hai commit; main có thêm hai commit, trong đó &quot;Main 2&quot; sửa cùng dòng với &quot;Báo cáo bước 2&quot; (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --graph --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* af8ade9 Báo cáo bước 2
+* 7a9214c Báo cáo bước 1
+| * a851c86 Main 2
+| * 229e756 Main 1
+|/  
+* f65e664 Nền
+* abe34ca Khởi tạo</code></pre></div>
+<p>Rebase lên main:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rebase main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Rebasing (1/2)Rebasing (2/2)Auto-merging app.txt
+CONFLICT (content): Merge conflict in app.txt
+error: could not apply af8ade9... Báo cáo bước 2
+hint: Resolve all conflicts manually, mark them as resolved with
+hint: &quot;git add/rm &lt;conflicted_files&gt;&quot;, then run &quot;git rebase --continue&quot;.</code></pre></div>
+<p>Commit đầu áp êm, commit thứ hai xung đột. Xem vùng xung đột:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">diff --cc app.txt
+index 024e98e,bcad896..0000000
+--- a/app.txt
++++ b/app.txt
+@@@ -1,3 -1,3 +1,7 @@@
+  a
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +b-main
+++=======
++ b-feature
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; af8ade9 (Báo cáo bước 2)
+  c</code></pre></div>
+<p>Trong rebase, phía HEAD là main mới (cộng các commit đã áp), phía dưới là commit của bạn đang được áp. Mình kết hợp hai ý thành <code>b-main-feature</code>, stage và tiếp tục:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add app.txt
+git rebase --continue
+git log --oneline --graph --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[detached HEAD bae4ef2] Báo cáo bước 2
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+Successfully rebased and updated refs/heads/feature/bao-cao.
+* bae4ef2 Báo cáo bước 2
+* 2f52977 Báo cáo bước 1
+* a851c86 Main 2
+* 229e756 Main 1
+* f65e664 Nền
+* abe34ca Khởi tạo</code></pre></div>
+<p>Lịch sử thẳng, hai commit báo cáo có ID mới. Xác nhận:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge-base --is-ancestor main feature/bao-cao &amp;&amp; echo &quot;main là tổ tiên&quot;
+git rev-list --count main..feature/bao-cao</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">main là tổ tiên
+2</code></pre></div>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong xung đột khi rebase, &quot;ours&quot; và &quot;theirs&quot; đảo nghĩa so với merge: HEAD là nền mới, còn commit của bạn là phía được áp vào. Đọc kỹ nhãn dưới dấu <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> để biết đâu là thay đổi của mình.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Rebase nhánh chung rồi <code>git push --force</code>.</strong> Đồng nghiệp mất commit hoặc gặp lịch sử lệch. Dùng <code>--force-with-lease</code>, và thống nhất trước với người dùng chung nhánh.</p>
+<p><strong>Rebase lên main local cũ.</strong> Quên cập nhật main nên rebase xong vẫn lệch remote. Fetch hoặc pull main trước, hoặc rebase thẳng lên <code>origin/main</code>.</p>
+<p><strong>Giải quyết xung đột xong quên <code>git add</code>.</strong> <code>git rebase --continue</code> từ chối vì còn tệp chưa giải quyết. <code>git status</code> liệt kê chúng.</p>
+<p><strong>Để nhánh lệch quá lâu rồi mới rebase.</strong> Xung đột lặp lại ở nhiều commit. Rebase thường xuyên; với xung đột lặp lại, có thể bật <code>rerere</code> để Git nhớ cách bạn đã giải quyết.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Lỡ tay giải quyết sai? Khi rebase còn dở, <code>git rebase --abort</code> đưa mọi thứ về như trước. Khi đã xong, commit đầu nhánh cũ vẫn nằm trong reflog của nhánh (<code>git reflog feature/bao-cao</code>).</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn có nhánh <code>test/statement-export</code> viết bộ test xuất sao kê PDF, kéo dài một tuần vì chờ API. Mỗi sáng, bạn rebase nhánh lên <code>origin/main</code> để chắc page object dùng chung không bị lệch so với thay đổi giao diện mới nhất. Xung đột mỗi lần chỉ vài dòng locator. Đến lúc mở PR, nhánh đã thẳng và sạch, reviewer chỉ thấy đúng phần test mới.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có nhánh topic với một commit riêng, main có commit mới, và bạn đang ở topic. Bạn cần đưa commit của topic lên trên main mới sao cho main là tổ tiên của topic, topic vẫn có đúng một commit riêng, working tree sạch. Câu hỏi kiến thức hỏi lệnh đưa nhánh hiện tại lên main mới.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Xem <code>git log --oneline --graph --all</code> để hình dung hai nhánh.</li>
+<li>Xác nhận bạn đang đứng đúng nhánh.</li>
+<li>Biết sẵn ba lối ra nếu gặp xung đột.</li>
+<li>Kiểm tra kết quả bằng <code>git merge-base --is-ancestor</code> và <code>git rev-list --count main..topic</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Cập nhật nhánh sống lâu theo main thường xuyên để xung đột nhỏ.</li>
+<li>Rebase áp lại commit riêng lên main mới, cho lịch sử thẳng nhưng viết lại commit.</li>
+<li>Merge main vào nhánh an toàn hơn cho nhánh chung.</li>
+<li>Xung đột khi rebase giải quyết theo từng commit với <code>--continue</code>.</li>
+<li>Đẩy nhánh đã rebase bằng <code>--force-with-lease</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open rebasing-long-lived
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/long-running-features.html" rel="prev"><small>Bài trước</small>Tính năng dài với cờ bật tắt</a><a class="next" href="../daily-workflows/sync-forks.html" rel="next"><small>Bài sau</small>Đồng bộ fork</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 11/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

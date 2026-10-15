@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Gộp commit bằng squash merge - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 9/10</span></p>
+<h1>Gộp commit bằng squash merge</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>squash-merge</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu squash merge gom thay đổi của nhiều commit thành một commit mới như thế nào.</li>
+<li>Phân biệt squash merge với merge thường về đồ thị commit và số parent.</li>
+<li>Biết <code>git merge --squash</code> dừng ở đâu và bạn phải làm gì để hoàn tất.</li>
+<li>Nắm hệ quả: nhánh nguồn không được coi là đã merge, cần xóa bằng <code>-D</code> khi chắc chắn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Nhánh tính năng thường có những commit nhỏ, lộn xộn trong lúc làm: &quot;thử&quot;, &quot;sửa lại&quot;, &quot;thêm log&quot;, &quot;bỏ log&quot;. Khi đưa vào <code>main</code>, nhiều nhóm muốn lịch sử chính chỉ có <strong>một commit gọn</strong> cho cả tính năng. Squash merge làm đúng việc đó.</p>
+<p>Khi bạn đứng trên <code>main</code> và chạy <code>git merge --squash feature</code>, Git:</p>
+<ol>
+<li>Tính toán kết quả hợp nhất giống như merge thường (fast-forward hay three-way đều được).</li>
+<li>Ghi kết quả đó vào <strong>index và working tree</strong>.</li>
+<li><strong>Dừng lại</strong>, không tạo commit, không dời HEAD, không ghi nhận merge đang diễn ra.</li>
+</ol>
+<p>Thông báo &quot;Squash commit -- not updating HEAD&quot; nói rõ điều đó. Bạn xem lại bằng <code>git status</code> và <code>git diff --staged</code>, rồi tự <code>git commit</code> với thông điệp mô tả toàn bộ tính năng. Git chuẩn bị sẵn thông điệp gợi ý (liệt kê các commit được gom) trong tệp <code>.git/SQUASH_MSG</code> và dùng nó nếu bạn commit mà không có <code>-m</code>.</p>
+<p>Commit tạo ra là một <strong>commit thường với một parent</strong> (đầu <code>main</code> cũ). Nó không có parent trỏ sang nhánh <code>feature</code>. Với đồ thị commit, <code>main</code> và <code>feature</code> vẫn là hai nhánh tách rời; chỉ có nội dung là đã giống nhau. Hệ quả:</p>
+<ul>
+<li><code>git branch --merged</code> không liệt kê <code>feature</code>, và <code>git branch -d feature</code> từ chối. Bạn cần <code>-D</code> khi chắc chắn nội dung đã vào <code>main</code>.</li>
+<li>Nếu tiếp tục commit trên <code>feature</code> rồi squash lần nữa, Git không biết phần nào đã được gộp trước đó, dễ sinh conflict. Squash merge hợp với nhánh dùng một lần rồi bỏ.</li>
+<li>Commit nhỏ trên <code>feature</code> không xuất hiện trong lịch sử <code>main</code>, nên <code>git bisect</code> trên <code>main</code> chỉ khoanh được tới mức &quot;cả tính năng&quot;.</li>
+</ul>
+<p>Nhiều dịch vụ hosting có nút &quot;Squash and merge&quot; cho pull request; về bản chất, kết quả trên nhánh đích giống lệnh này.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch feature
+  checkout feature
+  commit id: &quot;A&quot;
+  commit id: &quot;B&quot;
+  checkout main
+  commit id: &quot;Gộp tính năng&quot; type: HIGHLIGHT</pre>
+<p>Trong hình, &quot;Gộp tính năng&quot; chứa nội dung của A và B nhưng chỉ có một parent là &quot;Khởi tạo&quot;; không có đường nối nào từ <code>feature</code> về <code>main</code>.</p>
+<pre class="mermaid">flowchart LR
+  F[&quot;Nhiều commit trên feature&quot;] --&gt;|&quot;git merge --squash&quot;| I[&quot;Index chứa kết quả gộp&quot;]
+  I --&gt;|&quot;git commit&quot;| C[&quot;Một commit mới, một parent&quot;]
+  F -.-&gt;|&quot;không có liên kết parent&quot;| C</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge --squash &lt;nhánh&gt;   # đưa kết quả gộp vào index, chưa commit
+git status -s                # xem tệp đã được stage
+git diff --staged            # đọc lại toàn bộ thay đổi sẽ commit
+git commit -m &quot;Thông điệp&quot;   # tạo commit gộp
+git commit                   # mở editor với thông điệp gợi ý từ SQUASH_MSG
+git reset --merge            # bỏ kết quả squash chưa commit (hoặc git reset --hard nếu chắc)
+git branch -D &lt;nhánh&gt;        # xóa nhánh nguồn khi chắc nội dung đã vào đích</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>So sánh</th>
+<th>Merge thường</th>
+<th>Squash merge</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Số commit mới trên đích</td>
+<td>1 merge commit (hoặc 0 nếu fast-forward)</td>
+<td>1 commit thường</td>
+</tr>
+<tr>
+<td>Số parent</td>
+<td>2</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Commit nhỏ của nhánh nguồn</td>
+<td>Có trong lịch sử đích</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>branch --merged</code> nhận ra</td>
+<td>Có</td>
+<td>Không</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p><code>feature</code> có hai commit A và B, đang đứng trên <code>main</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge --squash feature
+git status -s
+git log --oneline -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updating 7e1e491..bc5b08a
+Fast-forward
+Squash commit -- not updating HEAD
+ a.txt | 1 +
+ b.txt | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 a.txt
+ create mode 100644 b.txt
+A  a.txt
+A  b.txt
+7e1e491 Khởi tạo</code></pre></div>
+<p>Dù kết quả gộp là dạng fast-forward, HEAD vẫn đứng yên ở &quot;Khởi tạo&quot;; hai tệp chỉ mới được stage. Commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Gộp tính năng&quot;
+git log --oneline --graph --all
+git rev-list --count HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 196a2f3] Gộp tính năng
+ 2 files changed, 2 insertions(+)
+ create mode 100644 a.txt
+ create mode 100644 b.txt
+* bc5b08a B
+* 21acc86 A
+| * 196a2f3 Gộp tính năng
+|/  
+* 7e1e491 Khởi tạo
+2</code></pre></div>
+<p><code>main</code> chỉ tiến một commit. Xem commit đó chỉ có một parent, và Git không coi <code>feature</code> là đã merge:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p HEAD
+git branch -d feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">tree 14c955abd41f041f3d0501d7858255f5a992abb6
+parent 7e1e491ae5af23906ccbcf043cfcefd6ea76b59f
+author Duy Van &lt;duy@example.invalid&gt; 1792029600 +0700
+committer Duy Van &lt;duy@example.invalid&gt; 1792029600 +0700
+
+Gộp tính năng
+error: the branch &#39;feature&#39; is not fully merged
+hint: If you are sure you want to delete it, run &#39;git branch -D feature&#39;
+hint: Disable this message with &quot;git config advice.forceDeleteBranch false&quot;</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên commit sau <code>--squash</code>.</strong> Thay đổi nằm ở index, <code>git log</code> chưa có gì. Nhiều người chuyển nhánh hoặc chạy lệnh khác rồi bối rối. Luôn kết thúc bằng <code>git commit</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Vì squash không ghi trạng thái &quot;đang merge&quot;, lệnh <code>git merge --abort</code> không áp dụng ở đây. Muốn bỏ, dùng <code>git reset --merge</code> hoặc khôi phục index và working tree về HEAD.</p>
+</aside>
+<p><strong>Tiếp tục làm trên nhánh đã squash.</strong> Lần squash sau dễ conflict vì Git không biết phần nào đã vào đích. Tạo nhánh mới từ <code>main</code> cho việc tiếp theo.</p>
+<p><strong>Xóa nhánh bằng <code>-D</code> quá sớm.</strong> Trước khi xóa, đối chiếu nội dung bằng <code>git diff main feature</code> (khi <code>main</code> chưa có thay đổi khác) để chắc không bỏ sót.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Squash làm mất chi tiết lịch sử nhỏ trên nhánh đích. Nếu các commit nhỏ có giá trị (mỗi commit là một bước có ý nghĩa), merge thường hoặc rebase sẽ hợp hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhánh test cho tính năng mở thẻ tín dụng có mười hai commit, phần lớn là chỉnh selector và thử lại. Nhóm quy định dùng squash merge cho nhánh test, nên lịch sử <code>main</code> chỉ có một commit &quot;test(the-tin-dung): bổ sung bộ test mở thẻ&quot;. Khi cần revert, chỉ một commit phải xử lý.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có nhánh tính năng với hai commit, và bạn đang ở nhánh chính. Mục tiêu là nhánh chính chỉ tiến thêm đúng một commit chứa nội dung của cả hai, nhánh tính năng không trở thành tổ tiên, và working tree sạch. Câu hỏi hỏi về tùy chọn chuẩn bị nội dung gộp mà chưa commit. Hãy:</p>
+<ul>
+<li>Nhớ quy trình hai bước: chuẩn bị kết quả gộp, rồi tự commit.</li>
+<li>Kiểm tra bằng <code>git status -s</code> giữa hai bước.</li>
+<li>Đếm commit bằng <code>git rev-list --count HEAD</code> sau khi xong.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git merge --squash</code> ghi kết quả gộp vào index và working tree rồi dừng.</li>
+<li>Bạn tự <code>git commit</code>; commit đó có một parent, không nối về nhánh nguồn.</li>
+<li>Lịch sử đích gọn, nhưng mất chi tiết commit nhỏ.</li>
+<li>Nhánh nguồn không được coi là merged; xóa bằng <code>-D</code> khi chắc chắn.</li>
+<li>Hợp với nhánh dùng một lần; không nên tiếp tục làm trên nhánh đã squash.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open squash-merge
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/upstream-tracking.html" rel="prev"><small>Bài trước</small>Nhánh upstream</a><a class="next" href="../branching/resolving-conflicts.html" rel="next"><small>Bài sau</small>Giải quyết xung đột merge</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 9/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Chiến lược merge - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 2/10</span></p>
+<h1>Chiến lược merge</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>merge-strategies</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Phân biệt fast-forward merge với three-way merge và biết khi nào mỗi kiểu xảy ra.</li>
+<li>Đọc được merge commit: nó có mấy parent và chúng là gì.</li>
+<li>Chủ động chọn hành vi bằng <code>--ff-only</code> hoặc <code>--no-ff</code>.</li>
+<li>Biết <code>ort</code> là chiến lược merge mặc định trong Git hiện đại.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Merge là cách đưa công việc của một nhánh vào nhánh hiện tại. Bạn đứng trên nhánh đích (thường là <code>main</code>) và chạy <code>git merge &lt;nhánh-nguồn&gt;</code>. Tùy vào hình dạng lịch sử, Git làm một trong hai việc.</p>
+<p><strong>Fast-forward.</strong> Nếu nhánh hiện tại chưa có commit nào mới kể từ khi nhánh nguồn tách ra, tức là đầu nhánh hiện tại là tổ tiên của nhánh nguồn, thì không có gì để &quot;ghép&quot; cả. Git chỉ việc dời ref của nhánh hiện tại tiến lên đầu nhánh nguồn. Không có commit mới nào được tạo. Lịch sử vẫn là một đường thẳng.</p>
+<p><strong>Three-way merge.</strong> Nếu cả hai nhánh đều có commit riêng sau điểm tách (đã phân kỳ), Git không thể chỉ dời ref. Nó tìm <strong>merge base</strong> (tổ tiên chung gần nhất), so sánh base với đầu mỗi nhánh để biết mỗi bên đã đổi gì, rồi ghép hai bộ thay đổi. Kết quả là một <strong>merge commit</strong> mới với hai parent: parent thứ nhất là đầu nhánh hiện tại trước merge, parent thứ hai là đầu nhánh được merge vào. Gọi là &quot;ba phía&quot; vì cần ba snapshot: base, ours, theirs.</p>
+<p>Nếu hai bên sửa cùng một vùng theo cách khác nhau, Git dừng lại và báo conflict (bài cuối track này).</p>
+<p>Chiến lược mặc định từ Git 2.34 là <strong>ort</strong>, bạn sẽ thấy dòng &quot;Merge made by the &#39;ort&#39; strategy.&quot; Trước đó là <code>recursive</code>. Bạn hiếm khi cần đổi chiến lược; việc thường gặp hơn là chọn có cho phép fast-forward hay không:</p>
+<ul>
+<li><code>--ff-only</code>: chỉ merge nếu fast-forward được, ngược lại từ chối. An toàn khi bạn chỉ muốn cập nhật nhánh mà không tạo merge commit.</li>
+<li><code>--no-ff</code>: luôn tạo merge commit kể cả khi fast-forward được. Nhiều nhóm dùng để giữ dấu vết &quot;nhánh tính năng này được merge lúc nào&quot;.</li>
+</ul>
+<p>Merge commit cũng có thể có nhiều hơn hai parent (octopus merge), sẽ gặp ở track nâng cao.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch feature
+  checkout feature
+  commit id: &quot;Thêm tính năng&quot;
+  checkout main
+  commit id: &quot;Cập nhật nhánh chính&quot;
+  merge feature id: &quot;Merge commit&quot;</pre>
+<pre class="mermaid">flowchart TD
+  Q{&quot;Đầu nhánh hiện tại là tổ tiên của nhánh nguồn?&quot;} --&gt;|&quot;Có&quot;| FF[&quot;Fast-forward: dời ref, không commit mới&quot;]
+  Q --&gt;|&quot;Không, đã phân kỳ&quot;| TW[&quot;Three-way: tạo merge commit hai parent&quot;]
+  FF --&gt;|&quot;với --no-ff&quot;| TW
+  TW --&gt;|&quot;với --ff-only&quot;| X[&quot;Từ chối merge&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge &lt;nhánh&gt;                 # merge nhánh vào nhánh hiện tại
+git merge --ff-only &lt;nhánh&gt;       # chỉ chấp nhận fast-forward
+git merge --no-ff &lt;nhánh&gt;         # luôn tạo merge commit
+git merge -m &quot;Thông điệp&quot; &lt;nhánh&gt; # đặt thông điệp merge, không mở editor
+git merge --abort                 # hủy merge đang dở (khi có conflict)
+git log --oneline --graph         # xem hình dạng lịch sử
+git log -1 --format=&quot;%P&quot;          # in các parent của commit
+git rev-list --parents -n 1 HEAD  # commit kèm danh sách parent</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Khi fast-forward được</th>
+<th>Khi đã phân kỳ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>(mặc định)</td>
+<td>Fast-forward</td>
+<td>Merge commit</td>
+</tr>
+<tr>
+<td><code>--ff-only</code></td>
+<td>Fast-forward</td>
+<td>Từ chối</td>
+</tr>
+<tr>
+<td><code>--no-ff</code></td>
+<td>Merge commit</td>
+<td>Merge commit</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh <code>feature</code> có một commit, <code>main</code> chưa đổi gì. Merge:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge feature
+git log --oneline --graph</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updating 7e1e491..2288205
+Fast-forward
+ feature.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature.txt
+* 2288205 Thêm tính năng
+* 7e1e491 Khởi tạo</code></pre></div>
+<p>Lịch sử thẳng, không có commit merge. Giờ quay lại trước merge, thêm một commit trên <code>main</code> để hai nhánh phân kỳ, và thử <code>--ff-only</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge --ff-only feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: Not possible to fast-forward, aborting.</code></pre></div>
+<p>(Trước dòng <code>fatal</code>, Git 2.47 in thêm vài dòng <code>hint:</code> gợi ý dùng <code>--no-ff</code> hoặc rebase.) Merge bình thường:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge -m &quot;Merge branch feature&quot; feature
+git log --oneline --graph
+git log -1 --format=&quot;%P&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Merge made by the &#39;ort&#39; strategy.
+ feature.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature.txt
+*   9759895 Merge branch feature
+|\  
+| * 2288205 Thêm tính năng
+* | 8b8ff70 Cập nhật nhánh chính
+|/  
+* 7e1e491 Khởi tạo
+8b8ff70f94b1cad72147e479872f366c4a8c601a 228820571b486ccc7c8556dc5720721ffac97d1b</code></pre></div>
+<p><code>%P</code> in ra danh sách parent: đầu <code>main</code> cũ trước, đầu <code>feature</code> sau. Nếu bạn bỏ <code>-m</code>, Git mở editor với thông điệp mặc định <code>Merge branch &#39;feature&#39;</code>; lưu và đóng editor để hoàn tất.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Merge ngược chiều.</strong> Đứng trên <code>feature</code> rồi <code>git merge main</code> sẽ đưa <code>main</code> vào <code>feature</code>, không phải điều bạn muốn khi định &quot;đưa tính năng vào main&quot;. Luôn kiểm tra nhánh hiện tại trước.</p>
+<p><strong>Kẹt trong editor.</strong> Merge không có <code>-m</code> mở editor mặc định (thường là Vim). Nếu chưa quen, đặt <code>core.editor</code> sang editor bạn biết, hoặc truyền <code>-m</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt <code>git config --global merge.ff only</code> nếu bạn muốn mọi <code>git merge</code> không có cờ chỉ chấp nhận fast-forward. Khi cần merge commit, bạn chủ động thêm <code>--no-ff</code>.</p>
+</aside>
+<p><strong>Merge khi working tree bẩn.</strong> Git có thể từ chối nếu thay đổi chưa commit đụng vào tệp sắp được merge. Commit hoặc stash trước.</p>
+<p><strong>Tưởng fast-forward làm mất lịch sử.</strong> Không có gì mất cả; commit của nhánh nguồn vẫn ở nguyên. Chỉ là không có merge commit đánh dấu thời điểm merge.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm bạn quy định: nhánh test tự động được merge vào <code>main</code> bằng <code>--no-ff</code> để mỗi bộ test mới có một merge commit, dễ revert cả cụm nếu bộ test gây nhiễu pipeline. Còn khi cập nhật nhánh local từ remote, bạn dùng <code>--ff-only</code> để chắc rằng mình không vô tình tạo merge commit thừa.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có hai nhánh đã phân kỳ, mỗi bên một commit riêng, và bạn đang đứng trên nhánh đích. Bạn cần hợp nhất nhánh kia vào sao cho giữ thay đổi của cả hai, kết quả là một commit hợp nhất và working tree sạch. Câu hỏi hỏi về số parent của loại commit đó. Hãy:</p>
+<ul>
+<li>Xem <code>git log --oneline --graph --all</code> trước để thấy hai nhánh đã phân kỳ.</li>
+<li>Nhớ rằng nếu không truyền thông điệp, editor sẽ mở ra.</li>
+<li>Sau khi xong, kiểm tra bằng <code>git log -1 --format=&quot;%P&quot;</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Fast-forward chỉ dời ref khi nhánh hiện tại là tổ tiên của nhánh nguồn.</li>
+<li>Three-way merge dùng merge base, ours, theirs và tạo merge commit.</li>
+<li>Merge commit thông thường có parent đầu là nhánh hiện tại, parent sau là nhánh được merge.</li>
+<li><code>--ff-only</code> từ chối nếu phải tạo merge commit; <code>--no-ff</code> luôn tạo.</li>
+<li>Chiến lược mặc định hiện nay là <code>ort</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open merge-strategies
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/create-and-switch.html" rel="prev"><small>Bài trước</small>Tạo và chuyển nhánh</a><a class="next" href="../branching/rebase.html" rel="next"><small>Bài sau</small>Rebase để lịch sử thẳng</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 2/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

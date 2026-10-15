@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cùng giải quyết xung đột - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 4/8</span></p>
+<h1>Cùng giải quyết xung đột</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>resolving-conflicts-team</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Xác định nhanh tệp nào đang conflict và ai đã tạo ra hai phía của nó.</li>
+<li>Đọc conflict có cả phần base để hiểu ý định của từng người.</li>
+<li>Hoàn tất merge đúng quy trình: sửa tệp, <code>git add</code>, kiểm tra, commit.</li>
+<li>Biết khi nào nên hỏi đồng nghiệp thay vì tự chọn một bên.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Conflict không phải là lỗi của Git hay của ai cả. Nó chỉ có nghĩa: hai người đã sửa cùng một vùng theo hai cách khác nhau, và Git không đủ thông tin để biết kết quả đúng. Người biết đúng là những người đã viết hai thay đổi đó.</p>
+<p>Vì vậy, giải quyết conflict trong nhóm là việc hiểu <strong>ý định</strong> của cả hai phía, chứ không chỉ chọn &quot;của mình&quot; hay &quot;của họ&quot;. Ví dụ Lan cập nhật mức phí theo biểu phí mới, còn Minh thêm điều kiện miễn phí. Cả hai thay đổi đều đúng; kết quả mong muốn rất có thể là kết hợp cả hai. Chọn một bên sẽ làm mất công việc và ý định của người kia.</p>
+<p>Quy trình gọn:</p>
+<ol>
+<li><strong>Nhận diện</strong>: <code>git status</code> hoặc <code>git diff --name-only --diff-filter=U</code> liệt kê tệp còn conflict.</li>
+<li><strong>Tìm người liên quan</strong>: <code>git log --merge</code> chỉ liệt kê các commit chạm vào tệp đang conflict, từ cả hai phía. Bạn biết cần hỏi ai.</li>
+<li><strong>Hiểu ý định</strong>: xem conflict ở kiểu <code>diff3</code> để thấy cả bản gốc. Đọc message của hai commit.</li>
+<li><strong>Sửa tệp</strong>: viết nội dung cuối, bỏ hết marker.</li>
+<li><strong>Đánh dấu đã giải quyết</strong>: <code>git add &lt;tệp&gt;</code>. Lệnh này gộp các stage conflict trong index thành một entry bình thường.</li>
+<li><strong>Kiểm tra</strong>: chạy test, xem lại <code>git diff --cached</code>.</li>
+<li><strong>Hoàn tất</strong>: <code>git commit</code>, ghi rõ trong message bạn đã giải quyết thế nào, và ai đã xác nhận.</li>
+</ol>
+<p>Nếu chưa thể quyết định (cần chờ người kia), <code>git merge --abort</code> đưa repository về trạng thái trước khi merge, không mất gì.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  A[&quot;git merge lan: CONFLICT&quot;] --&gt; B[&quot;git status: tệp nào&quot;]
+  B --&gt; C[&quot;git log --merge: commit của ai&quot;]
+  C --&gt; D{&quot;Hiểu ý định cả hai?&quot;}
+  D --&gt;|&quot;chưa&quot;| E[&quot;Hỏi người viết hoặc git merge --abort&quot;]
+  D --&gt;|&quot;rồi&quot;| F[&quot;Sửa tệp, bỏ marker&quot;]
+  F --&gt; G[&quot;git add tệp&quot;]
+  G --&gt; H[&quot;Chạy test&quot;]
+  H --&gt; I[&quot;git commit&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tệp còn conflict
+git status --short
+git diff --name-only --diff-filter=U
+
+# Commit hai phía chạm vào tệp conflict
+git log --merge --oneline
+
+# Viết lại marker có phần base
+git checkout --conflict=diff3 phi.txt
+
+# Diff trong lúc merge (combined diff)
+git diff
+
+# Đánh dấu đã giải quyết, rồi hoàn tất
+git add phi.txt
+git commit
+
+# Hủy merge, quay về trước khi merge
+git merge --abort</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p><code>phi.txt</code> có dòng &quot;phí liên ngân hàng: 3300&quot;. Trên nhánh <code>lan</code>, Lan đổi thành 5500. Trên main, Minh thêm &quot;(miễn phí dưới 500k)&quot;. Merge (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge lan
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Auto-merging phi.txt
+CONFLICT (content): Merge conflict in phi.txt
+Automatic merge failed; fix conflicts and then commit the result.
+UU phi.txt</code></pre></div>
+<p><code>UU</code> nghĩa là cả hai phía đều sửa. Ai đã sửa?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --merge --oneline --format=&quot;%h %an %s&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">4876428 Minh Minh thêm điều kiện miễn phí
+40f33e9 Lan Lan cập nhật phí theo biểu mới</code></pre></div>
+<p>Xem conflict có phần base:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git checkout --conflict=diff3 phi.txt
+cat phi.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Recreated 1 merge conflict
+phí nội bộ: 0
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; ours
+phí liên ngân hàng: 3300 (miễn phí dưới 500k)
+||||||| base
+phí liên ngân hàng: 3300
+=======
+phí liên ngân hàng: 5500
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs</code></pre></div>
+<p>So với base, Minh thêm điều kiện, Lan đổi con số. Sau khi nhắn hỏi và cả hai xác nhận, bạn viết dòng kết hợp &quot;phí liên ngân hàng: 5500 (miễn phí dưới 500k)&quot;. Combined diff cho thấy kết quả so với từng phía:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">diff --cc phi.txt
+index 57a5d53,7d29962..0000000
+--- a/phi.txt
++++ b/phi.txt
+@@@ -1,2 -1,2 +1,2 @@@
+  phí nội bộ: 0
+- phí liên ngân hàng: 3300 (miễn phí dưới 500k)
+ -phí liên ngân hàng: 5500
+++phí liên ngân hàng: 5500 (miễn phí dưới 500k)</code></pre></div>
+<p>Hai cột dấu ở đầu dòng ứng với hai phía. <code>++</code> là dòng mới so với cả hai. Đánh dấu đã giải quyết và commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add phi.txt
+git status --short
+git commit --no-edit
+git log --oneline --graph</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">M  phi.txt
+[main 0f31ea9] Merge branch &#39;lan&#39;
+*   0f31ea9 Merge branch &#39;lan&#39;
+|\  
+| * 40f33e9 Lan cập nhật phí theo biểu mới
+* | 4876428 Minh thêm điều kiện miễn phí
+|/  
+* e5914bf Bảng phí
+* 71ba08d Khởi tạo</code></pre></div>
+<p>Merge commit có hai parent, chứa thay đổi của cả hai người.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Ở ví dụ trên, <code>--no-edit</code> giữ nguyên message mặc định, kể cả các dòng <code># Conflicts:</code> mà Git gợi ý. Kiểm tra bằng <code>git log -1 --format=%B</code> sẽ thấy chúng. Trong công việc thật, hãy chạy <code>git commit</code> không kèm <code>--no-edit</code> để mở editor và ghi rõ cách giải quyết.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Chọn &quot;của mình&quot; cho nhanh.</strong> Mất thay đổi của đồng nghiệp mà họ không biết.</p>
+<p><strong>Quên một marker.</strong> Tệp còn <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> vẫn được commit nếu bạn <code>git add</code>. Tìm lại bằng <code>git diff --check</code> hoặc tìm chuỗi <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> trước khi add.</p>
+<p><strong>Commit mà không chạy test.</strong> Kết hợp hai thay đổi đúng vẫn có thể ra kết quả sai.</p>
+<p><strong>Hoảng và xóa thư mục, clone lại.</strong> Chỉ cần <code>git merge --abort</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Bật <code>git config --global merge.conflictStyle zdiff3</code> để lần conflict nào cũng có phần base, không cần chạy <code>git checkout --conflict=diff3</code>.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Hai QA cùng sửa tệp dữ liệu kiểm thử biểu phí. Khi merge bị conflict, bạn không đoán. Bạn dùng <code>git log --merge</code> để biết hai commit liên quan, nhắn cả hai người trong kênh của nhóm, chia sẻ phần conflict dạng <code>diff3</code>, và ghi tóm tắt quyết định vào message merge commit. Ai đọc lịch sử sau này cũng hiểu vì sao dòng đó có dạng như vậy.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành mở ra khi repository đang ở giữa một merge bị conflict ở một tệp lời chào. Đề yêu cầu giữ ý định của cả hai phía, bỏ marker và hoàn tất merge để có merge commit với hai parent, working tree sạch. Câu hỏi kiến thức hỏi bước Git tiếp theo ngay sau khi bạn đã sửa xong tệp conflict.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Conflict là lúc Git cần con người quyết định; người hiểu ý định là người viết.</li>
+<li><code>git status</code> và <code>git log --merge</code> cho biết tệp nào và ai liên quan.</li>
+<li><code>diff3</code> hoặc <code>zdiff3</code> cho thấy bản gốc, giúp hiểu mỗi bên đã đổi gì.</li>
+<li>Sửa tệp, <code>git add</code>, chạy test, rồi <code>git commit</code> với message rõ ràng.</li>
+<li>Chưa chắc thì <code>git merge --abort</code> và hỏi lại.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open resolving-conflicts-team
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/reviewing-branches-locally.html" rel="prev"><small>Bài trước</small>Xem nhánh người khác ở local</a><a class="next" href="../teamwork/co-authoring.html" rel="next"><small>Bài sau</small>Ghi công đồng tác giả</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 4/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

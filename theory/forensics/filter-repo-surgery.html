@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Xử lý lịch sử lộ bí mật mô phỏng - Điều tra lịch sử - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Điều tra lịch sử</span><span class="badge" title="Vị trí bài trong track">Bài 8/8</span></p>
+<h1>Xử lý lịch sử lộ bí mật mô phỏng</h1>
+<p class="meta">Track: Điều tra lịch sử &middot; Mã bài: <code>filter-repo-surgery</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Biết thứ tự ưu tiên khi secret thật bị lộ: vô hiệu hóa secret trước, dọn lịch sử sau.</li>
+<li>Hiểu vì sao viết lại lịch sử đổi object ID của commit bị ảnh hưởng và mọi commit sau nó.</li>
+<li>Thấy tận mắt (trên repository nháp) rằng bản sao cũ, ref dự phòng và reflog vẫn giữ secret sau khi viết lại.</li>
+<li>Nắm các bước phối hợp với nhóm: force-push, yêu cầu clone lại, dọn ở phía hosting.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Bài này là mô phỏng. Ứng dụng luyện tập không chạy công cụ viết lại lịch sử trên repository bài tập, và câu hỏi chỉ kiểm tra kiến thức. Phần thử nghiệm dưới đây được mình chạy trên một bản clone nháp trong thư mục tạm bằng <code>git filter-branch</code> có sẵn trong Git. Công cụ <code>git filter-repo</code> được nhắc tới là công cụ riêng, phải cài thêm, và mình không chạy nó trong bài.</p>
+</aside>
+<p>Khi phát hiện một secret thật (token, mật khẩu, khóa API) đã bị commit và push, hãy nhớ: <strong>dọn lịch sử không làm secret hết lộ</strong>. Từ lúc commit lên remote, bất kỳ ai đã clone, fork, hoặc hệ thống CI nào đã fetch đều có thể đang giữ nó. Vì vậy thứ tự đúng là:</p>
+<ol>
+<li><strong>Vô hiệu hóa secret ngay</strong>: thu hồi (revoke) hoặc xoay vòng (rotate) ở hệ thống cấp phát. Đây là bước duy nhất thật sự chặn được việc lạm dụng. Làm trước mọi thứ khác.</li>
+<li><strong>Điều tra</strong>: commit nào thêm, phạm vi nhánh, tag, thời gian phơi nhiễm (bài trước). Kiểm tra log truy cập của hệ thống liên quan.</li>
+<li><strong>Báo cáo</strong> theo quy trình sự cố của tổ chức.</li>
+<li><strong>Quyết định có viết lại lịch sử không</strong>. Secret đã bị thu hồi thì không còn giá trị; nhiều nhóm vẫn dọn lịch sử để tránh công cụ quét báo động mãi, hoặc vì quy định. Nhưng đây là bước dọn dẹp, không phải bước bảo vệ.</li>
+<li><strong>Nếu viết lại</strong>: phối hợp cả nhóm, vì mọi người phải bỏ bản clone cũ.</li>
+</ol>
+<p>Viết lại lịch sử nghĩa là tạo commit mới với nội dung đã loại secret. Vì object ID được tính từ nội dung, và mỗi commit chứa ID của parent, nên commit đầu tiên bị sửa đổi ID, kéo theo <strong>mọi commit sau nó</strong> đổi ID. Các commit trước đó giữ nguyên.</p>
+<p>Công cụ thường dùng:</p>
+<ul>
+<li><code>git filter-repo</code> (công cụ riêng, được khuyến nghị bởi chính tài liệu Git): nhanh, an toàn hơn, có tùy chọn như <code>--replace-text</code> để thay chuỗi và <code>--invert-paths --path &lt;tệp&gt;</code> để loại bỏ một tệp khỏi toàn bộ lịch sử.</li>
+<li><code>git filter-branch</code> (có sẵn trong Git): chậm, nhiều bẫy, Git in cảnh báo khuyên dùng công cụ khác. Mình chỉ dùng nó ở đây vì có sẵn để minh họa trên bản nháp.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  P[&quot;Phát hiện token thật bị lộ&quot;] --&gt; R[&quot;Thu hồi, xoay vòng token&quot;]
+  R --&gt; I[&quot;Điều tra phạm vi, ghi lại&quot;]
+  I --&gt; Q{&quot;Có viết lại lịch sử?&quot;}
+  Q --&gt;|&quot;có&quot;| F[&quot;Viết lại trên bản clone mới&quot;]
+  F --&gt; FP[&quot;Force-push, báo cả nhóm&quot;]
+  FP --&gt; CL[&quot;Mọi người clone lại&quot;]
+  Q --&gt;|&quot;không&quot;| D[&quot;Ghi chú sự cố, đóng ticket&quot;]</pre>
+<pre class="mermaid">flowchart LR
+  subgraph &quot;Trước&quot;
+    A1[&quot;009abe1&quot;] --&gt; A2[&quot;a29f00a: thêm khóa&quot;] --&gt; A3[&quot;f044cf7&quot;] --&gt; A4[&quot;240ca07&quot;]
+  end
+  subgraph &quot;Sau khi viết lại&quot;
+    B1[&quot;009abe1: giữ nguyên&quot;] --&gt; B2[&quot;0f77b56&quot;] --&gt; B3[&quot;139b2b3&quot;] --&gt; B4[&quot;30195ff&quot;]
+  end</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Thử nghiệm trên bản clone nháp, không trên repository làm việc
+git clone &lt;đường-dẫn&gt; /tmp/ban-nhap
+
+# Minh họa bằng công cụ có sẵn (chậm, chỉ để học)
+git filter-branch --prune-empty --tree-filter &quot;&lt;lệnh sửa tệp&gt;&quot; main
+
+# Dọn ref dự phòng và reflog để object cũ có thể bị xóa
+git update-ref -d refs/original/refs/heads/main
+git reflog expire --expire=now --all
+git gc --prune=now
+
+# Tham khảo cú pháp git filter-repo (không chạy trong bài)
+git filter-repo --replace-text bieu-thuc.txt
+git filter-repo --invert-paths --path cau-hinh.txt</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Toàn bộ phần này chạy trên bản clone nháp trong thư mục tạm của repository dịch vụ tính phí, đã gỡ remote để không thể vô tình push. Khóa mẫu <code>API_KEY_DEMO</code> không có giá trị thật. (ID trên máy bạn sẽ khác.)</p>
+<p>Viết lại main, xóa dòng chứa khóa ở mọi commit, bỏ commit trở nên rỗng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --prune-empty \
+  --tree-filter &quot;sed -i &#39;/API_KEY_DEMO/d&#39; cau-hinh.txt 2&gt;/dev/null || true&quot; main
+git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Ref &#39;refs/heads/main&#39; was rewritten
+30195ff Thêm liên hệ
+4d6b0c5 Thêm phí quốc tế
+3503a61 Chuẩn hóa khoảng trắng
+e8f45a9 Làm gọn biểu phí
+139b2b3 Cập nhật README
+0f77b56 Thêm cấu hình môi trường
+009abe1 Thêm script tính phí
+dd02f86 Thêm biểu phí
+cb90130 Khởi tạo dự án</code></pre></div>
+<p>(Các dòng tiến trình &quot;Rewrite ...&quot; đã được lược bớt.) So với trước: ba commit đầu giữ nguyên ID; từ &quot;Thêm cấu hình môi trường&quot; trở đi, mọi ID đều mới. Commit &quot;Bỏ khóa khỏi cấu hình&quot; biến mất vì không còn gì để bỏ.</p>
+<p>Nhưng secret đã hết chưa?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --all --oneline -S API_KEY_DEMO
+git for-each-ref</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7144980 Bỏ khóa khỏi cấu hình
+a29f00a Thêm cấu hình môi trường
+30195ff6c6bda979c8eb2cb598d40554afe6bda2 commit	refs/heads/main
+240ca079f2fc1cb27642043c773cd22f7ffe434e commit	refs/original/refs/heads/main</code></pre></div>
+<p>Vẫn còn: <code>filter-branch</code> giữ bản cũ dưới <code>refs/original/</code>. Xóa ref đó, object cũ vẫn sống nhờ reflog:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git update-ref -d refs/original/refs/heads/main
+git log --all --oneline -S API_KEY_DEMO
+git cat-file -t a29f00a</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit</code></pre></div>
+<p>Chỉ sau khi cho reflog hết hạn và gc mới thật sự mất:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog expire --expire=now --all
+git gc -q --prune=now
+git cat-file -t a29f00a</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: Not a valid object name a29f00a</code></pre></div>
+<p>Còn repository gốc (đóng vai một bản clone khác của đồng nghiệp) thì không hề thay đổi:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -C ../r log --oneline -S API_KEY_DEMO</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7144980 Bỏ khóa khỏi cấu hình
+a29f00a Thêm cấu hình môi trường</code></pre></div>
+<p>Đây chính là lý do bước đầu tiên luôn là vô hiệu hóa secret: bạn không thể dọn được các bản sao nằm ngoài máy mình.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Sau khi viết lại, đẩy lên remote cần force-push, ghi đè lịch sử của mọi người. Phải thông báo trước, yêu cầu mọi người push công việc dở, rồi sau khi force-push thì clone lại (không pull vào bản cũ, vì merge sẽ mang commit cũ chứa secret trở lại). Nền tảng hosting có thể còn giữ bản cache, PR cũ hay fork; liên hệ bộ phận hỗ trợ của nền tảng nếu cần dọn phía đó.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Viết lại lịch sử trước, thu hồi secret sau.</strong> Trong lúc bạn loay hoay, secret vẫn dùng được.</p>
+<p><strong>Nghĩ xóa ở HEAD là đủ.</strong> Bài trước đã cho thấy lịch sử vẫn giữ.</p>
+<p><strong>Viết lại mà không báo nhóm.</strong> Đồng nghiệp pull, merge, và đưa commit cũ quay lại.</p>
+<p><strong>Quên ref dự phòng và reflog trên chính máy mình.</strong> Object cũ vẫn còn, công cụ quét vẫn tìm thấy.</p>
+<p><strong>Chạy thử trên repository làm việc.</strong> Luôn thử trên bản clone nháp trước.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Một token thử nghiệm của cổng thanh toán đối tác (môi trường sandbox) bị đẩy lên repository test của nhóm. Bạn báo ngay cho người quản lý tích hợp để thu hồi token, xác nhận token mới đã được cấp qua kênh quản lý secret. Sau đó nhóm họp, thống nhất viết lại lịch sử vào cuối ngày, thông báo trước hai giờ, force-push, và mọi người clone lại. Biên bản sự cố ghi rõ: thời điểm lộ, thời điểm thu hồi, các commit ID cũ và mới.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi, không có thao tác viết lại lịch sử trong ứng dụng. Câu hỏi đặt tình huống bạn vừa phát hiện một token thật bị lộ, và hỏi hành động khẩn cấp cần làm trước tiên. Ôn lại thứ tự ưu tiên ở phần Khái niệm và lý do của nó.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Secret thật bị lộ: vô hiệu hóa ngay, trước mọi bước dọn dẹp.</li>
+<li>Viết lại lịch sử đổi ID của commit bị sửa và mọi commit sau nó.</li>
+<li>Ref dự phòng, reflog và mọi bản clone khác vẫn giữ secret cho tới khi được dọn.</li>
+<li>Viết lại cần force-push, báo trước và yêu cầu cả nhóm clone lại.</li>
+<li><code>git filter-repo</code> là công cụ được khuyến nghị; <code>filter-branch</code> chỉ dùng minh họa trên bản nháp.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start forensics</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open filter-repo-surgery
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../forensics/finding-leaked-secrets.html" rel="prev"><small>Bài trước</small>Tìm lần lộ bí mật</a><span class="next off"><small>Bài sau</small>Không có</span></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Điều tra lịch sử, bài 8/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

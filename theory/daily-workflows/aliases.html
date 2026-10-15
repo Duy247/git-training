@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Alias tiết kiệm thao tác - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 3/12</span></p>
+<h1>Alias tiết kiệm thao tác</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>aliases</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu alias trong Git là một khóa cấu hình nằm dưới nhóm <code>alias</code>.</li>
+<li>Tạo alias ở phạm vi repository, người dùng, và biết phạm vi nào được ưu tiên.</li>
+<li>Viết alias gọi lệnh Git có tham số, và alias gọi lệnh shell bằng dấu chấm than.</li>
+<li>Kiểm tra, liệt kê và gỡ alias khi không cần.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Mỗi ngày bạn gõ <code>git status</code>, <code>git log --oneline --graph</code>, <code>git switch</code> hàng chục lần. Alias cho phép đặt tên ngắn cho các lệnh đó. Gõ <code>git st</code> thay cho <code>git status --short</code> nghe có vẻ nhỏ, nhưng cộng lại cả năm là đáng kể, và quan trọng hơn: alias giúp bạn gõ đúng cùng một tổ hợp tùy chọn mỗi lần.</p>
+<p>Về kỹ thuật, alias chỉ là một dòng cấu hình. Khóa có dạng <code>alias.&lt;tên&gt;</code>, giá trị là phần lệnh sẽ thay vào. Khi bạn gõ <code>git st</code>, Git không tìm thấy lệnh con <code>st</code>, nó tra cấu hình <code>alias.st</code>, lấy giá trị <code>status --short</code> và chạy như thể bạn đã gõ <code>git status --short</code>. Mọi đối số bạn gõ thêm sau alias được nối vào cuối.</p>
+<p>Vì là cấu hình, alias tuân theo các phạm vi cấu hình quen thuộc:</p>
+<ul>
+<li><code>--system</code>: cho mọi người dùng trên máy.</li>
+<li><code>--global</code>: cho người dùng hiện tại, lưu trong tệp cấu hình ở thư mục home.</li>
+<li><code>--local</code>: chỉ cho repository hiện tại, lưu trong <code>.git/config</code>.</li>
+</ul>
+<p>Phạm vi gần repository hơn được ưu tiên khi trùng tên. Alias local hợp để thử nghiệm hoặc cho quy ước riêng của một dự án mà không làm thay đổi môi trường cả máy. Đây cũng là cách an toàn trong ứng dụng luyện tập: bài tập chỉ đụng tới cấu hình của repository bài tập.</p>
+<p>Hai loại alias:</p>
+<ul>
+<li>Alias thường: giá trị là lệnh con Git và tùy chọn, ví dụ <code>log --oneline --graph --decorate</code>.</li>
+<li>Alias shell: giá trị bắt đầu bằng dấu chấm than, Git chạy phần còn lại bằng shell. Ví dụ <code>!git log --format=%an | sort | uniq -c</code>. Loại này mạnh nhưng phụ thuộc shell của hệ điều hành, nên cẩn thận khi chia sẻ giữa Windows và Linux.</li>
+</ul>
+<p>Một giới hạn: alias không thể ghi đè lệnh Git có sẵn. Nếu bạn đặt <code>alias.status</code>, Git vẫn chạy lệnh <code>status</code> gốc và bỏ qua alias.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;git st&quot;] --&gt; B{&quot;st có phải lệnh Git có sẵn&quot;}
+  B --&gt;|&quot;có&quot;| C[&quot;Chạy lệnh gốc&quot;]
+  B --&gt;|&quot;không&quot;| D[&quot;Tra alias.st theo thứ tự local, global, system&quot;]
+  D --&gt;|&quot;giá trị bắt đầu bằng dấu chấm than&quot;| E[&quot;Chạy bằng shell&quot;]
+  D --&gt;|&quot;giá trị thường&quot;| F[&quot;Chạy git status --short&quot;]</pre>
+<pre class="mermaid">flowchart TD
+  S[&quot;Cấu hình system&quot;] --&gt; G[&quot;Cấu hình global&quot;]
+  G --&gt; L[&quot;Cấu hình local trong .git/config&quot;]
+  L --&gt; R[&quot;Giá trị thắng khi trùng tên&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Alias chỉ cho repository hiện tại
+git config --local alias.st &quot;status --short&quot;
+
+# Alias cho mọi repository của bạn
+git config --global alias.lg &quot;log --oneline --graph --decorate&quot;
+
+# Alias shell, dùng dấu nháy đơn để shell không xử lý dấu chấm than
+git config --local alias.who &#39;!git log --format=%an | sort | uniq -c&#39;
+
+# Liệt kê alias
+git config --get-regexp &#39;^alias\.&#39;
+
+# Xem alias nằm ở tệp nào
+git config --show-origin alias.st
+
+# Hỏi Git alias đó là gì
+git help st
+
+# Gỡ alias
+git config --local --unset alias.st</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Phạm vi</th>
+<th>Tùy chọn</th>
+<th>Tệp lưu</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Hệ thống</td>
+<td><code>--system</code></td>
+<td>Tệp cấu hình chung của Git trên máy</td>
+</tr>
+<tr>
+<td>Người dùng</td>
+<td><code>--global</code></td>
+<td>Tệp cấu hình trong thư mục home</td>
+</tr>
+<tr>
+<td>Repository</td>
+<td><code>--local</code></td>
+<td><code>.git/config</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tạo hai alias local và thử:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --local alias.st &quot;status --short&quot;
+git config --local alias.lg &quot;log --oneline --graph --decorate&quot;
+echo x &gt; x.txt
+git st
+git lg</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">?? x.txt
+* 6a1df55 (HEAD -&gt; main) Khởi tạo</code></pre></div>
+<p>Liệt kê và xem nguồn gốc (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --local --get-regexp &#39;^alias\.&#39;
+git config --show-origin alias.st
+git help st</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">alias.st status --short
+alias.lg log --oneline --graph --decorate
+file:.git/config	status --short
+&#39;st&#39; is aliased to &#39;status --short&#39;</code></pre></div>
+<p>Alias shell để đếm commit theo tác giả:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --local alias.who &#39;!git log --format=%an | sort | uniq -c&#39;
+git who</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">      1 Duy</code></pre></div>
+<p>Thử ghi đè lệnh có sẵn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --local alias.status &quot;status -s&quot;
+git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">On branch main
+Untracked files:
+  (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
+	x.txt
+
+nothing added to commit but untracked files present (use &quot;git add&quot; to track)</code></pre></div>
+<p>Git vẫn chạy <code>status</code> đầy đủ; alias trùng tên lệnh gốc bị bỏ qua.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi giá trị có một tùy chọn chứa khoảng trắng, như định dạng log, hãy thêm nháy đơn bên trong. Mình thử <code>git config --local alias.last &quot;log -1 --format=%h %s&quot;</code> thì <code>git last</code> báo <code>fatal: ambiguous argument &#39;%s&#39;</code>, vì Git tách <code>%s</code> thành đối số riêng. Viết <code>git config --local alias.last &quot;log -1 --format=&#39;%h %s&#39;&quot;</code> thì <code>git last</code> in ra <code>6a1df55 Khởi tạo</code>.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên dấu nháy quanh giá trị có khoảng trắng.</strong> <code>git config alias.st status --short</code> khiến shell tách đối số; Git có thể báo lỗi hoặc ghi sai. Luôn bọc giá trị trong nháy.</p>
+<p><strong>Viết alias shell trong nháy kép trên Bash.</strong> Bash có thể diễn giải dấu chấm than theo lịch sử lệnh. Dùng nháy đơn.</p>
+<p><strong>Đặt alias global khi chỉ muốn thử.</strong> Alias đi theo mọi repository của bạn. Thử ở <code>--local</code> trước, hài lòng rồi mới chuyển global.</p>
+<p><strong>Alias đặt trùng tên lệnh có sẵn.</strong> Không có tác dụng. Chọn tên khác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Alias là cấu hình cá nhân. Đừng viết tài liệu hay script cho nhóm dựa trên alias của riêng bạn; người khác không có chúng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trong repository test tự động, bạn thường xuyên cần xem commit nào chạm tới thư mục test của một module. Bạn tạo alias local <code>git config --local alias.tl &quot;log --oneline -- tests/&quot;</code> để <code>git tl</code> liệt kê ngay lịch sử thư mục test. Alias chỉ nằm trong repository đó, không ảnh hưởng các dự án khác trên máy công ty.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu tạo một alias ở phạm vi repository cho lệnh trạng thái dạng ngắn, với tên alias cho trước. Câu hỏi kiến thức hỏi khóa cấu hình nào tạo ra alias đó.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Nhớ cấu trúc khóa alias: nhóm, dấu chấm, tên.</li>
+<li>Chọn đúng phạm vi mà đề bài yêu cầu.</li>
+<li>Bọc giá trị trong dấu nháy.</li>
+<li>Kiểm tra bằng <code>git config --local --get-regexp &#39;^alias\.&#39;</code> và chạy thử alias.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Alias là khóa cấu hình <code>alias.&lt;tên&gt;</code> với giá trị là lệnh thay thế.</li>
+<li>Alias local chỉ áp dụng cho repository hiện tại, được ưu tiên khi trùng tên.</li>
+<li>Giá trị bắt đầu bằng dấu chấm than chạy bằng shell.</li>
+<li>Alias không ghi đè được lệnh Git có sẵn.</li>
+<li>Dùng <code>--get-regexp</code>, <code>--show-origin</code>, <code>git help &lt;alias&gt;</code> để kiểm tra.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open aliases
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/trunk-based.html" rel="prev"><small>Bài trước</small>Phát triển trên trunk</a><a class="next" href="../daily-workflows/maintenance.html" rel="next"><small>Bài sau</small>Bảo trì repository</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 3/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

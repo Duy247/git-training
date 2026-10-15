@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vòng đời PR mô phỏng - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 2/8</span></p>
+<h1>Vòng đời PR mô phỏng</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>pr-lifecycle</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Nắm các giai đoạn của một pull request (PR): đề xuất, review, sửa theo phản hồi, duyệt, merge, dọn dẹp.</li>
+<li>Hiểu PR là tính năng của nền tảng hosting, còn bên dưới chỉ là nhánh, push và merge của Git.</li>
+<li>Mô phỏng toàn bộ vòng đời PR hoàn toàn offline bằng một bare repository làm origin.</li>
+<li>Biết vì sao nhóm thường merge PR bằng <code>--no-ff</code> hoặc squash.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Pull request (GitLab gọi là merge request) không phải là khái niệm của Git. Đó là một trang trên nền tảng hosting như GitHub, GitLab, Bitbucket, gom lại: một nhánh nguồn, một nhánh đích, mô tả, các bình luận review, kết quả CI và nút merge. Bên dưới, mọi thứ vẫn là thao tác Git quen thuộc.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Bài này là mô phỏng. Ứng dụng luyện tập chạy offline, không có GitHub hay trang PR thật. Bạn sẽ dùng một bare repository trên máy làm origin, và một ref tùy chỉnh để đánh dấu &quot;đã được duyệt&quot; thay cho nút Approve trên web.</p>
+</aside>
+<p>Vòng đời điển hình:</p>
+<ol>
+<li><strong>Đề xuất</strong>: tạo nhánh từ main mới nhất, commit, push nhánh lên origin, mở PR với mô tả rõ mục tiêu và cách kiểm thử.</li>
+<li><strong>Review</strong>: đồng nghiệp đọc diff (thường là diff ba chấm so với nhánh đích), chạy thử, để lại nhận xét. Nhiều nhóm đặt quy tắc bảo vệ nhánh: phải có ít nhất một người duyệt và CI phải xanh trước khi merge.</li>
+<li><strong>Sửa theo phản hồi</strong>: tác giả thêm commit lên cùng nhánh rồi push. PR tự cập nhật vì nó trỏ tới nhánh, không trỏ tới một commit cố định.</li>
+<li><strong>Duyệt</strong>: người review xác nhận. Lần duyệt gắn với trạng thái nhánh tại thời điểm đó; nếu tác giả push tiếp, nhiều nhóm yêu cầu duyệt lại.</li>
+<li><strong>Merge</strong>: nền tảng thực hiện một trong ba kiểu: merge commit (<code>--no-ff</code>), squash (gom thành một commit), hoặc rebase rồi fast-forward.</li>
+<li><strong>Dọn dẹp</strong>: xóa nhánh nguồn trên remote và local, cập nhật main local.</li>
+</ol>
+<p>Merge <code>--no-ff</code> giữ lại một merge commit đánh dấu rõ &quot;đây là lúc PR được đưa vào&quot;, kể cả khi có thể fast-forward. Lịch sử nhìn bằng <code>git log --first-parent main</code> sẽ chỉ còn các merge commit, mỗi cái tương ứng một PR.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; DeXuat: push nhánh, mở PR
+  DeXuat --&gt; Review: người review đọc diff
+  Review --&gt; SuaTheoPhanHoi: yêu cầu thay đổi
+  SuaTheoPhanHoi --&gt; Review: push commit mới
+  Review --&gt; DaDuyet: approve
+  DaDuyet --&gt; DaMerge: merge vào main
+  DaMerge --&gt; [*]: xóa nhánh nguồn</pre>
+<pre class="mermaid">sequenceDiagram
+  participant T as &quot;Tác giả&quot;
+  participant O as &quot;origin&quot;
+  participant R as &quot;Người review&quot;
+  T-&gt;&gt;O: &quot;push nhánh sua-checklist&quot;
+  R-&gt;&gt;O: &quot;fetch, đọc diff&quot;
+  R--&gt;&gt;T: &quot;nhận xét cần làm rõ&quot;
+  T-&gt;&gt;O: &quot;push commit sửa&quot;
+  R-&gt;&gt;O: &quot;duyệt&quot;
+  T-&gt;&gt;O: &quot;merge --no-ff, push main&quot;</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tạo origin offline để mô phỏng
+git init --bare -b main ../origin.git
+git remote add origin ../origin.git
+
+# Đề xuất
+git switch -c sua-checklist
+git push -u origin sua-checklist
+
+# Cập nhật PR sau phản hồi
+git push
+
+# Mô phỏng dấu &quot;đã duyệt&quot; bằng ref tùy chỉnh
+git update-ref refs/review/sua-checklist-ok sua-checklist
+
+# Merge và đẩy lên
+git switch main
+git merge --no-ff sua-checklist
+git push origin main
+
+# Dọn dẹp
+git push origin --delete sua-checklist
+git branch -d sua-checklist</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có commit &quot;Khởi tạo&quot;; origin là bare repository <code>../origin.git</code> (ID trên máy bạn sẽ khác). Đẩy main lên trước:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add origin ../origin.git
+git push -u origin main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../origin.git
+ * [new branch]      main -&gt; main
+branch &#39;main&#39; set up to track &#39;origin/main&#39;.</code></pre></div>
+<p>Đề xuất: tạo nhánh, commit &quot;Thêm checklist phí&quot;, push.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c sua-checklist
+git push -u origin sua-checklist</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;sua-checklist&#39;
+To ../origin.git
+ * [new branch]      sua-checklist -&gt; sua-checklist
+branch &#39;sua-checklist&#39; set up to track &#39;origin/sua-checklist&#39;.</code></pre></div>
+<p>Người review đề nghị ghi rõ loại phí. Tác giả commit &quot;Làm rõ checklist theo review&quot; và push; nhánh trên origin tiến lên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../origin.git
+   ae32d58..279d44d  sua-checklist -&gt; sua-checklist</code></pre></div>
+<p>Người review đồng ý. Trong bản mô phỏng, mình ghi dấu duyệt bằng một ref trỏ tới đúng commit đã được xem:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git update-ref refs/review/sua-checklist-ok sua-checklist</code></pre></div>
+<p>Merge và push:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git merge --no-ff sua-checklist -m &quot;Merge sua-checklist&quot;
+git log --oneline --graph
+git push origin main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Merge made by the &#39;ort&#39; strategy.
+ checklist.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 checklist.txt
+*   9260043 Merge sua-checklist
+|\  
+| * 279d44d Làm rõ checklist theo review
+| * ae32d58 Thêm checklist phí
+|/  
+* 732a9e7 Khởi tạo
+To ../origin.git
+   732a9e7..9260043  main -&gt; main</code></pre></div>
+<p>Dọn dẹp nhánh nguồn và kiểm tra origin:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push origin --delete sua-checklist
+git branch -d sua-checklist
+git ls-remote origin</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../origin.git
+ - [deleted]         sua-checklist
+Deleted branch sua-checklist (was 279d44d).
+9260043955507259af735bf4c35b4c7df477aac3	HEAD
+9260043955507259af735bf4c35b4c7df477aac3	refs/heads/main</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>So sánh ref duyệt với đầu nhánh trước khi merge: <code>git rev-parse refs/review/sua-checklist-ok sua-checklist</code>. Hai ID khác nhau nghĩa là có commit được push sau khi duyệt, chưa ai xem.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Merge khi chưa có review.</strong> Quy tắc nhóm yêu cầu người khác xem trước; bỏ qua là mất lớp bảo vệ quan trọng nhất.</p>
+<p><strong>Push thêm commit sau khi đã được duyệt mà không báo.</strong> Người review đã duyệt phiên bản cũ, không phải phiên bản đang được merge.</p>
+<p><strong>PR quá lớn.</strong> Diff hàng nghìn dòng khó review kỹ. Tách thành nhiều PR nhỏ theo từng mục tiêu.</p>
+<p><strong>Quên dọn nhánh.</strong> Remote đầy nhánh cũ, khó biết nhánh nào còn sống.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Trên nền tảng thật, đừng force-push lên nhánh PR khi người khác đang review mà không báo trước; bình luận gắn với commit cũ có thể bị lạc.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm kiểm thử của một ngân hàng giả định quy định: mọi thay đổi checklist kiểm thử thanh toán phải có một QA lead duyệt. Khi bạn mở PR, mô tả ghi rõ: mục tiêu, tệp đổi, cách đã kiểm tra lại. Người duyệt dùng diff ba chấm để chỉ đọc thay đổi của bạn, rồi duyệt. Merge <code>--no-ff</code> giúp sau này tra <code>git log --first-parent</code> là thấy mỗi đợt thay đổi checklist.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành là bản mô phỏng offline: repository đã có origin local và một nhánh tính năng có sẵn commit. Bạn sẽ đi qua các bước đẩy nhánh lên origin, ghi một ref đánh dấu đã duyệt dưới <code>refs/lesson/</code> trỏ tới nhánh tính năng, merge vào main sao cho có merge commit, rồi đẩy main. Đọc kỹ đề để lấy đúng tên ref; trình kiểm tra so ref duyệt với nhánh tính năng trên origin, nên đừng xóa nhánh đó trong bài. Câu hỏi kiến thức hỏi bước bắt buộc trước khi merge khi nhóm yêu cầu người khác xem mã.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>PR là tính năng của nền tảng hosting, bên dưới là nhánh, push và merge.</li>
+<li>Vòng đời: đề xuất, review, sửa theo phản hồi, duyệt, merge, dọn dẹp.</li>
+<li>Commit mới trên nhánh tự cập nhật PR; duyệt gắn với trạng thái tại thời điểm duyệt.</li>
+<li><code>--no-ff</code> giữ merge commit đánh dấu mỗi PR.</li>
+<li>Bài này mô phỏng offline bằng bare repository và ref đánh dấu duyệt.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open pr-lifecycle
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/reviewing-with-diff.html" rel="prev"><small>Bài trước</small>Review bằng diff</a><a class="next" href="../teamwork/reviewing-branches-locally.html" rel="next"><small>Bài sau</small>Xem nhánh người khác ở local</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 2/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

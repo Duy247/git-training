@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Checkout thưa - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 10/13</span></p>
+<h1>Checkout thưa</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>sparse-checkout</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu sparse checkout ẩn bớt tệp khỏi working tree nhưng không đụng tới lịch sử.</li>
+<li>Bật cone mode và chọn thư mục cần hiện bằng <code>git sparse-checkout set</code>.</li>
+<li>Kiểm tra tệp nào đang hiện, tệp nào bị ẩn, và tắt sparse khi cần.</li>
+<li>Biết sparse checkout khác partial clone ở điểm nào.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Trong repository lớn, nhất là monorepo chứa nhiều dịch vụ, bạn hiếm khi cần mọi thư mục trên đĩa. Nhóm test mobile chỉ quan tâm <code>mobile/</code> và <code>test/mobile/</code>, không cần hàng nghìn tệp của backend. Checkout toàn bộ làm chậm <code>git status</code>, làm IDE nặng và tốn chỗ.</p>
+<p>Sparse checkout cho phép bạn nói với Git: &quot;chỉ đặt lên đĩa những đường dẫn này&quot;. Các tệp khác vẫn nằm đầy đủ trong commit, trong index, trong lịch sử; Git chỉ không ghi chúng ra working tree và đánh dấu chúng là bị bỏ qua (skip-worktree). Bạn vẫn có thể <code>git show HEAD:đường/dẫn</code> để đọc, <code>git log</code> để xem lịch sử, và commit những gì mình sửa trong phần đang hiện.</p>
+<p>Có hai cách viết mẫu:</p>
+<ul>
+<li>Cone mode (mặc định từ Git 2.37 khi dùng <code>set</code>): bạn chỉ liệt kê thư mục. Git hiện mọi tệp trong thư mục đó cùng các tệp nằm trực tiếp ở gốc repository và ở các thư mục cha. Cách này nhanh và dễ hiểu, nên được khuyên dùng.</li>
+<li>Non-cone mode: dùng mẫu kiểu <code>.gitignore</code>, linh hoạt hơn nhưng chậm với repository lớn và dễ viết sai.</li>
+</ul>
+<p>Trạng thái sparse được lưu ở <code>.git/info/sparse-checkout</code> cùng các cấu hình <code>core.sparseCheckout</code> và <code>core.sparseCheckoutCone</code>. Tệp mẫu này không được commit, nên mỗi bản clone tự chọn phần mình cần.</p>
+<p>Phân biệt với partial clone: sparse checkout quyết định cái gì xuất hiện trên đĩa, còn partial clone quyết định object nào được tải về từ remote. Hai thứ thường đi chung trong monorepo, nhưng độc lập nhau. Bài sau nói về partial clone.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph H[&quot;Commit HEAD có đủ&quot;]
+    R[&quot;README.md&quot;]
+    D[&quot;docs/guide.txt&quot;]
+    S[&quot;src/app.txt&quot;]
+  end
+  subgraph W[&quot;Working tree sau set docs&quot;]
+    R2[&quot;README.md&quot;]
+    D2[&quot;docs/guide.txt&quot;]
+  end
+  R --&gt; R2
+  D --&gt; D2
+  S -.-&gt;|&quot;skip-worktree, không ghi ra đĩa&quot;| X[&quot;Ẩn&quot;]</pre>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; DayDu
+  DayDu --&gt; Thua: sparse-checkout set docs
+  Thua --&gt; Thua: sparse-checkout add src
+  Thua --&gt; DayDu: sparse-checkout disable</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Bật sparse checkout ở cone mode (cách cũ, vẫn chạy trên Git 2.47)
+git sparse-checkout init --cone
+
+# Đặt tập thư mục cần hiện (trong cone mode chỉ ghi thư mục)
+git sparse-checkout set docs
+
+# Thêm một thư mục vào tập đang có
+git sparse-checkout add src
+
+# Xem tập thư mục hiện tại
+git sparse-checkout list
+
+# Tắt, đưa mọi tệp trở lại working tree
+git sparse-checkout disable
+
+# Xem tệp nào bị ẩn: H là đang hiện, S là skip-worktree
+git ls-files -t</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh con</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>init --cone</code></td>
+<td>Bật cone mode (tài liệu Git coi là cách cũ, thay bằng <code>set</code>)</td>
+</tr>
+<tr>
+<td><code>set &lt;thư mục...&gt;</code></td>
+<td>Thay tập đường dẫn, bật sparse nếu chưa bật</td>
+</tr>
+<tr>
+<td><code>add &lt;thư mục...&gt;</code></td>
+<td>Thêm vào tập hiện có</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>In tập hiện tại</td>
+</tr>
+<tr>
+<td><code>reapply</code></td>
+<td>Áp lại mẫu sau khi có thay đổi lạ</td>
+</tr>
+<tr>
+<td><code>disable</code></td>
+<td>Tắt sparse</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có <code>README.md</code>, <code>docs/guide.txt</code> và <code>src/app.txt</code>. Bật cone mode và chỉ giữ <code>docs</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git sparse-checkout init --cone
+git sparse-checkout set docs
+ls -R</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.:
+README.md
+docs
+
+./docs:
+guide.txt</code></pre></div>
+<p><code>src</code> biến khỏi đĩa nhưng tệp gốc <code>README.md</code> vẫn còn, đúng như cone mode. Kiểm tra trạng thái:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git sparse-checkout list
+git config --get core.sparseCheckout
+git config --get core.sparseCheckoutCone
+git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">docs
+true
+true
+On branch main
+You are in a sparse checkout with 67% of tracked files present.
+
+nothing to commit, working tree clean</code></pre></div>
+<p>Index vẫn biết đủ ba tệp, chỉ đánh dấu khác nhau:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git ls-files -t
+git show HEAD:src/app.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">H README.md
+H docs/guide.txt
+S src/app.txt
+Mã nguồn</code></pre></div>
+<p>Mẫu thật Git ghi ra cho cone mode trông như sau:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat .git/info/sparse-checkout</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">/*
+!/*/
+/docs/</code></pre></div>
+<p>Nghĩa là: lấy mọi tệp ở gốc, bỏ mọi thư mục con ở gốc, rồi lấy lại <code>docs/</code>. Thêm <code>src</code> hoặc tắt hẳn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git sparse-checkout add src
+ls</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">README.md
+docs
+src</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trên Git mới, chỉ cần <code>git sparse-checkout set docs</code> là đủ, vì <code>set</code> tự bật sparse và mặc định cone mode. Bài tập vẫn dùng <code>init --cone</code> để bạn thấy rõ hai bước.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tưởng tệp bị ẩn đã bị xóa.</strong> <code>git status</code> sạch và lịch sử vẫn đủ. Đừng commit &quot;khôi phục&quot; gì cả; chỉ cần <code>add</code> thư mục hoặc <code>disable</code>.</p>
+<p><strong>Ghi tên tệp trong cone mode.</strong> Cone mode làm việc với thư mục. Muốn mẫu theo tệp, phải dùng non-cone mode, nhưng hãy cân nhắc vì chậm hơn và dễ sai.</p>
+<p><strong>Tạo tệp mới trong thư mục bị ẩn.</strong> Git có thể cảnh báo hoặc bỏ qua tệp nằm ngoài vùng sparse khi <code>git add</code>. Hãy thêm thư mục đó vào tập trước khi làm việc trong đó.</p>
+<p><strong>Nhầm sparse với giảm dung lượng tải.</strong> Sparse checkout không làm clone nhẹ hơn; mọi object vẫn được tải. Muốn tải ít hơn, kết hợp partial clone.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Tệp <code>.git/info/sparse-checkout</code> là cấu hình local của bản clone, không nằm trong lịch sử. Đồng nghiệp clone về sẽ thấy đầy đủ cho tới khi tự bật sparse.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Monorepo của dự án ví điện tử có <code>backend/</code>, <code>web/</code>, <code>mobile/</code>, <code>e2e/</code>. Bạn phụ trách test end-to-end cho web. Bạn chạy <code>git sparse-checkout set web e2e</code>, IDE mở nhanh hơn, <code>git status</code> gần như tức thì. Khi cần đọc nhanh một tệp cấu hình backend để hiểu API, bạn dùng <code>git show HEAD:backend/config/api.yaml</code> thay vì kéo cả thư mục về.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có hai thư mục <code>docs</code> và <code>src</code>. Bạn cần bật sparse checkout ở cone mode sao cho chỉ <code>docs</code> còn trên đĩa, còn tệp trong <code>src</code> vẫn tồn tại trong HEAD, và working tree sạch. Câu hỏi kiến thức hỏi lệnh dùng để đặt tập đường dẫn cần hiện trong cone mode.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Phân biệt bật sparse với chọn tập đường dẫn.</li>
+<li>Sau khi làm, kiểm tra bằng <code>ls</code>, <code>git sparse-checkout list</code> và <code>git ls-files -t</code>.</li>
+<li>Xác nhận <code>git show HEAD:src/app.txt</code> vẫn đọc được nội dung.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Sparse checkout chỉ đặt một phần tệp lên đĩa; commit, index, lịch sử vẫn đủ.</li>
+<li>Cone mode làm việc theo thư mục, nhanh và được khuyên dùng.</li>
+<li><code>set</code> thay tập đường dẫn, <code>add</code> thêm, <code>disable</code> tắt.</li>
+<li><code>git ls-files -t</code> hiện S cho tệp bị ẩn.</li>
+<li>Sparse checkout không giảm lượng dữ liệu tải; đó là việc của partial clone.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open sparse-checkout
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/git-notes.html" rel="prev"><small>Bài trước</small>Ghi chú trên commit</a><a class="next" href="../advanced/partial-clones.html" rel="next"><small>Bài sau</small>Clone thiếu blob</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 10/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stash để tạm cất - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 11/12</span></p>
+<h1>Stash để tạm cất</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>stash-as-undo</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Cất sửa đổi chưa commit để có working tree sạch, rồi lấy lại sau.</li>
+<li>Đặt tên cho stash và quản lý nhiều stash cùng lúc.</li>
+<li>Phân biệt <code>apply</code>, <code>pop</code>, <code>drop</code> và biết khi nào stash được giữ lại.</li>
+<li>Hiểu stash lưu ở đâu và nó không cất những gì theo mặc định.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn đang sửa dở thì có việc gấp: cần chuyển nhánh để chạy lại một test, hoặc cần pull bản mới. Commit nửa vời thì làm bẩn lịch sử; bỏ sửa đổi thì tiếc. <strong>Stash</strong> là chỗ cất tạm: Git gói sửa đổi chưa commit lại, đưa working tree và index về như HEAD, và cho bạn lấy chúng ra sau.</p>
+<p>Bên dưới, stash là <strong>commit thật</strong>, chỉ không nằm trên nhánh nào. Mỗi lần <code>git stash push</code>, Git tạo:</p>
+<ul>
+<li>một commit ghi lại <strong>index</strong> lúc đó (&quot;index on main: ...&quot;),</li>
+<li>một commit ghi lại <strong>working tree</strong>, có hai parent là HEAD và commit index ở trên (&quot;On main: &lt;thông điệp&gt;&quot;),</li>
+<li>và nếu dùng <code>-u</code>, thêm một commit thứ ba chứa tệp untracked.</li>
+</ul>
+<p>Ref <code>refs/stash</code> trỏ tới stash mới nhất; các stash cũ hơn được giữ trong reflog của ref đó. Vì vậy chúng có tên dạng <code>stash@{0}</code>, <code>stash@{1}</code>: chính là cú pháp reflog bạn đã gặp.</p>
+<p>Mặc định stash <strong>chỉ cất tệp đã được theo dõi</strong> (tracked), cả phần đã stage lẫn chưa stage. Tệp untracked ở lại working tree, tệp bị ignore cũng vậy. Muốn cất cả tệp untracked, thêm <code>-u</code>; muốn cất cả tệp bị ignore, dùng <code>-a</code>.</p>
+<p>Lấy lại có hai cách. <code>apply</code> áp dụng stash vào working tree và <strong>giữ</strong> stash trong danh sách. <code>pop</code> áp dụng rồi <strong>xóa</strong> stash, nhưng chỉ khi áp dụng thành công: nếu có conflict, stash được giữ lại để bạn không mất gì. <code>drop</code> xóa một stash mà không áp dụng.</p>
+<p>Mặc định, khi áp dụng, phần đã stage lúc cất sẽ trở thành sửa đổi chưa stage. Nếu muốn khôi phục cả trạng thái index, thêm <code>--index</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;d333ea9 Khởi tạo&quot;
+  branch stash-noi-bo
+  commit id: &quot;f7d4b38 index on main&quot;
+  checkout main
+  merge stash-noi-bo id: &quot;0180670 On main: Sửa README dở&quot;</pre>
+<p>Sơ đồ trên mô phỏng cấu trúc stash: <code>stash-noi-bo</code> không phải nhánh thật, chỉ để thể hiện commit index; commit stash là commit hai parent. Thật ra <code>main</code> không dời đi; <code>refs/stash</code> mới trỏ vào commit <code>0180670</code>.</p>
+<pre class="mermaid">flowchart LR
+  W[&quot;Sửa đổi chưa commit&quot;] -- &quot;git stash push -m&quot; --&gt; S[&quot;stash@{0}&quot;]
+  S -- &quot;apply: giữ stash&quot; --&gt; W
+  S -- &quot;pop: áp dụng rồi xóa&quot; --&gt; W
+  S -- &quot;drop&quot; --&gt; X[&quot;Bỏ stash&quot;]
+  S -- &quot;stash branch&quot; --&gt; B[&quot;Nhánh mới có sửa đổi&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash push -m &quot;&lt;mô tả&gt;&quot;        # cất tracked, có tên
+git stash push -u -m &quot;&lt;mô tả&gt;&quot;     # cất cả untracked
+git stash push &lt;tệp&gt;               # chỉ cất một số tệp
+git stash list                     # danh sách stash
+git stash show [-p] stash@{n}      # xem tóm tắt hoặc diff
+git stash show --include-untracked stash@{n}
+git stash apply [--index] stash@{n}
+git stash pop                      # áp dụng stash mới nhất rồi xóa
+git stash drop stash@{n}
+git stash branch &lt;tên&gt; [stash@{n}] # tạo nhánh từ commit gốc rồi áp dụng</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Áp dụng</th>
+<th>Xóa stash</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>apply</code></td>
+<td>Có</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>pop</code></td>
+<td>Có</td>
+<td>Có, nếu không conflict</td>
+</tr>
+<tr>
+<td><code>drop</code></td>
+<td>Không</td>
+<td>Có</td>
+</tr>
+<tr>
+<td><code>branch</code></td>
+<td>Có, trên nhánh mới</td>
+<td>Có, nếu thành công</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>README đang sửa dở, và có một tệp nháp chưa từng add:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -s
+git stash push -m &quot;Sửa README dở&quot;
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M README.md
+?? nhap.txt
+Saved working directory and index state On main: Sửa README dở
+?? nhap.txt</code></pre></div>
+<p><code>nhap.txt</code> vẫn còn, vì nó untracked. Lần tiếp theo mình sửa <code>app.txt</code> và dùng <code>-u</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash push -u -m &quot;Thử app và nháp&quot;
+git status -s
+git stash list</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Saved working directory and index state On main: Thử app và nháp
+stash@{0}: On main: Thử app và nháp
+stash@{1}: On main: Sửa README dở</code></pre></div>
+<p>Lần này working tree sạch hẳn (<code>git status -s</code> không in gì). Xem nội dung một stash:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash show stash@{0}
+git stash show --include-untracked stash@{0}</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> app.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ app.txt  | 1 +
+ nhap.txt | 1 +
+ 2 files changed, 2 insertions(+)</code></pre></div>
+<p>Lấy lại stash mới nhất và xóa nó; Git in trạng thái rồi dòng cuối (output rút gọn):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash pop</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">	modified:   app.txt
+	nhap.txt
+Dropped refs/stash@{0} (92fda3198e1740b83083f56f59cd368f348f39b3)</code></pre></div>
+<p>Nếu tệp đã bị thay đổi theo hướng khác kể từ khi cất, <code>pop</code> gặp conflict và giữ stash lại (repo thử khác):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">CONFLICT (content): Merge conflict in README.md
+The stash entry is kept in case you need it again.</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tưởng stash cất cả tệp mới.</strong> Tệp untracked ở lại nếu không có <code>-u</code>. Khi chuyển nhánh, chúng đi theo bạn sang nhánh khác.</p>
+<p><strong>Chồng chất stash không tên.</strong> Sau vài ngày, danh sách toàn &quot;WIP on main&quot; rất khó phân biệt. Luôn dùng <code>-m</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Khi <code>pop</code> gặp conflict, stash vẫn còn trong danh sách. Sửa conflict xong, nhớ <code>git stash drop</code> để không áp dụng nhầm lần nữa.</p>
+</aside>
+<p><strong>Drop nhầm stash.</strong> Git in hash khi drop (<code>Dropped refs/stash@{0} (...)</code>). Còn hash đó thì <code>git stash apply &lt;hash&gt;</code> vẫn lấy lại được; mất hash thì tìm bằng <code>git fsck --lost-found</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Stash áp dụng mãi không được vì nhánh đã thay đổi quá nhiều? <code>git stash branch &lt;tên&gt;</code> tạo nhánh mới từ đúng commit lúc bạn cất, nên áp dụng luôn sạch.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn đang viết dở kịch bản kiểm thử cho màn hình nạp tiền điện thoại thì trưởng nhóm nhờ chạy lại gấp bộ test hồi quy trên <code>main</code> để xác nhận một hotfix. Bạn stash với tên mô tả rõ, chuyển sang <code>main</code>, chạy test, báo kết quả, rồi quay về nhánh cũ và <code>pop</code> để làm tiếp như chưa từng gián đoạn.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có một tệp đang bị sửa. Bạn cần cất sửa đổi đó để working tree sạch, và phải có ít nhất một stash trong danh sách. Đặt một thông điệp mô tả tùy ý. Kiểm tra bằng <code>git status</code> và <code>git stash list</code> sau khi làm.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Stash cất sửa đổi chưa commit vào commit riêng, trỏ bởi <code>refs/stash</code>.</li>
+<li>Mặc định chỉ cất tệp tracked; <code>-u</code> thêm untracked, <code>-a</code> thêm ignored.</li>
+<li><code>apply</code> giữ stash, <code>pop</code> xóa sau khi áp dụng thành công, <code>drop</code> chỉ xóa.</li>
+<li>Luôn đặt tên bằng <code>-m</code> và dọn stash cũ.</li>
+<li><code>git stash branch</code> cứu stash không còn áp dụng sạch.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open stash-as-undo
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/recovering-branches.html" rel="prev"><small>Bài trước</small>Khôi phục nhánh đã xóa</a><a class="next" href="../undo/hard-reset-to-origin.html" rel="next"><small>Bài sau</small>Đồng bộ cứng với origin</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 11/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

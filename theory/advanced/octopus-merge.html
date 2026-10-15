@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Merge nhiều nhánh - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 13/13</span></p>
+<h1>Merge nhiều nhánh</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>octopus-merge</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu octopus merge: một merge commit gộp nhiều nhánh cùng lúc.</li>
+<li>Biết cách đếm parent của một merge commit và đọc chúng bằng plumbing.</li>
+<li>Nhận ra khi nào octopus phù hợp và khi nào nên merge từng nhánh.</li>
+<li>Xử lý khi octopus gặp xung đột.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Merge thông thường gộp hai dòng lịch sử: nhánh hiện tại và một nhánh khác. Merge commit tạo ra có hai parent. Nhưng cấu trúc commit trong Git không giới hạn số parent; một commit có thể có ba, bốn, hoặc nhiều hơn. Khi bạn đưa nhiều tên nhánh vào cùng một lệnh <code>git merge</code>, Git dùng chiến lược octopus để gộp tất cả trong một commit duy nhất.</p>
+<p>Quy tắc đếm rất đơn giản: parent đầu tiên luôn là commit mà nhánh hiện tại đang trỏ tới trước khi merge, sau đó là mỗi nhánh được liệt kê trong lệnh, theo đúng thứ tự bạn gõ. Vậy merge thêm N nhánh vào nhánh hiện tại sẽ cho commit có N cộng một parent. (Trừ khi một trong các nhánh có thể fast-forward ngay từ đầu, khi đó Git tua nhanh trước và số parent ít hơn. Bạn sẽ thấy điều này trong phần lỗi.)</p>
+<p>Octopus làm việc theo kiểu lần lượt: thử gộp nhánh thứ nhất, rồi gộp nhánh thứ hai lên kết quả, cứ thế. Điểm khác biệt quan trọng: octopus không dừng lại cho bạn giải quyết xung đột phức tạp giữa chừng như merge hai nhánh. Nếu gặp xung đột cần sửa tay, nó dừng và báo lỗi, để bạn tự quyết. Vì thế octopus chỉ hợp với các nhánh độc lập, mỗi nhánh chạm vào phần khác nhau của mã.</p>
+<p>Khi nào dùng? Khi bạn có vài nhánh nhỏ, độc lập, đã được kiểm tra riêng, và muốn lịch sử ghi lại rằng chúng được tích hợp cùng nhau. Ví dụ dự án mã nguồn mở lớn đôi khi gộp hàng loạt nhánh chủ đề trong một lần. Trong công việc hằng ngày, merge từng nhánh thường dễ review và dễ revert hơn.</p>
+<p>Một hệ quả khi hoàn tác: revert một merge commit cần chỉ định parent nào là &quot;dòng chính&quot; bằng <code>-m</code>. Với octopus có nhiều parent, việc này rối hơn và kết quả là đảo ngược toàn bộ các nhánh cùng lúc.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch test-api
+  commit id: &quot;Test api&quot;
+  checkout main
+  branch test-ui
+  commit id: &quot;Test ui&quot;
+  checkout main
+  commit id: &quot;Main tiến thêm&quot;
+  merge test-api
+  merge test-ui</pre>
+<p>Sơ đồ gitGraph của mermaid vẽ hai lần merge vì nó không có ký hiệu cho commit nhiều parent. Thực tế octopus chỉ tạo một commit, như sơ đồ dưới:</p>
+<pre class="mermaid">flowchart LR
+  P1[&quot;Parent 1: Main tiến thêm&quot;] --&gt; M[&quot;Merge commit octopus&quot;]
+  P2[&quot;Parent 2: Test api&quot;] --&gt; M
+  P3[&quot;Parent 3: Test ui&quot;] --&gt; M
+  M --&gt; T[&quot;Một tree chứa đủ thay đổi&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Merge nhiều nhánh vào nhánh hiện tại trong một commit
+git merge nhanh1 nhanh2 nhanh3
+
+# Xem nội dung thô của commit, mỗi parent một dòng
+git cat-file -p HEAD
+
+# In danh sách parent trên một dòng
+git log -1 --format=%P
+
+# In commit kèm parent (từ đầu tiên là chính commit)
+git rev-list --parents -n 1 HEAD
+
+# Tìm các merge có từ 3 parent trở lên
+git log --merges --min-parents=3 --oneline
+
+# Hủy merge đang dở khi gặp xung đột
+git merge --abort</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Kiểu merge</th>
+<th>Số parent</th>
+<th>Ghi chú</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fast-forward</td>
+<td>Không tạo commit</td>
+<td>Chỉ dời ref</td>
+</tr>
+<tr>
+<td>Merge hai nhánh</td>
+<td>2</td>
+<td>Có thể dừng cho bạn sửa xung đột</td>
+</tr>
+<tr>
+<td>Octopus với N nhánh</td>
+<td>N cộng 1</td>
+<td>Không hợp với xung đột phức tạp</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Main có hai nhánh test độc lập là <code>test/api</code> và <code>test/ui</code>, và main cũng đã tiến thêm một commit. Merge cả hai trong một lệnh (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge test/api test/ui</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Trying simple merge with test/api
+Trying simple merge with test/ui
+Merge made by the &#39;octopus&#39; strategy.
+ api.txt | 1 +
+ ui.txt  | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 api.txt
+ create mode 100644 ui.txt</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --graph</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">*-.   23a5634 Merge branches &#39;test/api&#39; and &#39;test/ui&#39;
+|\ \  
+| | * 310ae34 Test ui
+| * | f033214 Test api
+| |/  
+* / ad168c5 Main tiến thêm
+|/  
+* 0eaeb10 Khởi tạo</code></pre></div>
+<p>Đọc commit ở dạng thô để đếm parent:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">tree a0047b48823532d5370980bdeee69a7531b7154a
+parent ad168c5942a131c9eac34ce3c6ca1bfd90fd4272
+parent f033214b4b328b447c7c10236c0f078553123feb
+parent 310ae345ce00606c84bc2b0645c9252b7eef2614
+author Duy &lt;duy@example.invalid&gt; 1792083261 +0700
+committer Duy &lt;duy@example.invalid&gt; 1792083261 +0700
+
+Merge branches &#39;test/api&#39; and &#39;test/ui&#39;</code></pre></div>
+<p>Parent đầu là commit cũ của main, rồi tới hai nhánh theo thứ tự đã gõ. Hai nhánh, cộng nhánh hiện tại, ra ba parent. <code>git rev-list --parents -n 1 HEAD | wc -w</code> in ra 4 vì từ đầu tiên là chính merge commit.</p>
+<p>Giờ trường hợp xấu: hai nhánh a và b cùng sửa một dòng của <code>f.txt</code>, còn main chưa tiến thêm:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge a b</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Fast-forwarding to: a
+Trying simple merge with b
+Simple merge did not work, trying automatic merge.
+Auto-merging f.txt
+ERROR: content conflict in f.txt
+fatal: merge program failed
+Automatic merge failed; fix conflicts and then commit the result.</code></pre></div>
+<p>Hai điều đáng để ý: Git tua nhanh tới a trước (vì main chưa có gì riêng), và gặp xung đột ở b. Cách an toàn là <code>git merge --abort</code> rồi merge từng nhánh một.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Thứ tự nhánh trong lệnh quyết định thứ tự parent. Nếu sau này cần <code>git revert -m 1</code>, parent 1 luôn là nhánh bạn đang đứng.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Octopus thất bại vì xung đột.</strong> Đây là tín hiệu các nhánh không độc lập. Hủy bằng <code>git merge --abort</code> và merge từng nhánh, giải quyết xung đột ở từng bước.</p>
+<p><strong>Số parent ít hơn dự kiến.</strong> Khi nhánh hiện tại là tổ tiên của một nhánh được merge, Git có thể tua nhanh trước. Mình thử với main chưa có commit riêng và hai nhánh độc lập a, b: <code>git merge a b</code> cho merge commit chỉ có hai parent (a và b), còn <code>git merge --no-ff a b</code> cho ba parent vì giữ lại main làm parent đầu. Nếu cần đủ parent, đảm bảo nhánh hiện tại có commit riêng hoặc dùng <code>--no-ff</code>.</p>
+<p><strong>Working tree chưa sạch.</strong> Merge từ chối nếu thay đổi chưa commit bị ảnh hưởng. Commit hoặc stash trước.</p>
+<p><strong>Revert octopus khó lường.</strong> Revert với <code>-m 1</code> đảo ngược phần đóng góp của mọi nhánh còn lại cùng lúc. Nếu chỉ muốn bỏ một nhánh, revert các commit của nhánh đó thay vì revert merge.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Octopus làm lịch sử khó đọc với người chưa quen. Hãy thống nhất với nhóm trước khi dùng trên nhánh chung.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Cuối sprint, ba bạn trong nhóm QA mỗi người viết một nhánh bổ sung test cho ba module khác nhau: đăng nhập, chuyển khoản, thanh toán hóa đơn. Mỗi nhánh chỉ thêm tệp trong thư mục test của module mình và đã chạy xanh riêng. Trưởng nhóm gộp cả ba vào nhánh <code>test/sprint-42</code> bằng một octopus merge, để lịch sử ghi rõ ba bộ test được đưa vào cùng một mốc, rồi chạy toàn bộ suite một lần.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có ba nhánh độc lập, mỗi nhánh thêm một tệp riêng, và main đã có commit riêng. Bạn cần gộp cả ba vào main trong một merge duy nhất sao cho HEAD chứa đủ ba tệp và working tree sạch. Câu hỏi kiến thức hỏi merge commit đó có bao nhiêu parent.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Đứng ở main trước khi merge.</li>
+<li>Áp dụng quy tắc đếm parent ở phần khái niệm.</li>
+<li>Kiểm tra lại kết quả bằng <code>git cat-file -p HEAD</code> và đếm số dòng <code>parent</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Octopus merge gộp nhiều nhánh trong một commit có nhiều parent.</li>
+<li>Parent đầu là nhánh hiện tại, sau đó là các nhánh theo thứ tự trong lệnh.</li>
+<li>Merge N nhánh vào nhánh hiện tại cho N cộng một parent.</li>
+<li>Octopus chỉ hợp với nhánh độc lập; xung đột thì merge từng nhánh.</li>
+<li>Đọc parent bằng <code>git cat-file -p</code> hoặc <code>git log --format=%P</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open octopus-merge
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/custom-refs.html" rel="prev"><small>Bài trước</small>Ref tùy chỉnh</a><a class="next" href="../daily-workflows/perfect-commit.html" rel="next"><small>Bài sau</small>Commit tập trung (Quy trình hằng ngày)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 13/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

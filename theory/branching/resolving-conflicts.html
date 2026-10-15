@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Giải quyết xung đột merge - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 10/10</span></p>
+<h1>Giải quyết xung đột merge</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>resolving-conflicts</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu khi nào merge sinh conflict và Git đánh dấu chỗ xung đột ra sao.</li>
+<li>Đọc được các dấu <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> và biết mỗi phần đến từ đâu.</li>
+<li>Giải quyết conflict đúng quy trình: sửa tệp, đánh dấu đã giải quyết, hoàn tất commit.</li>
+<li>Biết cách hủy merge hoặc chọn nhanh một phía khi cần.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Three-way merge so sánh merge base với đầu mỗi nhánh. Nếu chỉ một bên sửa một vùng, Git lấy bản sửa đó. Nếu hai bên sửa <strong>những vùng khác nhau</strong> của cùng tệp, Git ghép cả hai. Chỉ khi hai bên sửa <strong>cùng một vùng</strong> theo cách khác nhau (hoặc một bên sửa, một bên xóa tệp), Git không thể tự quyết và báo <strong>conflict</strong>.</p>
+<p>Khi đó merge dừng giữa chừng. Git:</p>
+<ul>
+<li>Ghi vào tệp xung đột cả hai phiên bản, ngăn bởi dấu xung đột.</li>
+<li>Ghi trong index ba &quot;stage&quot; cho tệp đó: stage 1 là bản base, stage 2 là bản của nhánh hiện tại (ours), stage 3 là bản của nhánh được merge vào (theirs). Bạn thấy chúng bằng <code>git ls-files -u</code>.</li>
+<li>Ghi nhớ rằng đang có merge dở (tệp <code>MERGE_HEAD</code>), để lần commit sau thành merge commit hai parent.</li>
+</ul>
+<p>Dấu xung đột trông như sau:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+Chao ban
+=======
+Xin chao quy khach
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; topic</code></pre></div>
+<p>Phần giữa <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> và <code>=======</code> là phía nhánh hiện tại. Phần giữa <code>=======</code> và <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; topic</code> là phía nhánh được merge. Nếu bật <code>merge.conflictStyle=diff3</code> (hoặc <code>zdiff3</code>), Git chèn thêm khối <code>|||||||</code> chứa bản base, giúp bạn thấy &quot;ban đầu là gì&quot;, rất có ích khi phán đoán ý định.</p>
+<p><strong>Giải quyết</strong> nghĩa là bạn sửa tệp thành nội dung đúng cuối cùng (có thể giữ một bên, cả hai, hoặc viết lại), <strong>xóa hết dấu xung đột</strong>, rồi <code>git add</code> tệp đó. <code>git add</code> ở đây có nghĩa &quot;tệp này đã giải quyết xong&quot;: nó thay ba stage bằng một mục bình thường trong index. Khi mọi tệp đã được add, <code>git commit</code> (hoặc <code>git merge --continue</code>) tạo merge commit.</p>
+<p>Đổi ý? <code>git merge --abort</code> đưa mọi thứ về trạng thái trước merge.</p>
+<p>Quan trọng nhất: conflict là câu hỏi về <strong>ý định</strong>, không phải về cú pháp. Đọc cả hai phía, hiểu mỗi bên muốn đạt điều gì, và hỏi tác giả khi không chắc.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">stateDiagram-v2
+  state &quot;Đang merge, có conflict&quot; as C
+  state &quot;Đã sửa tệp, xóa dấu&quot; as E
+  state &quot;Tệp đã add&quot; as A
+  state &quot;Merge commit hai parent&quot; as M
+  state &quot;Trước khi merge&quot; as B
+  B --&gt; C: git merge topic
+  C --&gt; E: sửa trong editor
+  E --&gt; A: git add tệp
+  A --&gt; M: git commit
+  C --&gt; B: git merge --abort</pre>
+<pre class="mermaid">flowchart LR
+  S1[&quot;Stage 1: base&quot;] --&gt; R[&quot;Bạn quyết định nội dung cuối&quot;]
+  S2[&quot;Stage 2: ours, HEAD&quot;] --&gt; R
+  S3[&quot;Stage 3: theirs, topic&quot;] --&gt; R
+  R --&gt;|&quot;git add&quot;| I[&quot;Index: một mục bình thường&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status                          # liệt kê &quot;Unmerged paths&quot;
+git diff                            # diff kết hợp của tệp đang xung đột
+git ls-files -u                     # ba stage của mỗi tệp xung đột
+git diff --name-only --diff-filter=U  # chỉ tên tệp còn xung đột
+git add &lt;tệp&gt;                       # đánh dấu đã giải quyết
+git commit                          # hoàn tất merge (hoặc git merge --continue)
+git merge --abort                   # hủy merge, về trạng thái trước
+git checkout --ours &lt;tệp&gt;           # lấy nguyên bản phía nhánh hiện tại
+git checkout --theirs &lt;tệp&gt;         # lấy nguyên bản phía nhánh được merge
+git config merge.conflictStyle diff3  # hiện thêm bản base trong dấu xung đột</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p><code>main</code> và <code>topic</code> cùng sửa dòng duy nhất của <code>greeting.txt</code>. Merge:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge topic
+git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Auto-merging greeting.txt
+CONFLICT (content): Merge conflict in greeting.txt
+Automatic merge failed; fix conflicts and then commit the result.
+On branch main
+You have unmerged paths.
+  (fix conflicts and run &quot;git commit&quot;)
+  (use &quot;git merge --abort&quot; to abort the merge)
+
+Unmerged paths:
+  (use &quot;git add &lt;file&gt;...&quot; to mark resolution)
+	both modified:   greeting.txt</code></pre></div>
+<p>Xem tệp và ba stage:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat greeting.txt
+git ls-files -u</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+Chao ban
+=======
+Xin chao quy khach
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; topic
+100644 24bfd9ca1477482b1cfc6f55cc47175d75f356f1 1	greeting.txt
+100644 0e3426b66e00091134e43a13656e86a0d070afb6 2	greeting.txt
+100644 674cad59aa7d9e35d3314b32b1e4903ca3760239 3	greeting.txt</code></pre></div>
+<p>Giả sử sau khi trao đổi, nhóm quyết định giữ cả hai câu. Mở editor, viết lại tệp thành hai dòng <code>Chao ban</code> và <code>Xin chao quy khach</code>, xóa ba dòng dấu. Rồi:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add greeting.txt
+git status -s
+git commit --no-edit
+git log --oneline --graph -4</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">M  greeting.txt
+[main a31776f] Merge branch &#39;topic&#39;
+*   a31776f Merge branch &#39;topic&#39;
+|\  
+| * cf4941b Topic sửa
+* | da8f0b0 Main sửa
+|/  
+* 00ee9ec Tạo lời chào</code></pre></div>
+<p><code>--no-edit</code> dùng luôn thông điệp merge mặc định. Với kiểu dấu <code>diff3</code>, cùng conflict sẽ hiện thêm bản gốc:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+Chao ban
+||||||| 00ee9ec
+Xin chao
+=======
+Xin chao quy khach
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; topic</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Commit cả dấu xung đột.</strong> Quên xóa <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> hay <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> làm mã hỏng hoặc test lỗi cú pháp. Trước khi add, tìm nhanh bằng <code>git diff --check</code> hoặc tìm chuỗi <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git add</code> không kiểm tra nội dung. Nó sẽ vui vẻ đánh dấu &quot;đã giải quyết&quot; cho một tệp vẫn còn nguyên dấu xung đột.</p>
+</aside>
+<p><strong>Chọn bừa một phía.</strong> <code>--ours</code>/<code>--theirs</code> tiện, nhưng bỏ hẳn thay đổi của bên kia. Chỉ dùng khi chắc chắn bên kia không cần giữ.</p>
+<p><strong>Nhầm ours/theirs khi rebase.</strong> Trong rebase, &quot;ours&quot; là nhánh nền đang được phát lại lên, &quot;theirs&quot; là commit của bạn. Ngược với cảm giác thông thường.</p>
+<p><strong>Hoảng và làm lung tung.</strong> Khi rối, <code>git merge --abort</code> đưa bạn về điểm xuất phát an toàn. Bắt đầu lại bình tĩnh hơn.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Sau khi giải quyết, chạy test liên quan trước khi commit. Một conflict &quot;giải quyết sạch&quot; về cú pháp vẫn có thể sai về logic.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn và đồng nghiệp cùng sửa tệp dữ liệu test cho hạn mức chuyển khoản: bạn đổi giá trị cho khách hàng cá nhân, đồng nghiệp đổi cho doanh nghiệp, ở hai dòng liền nhau. Merge báo conflict. Bạn bật kiểu <code>diff3</code>, thấy rõ giá trị gốc, giữ cả hai thay đổi, chạy lại bộ test hạn mức, rồi mới commit. Trong thông điệp merge, bạn ghi chú ngắn đã giải quyết thế nào để reviewer dễ kiểm.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành mở ra khi merge đã dừng vì conflict trong một tệp văn bản ngắn. Đề yêu cầu một nội dung cuối cụ thể dựa trên cả hai phía; bạn cần sửa tệp đúng như vậy, không còn dấu xung đột, rồi hoàn tất merge để có commit hai parent và working tree sạch. Câu hỏi hỏi về lệnh đánh dấu tệp đã giải quyết. Hãy:</p>
+<ul>
+<li>Bắt đầu bằng <code>git status</code> và đọc kỹ tệp.</li>
+<li>Xóa cả ba loại dòng dấu, không chỉ dòng <code>=======</code>.</li>
+<li>Kiểm tra lại bằng <code>git log --oneline --graph</code> sau khi commit.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Conflict xảy ra khi hai nhánh sửa cùng vùng theo cách khác nhau.</li>
+<li>Dấu xung đột tách phía HEAD và phía nhánh được merge; <code>diff3</code> thêm bản base.</li>
+<li>Index giữ ba stage cho tệp xung đột cho tới khi bạn <code>git add</code>.</li>
+<li>Quy trình: sửa tệp, xóa dấu, <code>git add</code>, <code>git commit</code>.</li>
+<li><code>git merge --abort</code> luôn là lối thoát an toàn.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open resolving-conflicts
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/squash-merge.html" rel="prev"><small>Bài trước</small>Gộp commit bằng squash merge</a><a class="next" href="../inspection/blame.html" rel="next"><small>Bài sau</small>Truy tác giả từng dòng (Quan sát và truy lỗi)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 10/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

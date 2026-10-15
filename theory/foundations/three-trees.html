@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ba vùng trạng thái - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 6/10</span></p>
+<h1>Ba vùng trạng thái</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>three-trees</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Nắm mô hình &quot;ba cây&quot; của Git: working tree, index và HEAD.</li>
+<li>Đọc được một tệp đang có bao nhiêu phiên bản khác nhau và nằm ở đâu.</li>
+<li>Biết lệnh nào di chuyển nội dung giữa ba vùng theo hướng nào.</li>
+<li>Dùng mô hình này để đoán trước kết quả của <code>add</code>, <code>commit</code>, <code>restore</code>, <code>reset</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Phần lớn sự bối rối với Git biến mất khi bạn hiểu rằng tại mọi thời điểm, mỗi tệp có thể tồn tại ở <strong>ba phiên bản</strong> khác nhau:</p>
+<ol>
+<li><strong>HEAD</strong>: bản trong commit mà nhánh hiện tại đang trỏ tới. Đây là lịch sử đã ghi, không đổi trừ khi bạn tạo commit mới hoặc dời nhánh.</li>
+<li><strong>Index</strong> (staging area): bản bạn đã chọn cho commit tiếp theo. Index thực ra là một danh sách đầy đủ mọi tệp của snapshot kế tiếp, không chỉ những tệp vừa add. Ngay sau commit, index giống hệt HEAD.</li>
+<li><strong>Working tree</strong>: tệp thật trên đĩa mà editor của bạn mở. Đây là nơi duy nhất bạn sửa trực tiếp.</li>
+</ol>
+<p>Git gọi chúng là &quot;ba cây&quot; vì cả ba đều mô tả một cây thư mục đầy đủ. Mọi lệnh hằng ngày đều là việc chép nội dung giữa các cây:</p>
+<ul>
+<li><code>git add</code> chép từ working tree vào index.</li>
+<li><code>git commit</code> biến index thành commit mới, rồi HEAD (qua nhánh) trỏ sang commit đó.</li>
+<li><code>git restore &lt;tệp&gt;</code> chép từ index ra working tree (bỏ sửa đổi chưa stage).</li>
+<li><code>git restore --staged &lt;tệp&gt;</code> chép từ HEAD vào index (bỏ stage, giữ working tree).</li>
+<li><code>git reset</code> dời nhánh và tùy chế độ có thể chép vào index, working tree (track hoàn tác).</li>
+</ul>
+<p><code>git status</code> thực chất là hai phép so sánh: HEAD với index (mục &quot;Changes to be committed&quot;) và index với working tree (mục &quot;Changes not staged&quot;). Đó cũng là hai cột trong <code>git status --short</code>.</p>
+<p>Khi cả ba cây giống nhau cho mọi tệp, Git báo &quot;working tree clean&quot;. Khi bạn thấy <code>MM</code>, nghĩa là ba phiên bản đều khác nhau từng đôi một.</p>
+<p>Một mẹo để &quot;nhìn&quot; index: cú pháp <code>:&lt;đường-dẫn&gt;</code> trong <code>git show</code> lấy nội dung tệp từ index, còn <code>HEAD:&lt;đường-dẫn&gt;</code> lấy từ commit. Lệnh <code>git ls-files --stage</code> liệt kê mọi mục trong index cùng mode và ID nội dung.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  W[&quot;Working tree: tệp trên đĩa&quot;] --&gt;|&quot;git add&quot;| I[&quot;Index: bản cho commit tới&quot;]
+  I --&gt;|&quot;git commit&quot;| H[&quot;HEAD: commit hiện tại&quot;]
+  I --&gt;|&quot;git restore&quot;| W
+  H --&gt;|&quot;git restore --staged&quot;| I
+  H --&gt;|&quot;git restore --source=HEAD --staged --worktree&quot;| W</pre>
+<pre class="mermaid">sequenceDiagram
+  participant W as Working tree
+  participant I as Index
+  participant H as HEAD
+  Note over W,H: Ban đầu cả ba đều là v1
+  W-&gt;&gt;W: sửa thành v2
+  W-&gt;&gt;I: git add, index là v2
+  W-&gt;&gt;W: sửa tiếp thành v3
+  Note over W,H: HEAD v1, index v2, working tree v3</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show HEAD:&lt;tệp&gt;         # nội dung tệp trong commit hiện tại
+git show :&lt;tệp&gt;             # nội dung tệp trong index
+git ls-files --stage        # mọi mục trong index: mode, object ID, stage, đường dẫn
+git status -s               # cột trái HEAD so index, cột phải index so working tree
+git restore &lt;tệp&gt;           # index ra working tree
+git restore --staged &lt;tệp&gt;  # HEAD vào index
+git restore --source=HEAD --staged --worktree &lt;tệp&gt;   # đưa cả hai về HEAD</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Đọc từ</th>
+<th>Ghi vào</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git add</code></td>
+<td>Working tree</td>
+<td>Index</td>
+</tr>
+<tr>
+<td><code>git commit</code></td>
+<td>Index</td>
+<td>Lịch sử, nhánh</td>
+</tr>
+<tr>
+<td><code>git restore</code></td>
+<td>Index</td>
+<td>Working tree</td>
+</tr>
+<tr>
+<td><code>git restore --staged</code></td>
+<td>HEAD</td>
+<td>Index</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tệp <code>app.txt</code> trong commit là <code>v1</code>. Mình sửa thành <code>v2</code>, add, rồi sửa tiếp thành <code>v3</code>. Hỏi từng vùng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show HEAD:app.txt
+git show :app.txt
+cat app.txt
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v1
+v2
+v3
+MM app.txt</code></pre></div>
+<p>Ba vùng, ba phiên bản, đúng như sơ đồ. Bỏ stage:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore --staged app.txt
+git status -s
+git show :app.txt
+cat app.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M app.txt
+v1
+v3</code></pre></div>
+<p>Index quay về <code>v1</code> (giống HEAD) nên cột trái trống. Working tree vẫn giữ <code>v3</code>, chưa mất gì. Giờ add lại và đưa cả hai vùng về HEAD:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add app.txt
+git restore --source=HEAD --staged --worktree app.txt
+git status -s
+cat app.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v1</code></pre></div>
+<p><code>git status -s</code> không in gì nghĩa là ba vùng đã trùng nhau.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ index chỉ chứa tệp vừa add.</strong> Index chứa toàn bộ snapshot kế tiếp. Tệp bạn không đụng tới vẫn nằm trong index, giống HEAD.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git restore &lt;tệp&gt;</code> (không có <code>--staged</code>) ghi đè working tree bằng bản trong index. Phần sửa chưa stage sẽ mất và không có trong reflog. Hãy chắc trước khi chạy.</p>
+</aside>
+<p><strong>Nhầm hướng của <code>restore --staged</code>.</strong> Nó không xóa tệp trên đĩa, chỉ làm index giống HEAD. Đây là cách an toàn để &quot;hủy add&quot;.</p>
+<p><strong>Commit xong tưởng mất phần sửa sau add.</strong> Phần đó vẫn nằm trong working tree, chỉ là chưa vào commit. <code>git status</code> sẽ cho thấy.</p>
+<p><strong>Đọc sai <code>status -s</code>.</strong> Một khoảng trắng ở cột trái nghĩa là index giống HEAD, không phải &quot;không có gì&quot;. Hãy đọc hai cột riêng biệt.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn đang viết bộ test mới cho màn hình chuyển tiền và đã stage phần test hoàn chỉnh. Đột nhiên được nhờ thử nhanh một giá trị timeout. Bạn sửa thẳng tệp, chạy thử, rồi dùng <code>git restore</code> để đưa working tree về đúng bản trong index. Phần test đã stage không bị ảnh hưởng, vì bạn biết rõ lệnh đó chỉ chép từ index ra working tree.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi phân vân một lệnh sẽ làm gì, hãy tự hỏi: nó đọc từ cây nào và ghi vào cây nào?</p>
+</aside>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này là câu hỏi lý thuyết: bạn cần gọi đúng tên vùng giữ nội dung đã chọn cho commit tiếp theo. Để trả lời chắc, hãy tự dựng tình huống ba phiên bản như ví dụ trên trong repository bài tập, rồi dùng <code>git show HEAD:&lt;tệp&gt;</code>, <code>git show :&lt;tệp&gt;</code> và <code>cat</code> để quan sát. Thử thêm <code>git ls-files --stage</code> để thấy vùng đó trông ra sao.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Mỗi tệp có thể có ba phiên bản: HEAD, index, working tree.</li>
+<li>Index là toàn bộ snapshot kế tiếp, không chỉ tệp vừa add.</li>
+<li><code>add</code> chép working tree vào index; <code>commit</code> biến index thành lịch sử.</li>
+<li><code>restore</code> chép ngược: index ra working tree, hoặc HEAD vào index với <code>--staged</code>.</li>
+<li><code>git status</code> là hai phép so sánh HEAD với index và index với working tree.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open three-trees
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/configuration.html" rel="prev"><small>Bài trước</small>Cấu hình Git</a><a class="next" href="../foundations/object-model.html" rel="next"><small>Bài sau</small>Mô hình object</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 6/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

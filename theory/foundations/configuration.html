@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cấu hình Git - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 5/10</span></p>
+<h1>Cấu hình Git</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>configuration</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Biết Git đọc cấu hình từ những tầng nào và tầng nào thắng khi trùng khóa.</li>
+<li>Đặt, đọc, xóa một giá trị cấu hình ở đúng phạm vi.</li>
+<li>Tra được một giá trị đang có hiệu lực đến từ tệp nào.</li>
+<li>Biết những khóa cấu hình nên đặt ngay khi bắt đầu.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Git có rất nhiều thiết lập: tên và email ghi vào commit, editor mở khi viết thông điệp, tên nhánh mặc định, cách xử lý xuống dòng, alias... Tất cả đều là cặp <strong>khóa = giá trị</strong>, khóa có dạng <code>section.name</code> như <code>user.name</code> hay <code>core.editor</code>.</p>
+<p>Các giá trị này nằm trong nhiều tệp, xếp thành tầng từ rộng đến hẹp:</p>
+<ol>
+<li><strong>System</strong> (<code>--system</code>): áp dụng cho mọi người dùng trên máy, thường ở <code>/etc/gitconfig</code>. Ít khi bạn đụng tới.</li>
+<li><strong>Global</strong> (<code>--global</code>): áp dụng cho mọi repository của bạn, nằm ở <code>~/.gitconfig</code> hoặc <code>~/.config/git/config</code>.</li>
+<li><strong>Local</strong> (<code>--local</code>): chỉ áp dụng cho một repository, nằm ở <code>.git/config</code> của repository đó.</li>
+</ol>
+<p>Git đọc lần lượt từ rộng đến hẹp, và giá trị đọc sau ghi đè giá trị đọc trước. Vì vậy, <strong>tầng gần repository nhất thắng</strong>. Nếu global ghi tên bạn là &quot;Duy Van&quot; nhưng local của một repository ghi &quot;Hoc Vien QA&quot;, commit trong repository đó mang tên &quot;Hoc Vien QA&quot;.</p>
+<p>Khi bạn chạy <code>git config &lt;khóa&gt; &lt;giá-trị&gt;</code> mà không chỉ tầng, Git ghi vào local (nếu đang ở trong repository). Nhưng khi chỉ <strong>đọc</strong> <code>git config &lt;khóa&gt;</code> không chỉ tầng, Git trả giá trị đang có hiệu lực sau khi gộp mọi tầng. Đây là nguồn nhầm lẫn kinh điển: bạn đọc thấy đúng tên, nhưng không biết nó đến từ tầng nào. Tùy chọn <code>--show-origin</code> và <code>--show-scope</code> giải quyết chuyện này.</p>
+<p>Từ Git 2.46, có thêm cú pháp subcommand rõ ràng hơn như <code>git config get</code> và <code>git config set</code>. Cú pháp cũ vẫn chạy bình thường; trong bài này mình dùng cú pháp cũ vì gặp nhiều nhất trong tài liệu và script.</p>
+<p>Một chi tiết quan trọng: <code>user.name</code> và <code>user.email</code> chỉ là chữ được ghi vào commit. Git không kiểm tra chúng là ai. Muốn chứng minh danh tính, cần ký commit (track phát hành có bài riêng).</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  S[&quot;System: /etc/gitconfig&quot;] --&gt;|&quot;bị ghi đè bởi&quot;| G[&quot;Global: ~/.gitconfig&quot;]
+  G --&gt;|&quot;bị ghi đè bởi&quot;| L[&quot;Local: .git/config&quot;]
+  L --&gt; E[&quot;Giá trị có hiệu lực trong repository&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --global user.name &quot;Tên Của Bạn&quot;   # đặt cho mọi repository
+git config --global user.email &quot;ban@example.com&quot;
+git config --local user.name &quot;Tên riêng&quot;      # chỉ repository hiện tại
+git config user.name                          # đọc giá trị có hiệu lực
+git config --show-origin user.name            # kèm tệp nguồn
+git config --show-scope --get-all user.name   # mọi giá trị ở mọi tầng
+git config --list --show-scope                # liệt kê toàn bộ
+git config --local --unset user.name          # xóa khóa ở tầng local
+git config --global --edit                    # mở tệp global trong editor</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Tệp tác động</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--system</code></td>
+<td>Cấu hình toàn máy</td>
+</tr>
+<tr>
+<td><code>--global</code></td>
+<td>Cấu hình người dùng</td>
+</tr>
+<tr>
+<td><code>--local</code></td>
+<td><code>.git/config</code> của repository hiện tại</td>
+</tr>
+<tr>
+<td><code>--file &lt;path&gt;</code></td>
+<td>Một tệp cấu hình chỉ định</td>
+</tr>
+</tbody></table></div>
+<p>Các khóa nên đặt sớm: <code>user.name</code>, <code>user.email</code>, <code>init.defaultBranch</code>, <code>core.editor</code>.</p>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Global đã có tên &quot;Duy Van&quot;. Trong một repository bài tập, đặt tên riêng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --global user.name
+git config --local user.name &quot;Hoc Vien QA&quot;
+git config user.name
+git config --show-origin user.name</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Duy Van
+Hoc Vien QA
+file:.git/config	Hoc Vien QA</code></pre></div>
+<p>Xem toàn cảnh mọi tầng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --show-scope --get-all user.name</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">global	Duy Van
+local	Hoc Vien QA</code></pre></div>
+<p>Tầng local nằm sau nên thắng. Mở thẳng tệp local để thấy cấu trúc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat .git/config</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[user]
+	name = Hoc Vien QA</code></pre></div>
+<p>Gỡ giá trị local, tên global có hiệu lực trở lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --local --unset user.name
+git config user.name</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Duy Van</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Đặt nhầm tầng.</strong> Bạn muốn đổi email chỉ cho repository công việc nhưng gõ <code>--global</code>, kết quả là mọi dự án cá nhân cũng đổi theo. Kiểm tra lại bằng <code>--show-scope</code> và sửa ở đúng tầng.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu bạn có repository công việc và cá nhân trên cùng máy, đặt email cá nhân ở global và email công việc ở local của từng repository công việc (hoặc dùng <code>includeIf</code> theo thư mục khi đã quen).</p>
+</aside>
+<p><strong>Quên dấu ngoặc kép.</strong> <code>git config user.name Hoc Vien QA</code> không có ngoặc sẽ làm shell tách thành nhiều đối số; Git 2.47 từ chối với thông báo <code>error: no action specified</code>. Giá trị có dấu cách phải đặt trong ngoặc kép.</p>
+<p><strong>Sửa tay <code>.git/config</code> sai cú pháp.</strong> Một dấu ngoặc vuông thiếu khiến mọi lệnh Git báo &quot;bad config line&quot;. Ưu tiên dùng <code>git config</code> để ghi.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Commit đã tạo không tự đổi tên tác giả khi bạn sửa cấu hình. Cấu hình chỉ ảnh hưởng commit tạo sau đó.</p>
+</aside>
+<p><strong>Tưởng <code>git config user.name</code> cho biết tầng.</strong> Nó chỉ in giá trị cuối cùng. Thêm <code>--show-origin</code> khi cần biết nguồn.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Máy làm việc của bạn có global email cá nhân dùng cho blog. Dự án test automation của ngân hàng yêu cầu commit dùng email công việc để hệ thống review nhận diện đúng người. Bạn đặt <code>user.email</code> ở tầng local cho repository đó, kiểm tra bằng <code>git config --show-origin user.email</code>, rồi mới commit. Repository cá nhân vẫn dùng email global như cũ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu đặt một giá trị <code>user.name</code> chỉ có hiệu lực trong repository bài tập, không ảnh hưởng cấu hình chung trên máy. Câu hỏi đi kèm hỏi về tùy chọn chọn đúng phạm vi đó. Hãy:</p>
+<ul>
+<li>Ôn lại ba tầng cấu hình và tầng nào ghi vào <code>.git/config</code>.</li>
+<li>Nhớ đặt giá trị có dấu cách trong ngoặc kép và gõ đúng chữ hoa, chữ thường như đề.</li>
+<li>Sau khi đặt, kiểm tra bằng <code>git config --show-scope --get-all user.name</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Cấu hình Git gồm ba tầng chính: system, global, local.</li>
+<li>Tầng gần repository nhất thắng khi trùng khóa.</li>
+<li>Ghi không chỉ tầng sẽ vào local; đọc không chỉ tầng trả giá trị đã gộp.</li>
+<li><code>--show-origin</code> và <code>--show-scope</code> cho biết giá trị đến từ đâu.</li>
+<li><code>user.name</code> và <code>user.email</code> chỉ là nhãn, không chứng minh danh tính.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open configuration
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/gitignore.html" rel="prev"><small>Bài trước</small>Quy tắc bỏ qua tệp</a><a class="next" href="../foundations/three-trees.html" rel="next"><small>Bài sau</small>Ba vùng trạng thái</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 5/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

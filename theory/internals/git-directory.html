@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Thư mục .git - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 1/11</span></p>
+<h1>Thư mục .git</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>git-directory</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Biết những thành phần chính trong thư mục <code>.git</code> và mỗi thành phần lưu gì.</li>
+<li>Quan sát <code>.git</code> thay đổi ra sao sau <code>git add</code> và <code>git commit</code>.</li>
+<li>Hỏi Git đường dẫn nội bộ bằng <code>git rev-parse --git-path</code> thay vì đoán.</li>
+<li>Hiểu vì sao không nên chỉnh tay <code>.git</code> khi đã có lệnh Git làm việc đó.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Thư mục làm việc của bạn chỉ là một bản xem của dự án. Toàn bộ thứ làm nên repository, gồm lịch sử, nhánh, cấu hình, vùng staging, nằm trong một thư mục ẩn tên <code>.git</code> ở gốc. Xóa <code>.git</code> là thư mục trở lại thành thư mục thường, mất hết lịch sử; copy <code>.git</code> sang chỗ khác là mang theo cả repository.</p>
+<p>Những thành phần đáng biết:</p>
+<ul>
+<li><strong><code>HEAD</code></strong>: tệp nhỏ cho biết bạn đang đứng ở đâu. Thường chứa <code>ref: refs/heads/main</code>, tức là đang ở nhánh main.</li>
+<li><strong><code>config</code></strong>: cấu hình riêng của repository (phạm vi <code>--local</code>): remote, upstream của nhánh, alias local...</li>
+<li><strong><code>objects/</code></strong>: kho object, nơi lưu mọi blob, tree, commit, tag. Đây là phần lớn nhất và quan trọng nhất.</li>
+<li><strong><code>refs/</code></strong>: các tên trỏ tới object: <code>refs/heads/</code> cho nhánh, <code>refs/tags/</code> cho tag, <code>refs/remotes/</code> cho remote-tracking.</li>
+<li><strong><code>index</code></strong>: tệp nhị phân chứa vùng staging, tức bản nháp của commit kế tiếp. Tệp này chỉ xuất hiện khi bạn đã add thứ gì đó.</li>
+<li><strong><code>logs/</code></strong>: reflog, ghi lại mỗi lần HEAD và các nhánh di chuyển.</li>
+<li><strong><code>hooks/</code></strong>: script hook, mặc định chỉ có tệp mẫu.</li>
+<li><strong><code>info/</code></strong>: một số cấu hình phụ, ví dụ <code>info/exclude</code> là danh sách bỏ qua chỉ áp dụng cho bản clone này.</li>
+<li><strong><code>packed-refs</code></strong>: xuất hiện khi Git gom nhiều ref vào một tệp để tiết kiệm.</li>
+<li>Các tệp trạng thái tạm như <code>ORIG_HEAD</code>, <code>MERGE_HEAD</code>, <code>COMMIT_EDITMSG</code> xuất hiện khi bạn reset, merge, commit.</li>
+</ul>
+<p>Mặc dù hầu hết là tệp văn bản đọc được, bạn không nên sửa tay. Git có những quy tắc mà mắt thường không thấy: ref có thể nằm trong <code>packed-refs</code> thay vì tệp riêng, phiên bản Git mới có thể dùng backend lưu ref khác, index có checksum, các thao tác cần khóa để tránh hai lệnh ghi cùng lúc. Lệnh Git (cả porcelain lẫn plumbing) xử lý đúng mọi trường hợp. Đọc <code>.git</code> để học thì rất tốt; ghi vào nó bằng tay thì chỉ khi bạn thật sự không còn cách nào.</p>
+<p>Một mẹo quan trọng: đừng tự ghép đường dẫn như <code>.git/hooks</code>. Trong worktree phụ hoặc khi có cấu hình <code>core.hooksPath</code>, đường dẫn thật có thể khác. <code>git rev-parse --git-path &lt;tên&gt;</code> trả về đường dẫn đúng.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph G[&quot;.git&quot;]
+    H[&quot;HEAD&quot;]
+    R[&quot;refs: heads, tags, remotes&quot;]
+    O[&quot;objects: blob, tree, commit, tag&quot;]
+    I[&quot;index: vùng staging&quot;]
+    C[&quot;config&quot;]
+    L[&quot;logs: reflog&quot;]
+  end
+  H --&gt;|&quot;ref: refs/heads/main&quot;| R
+  R --&gt;|&quot;object ID&quot;| O
+  I --&gt;|&quot;trỏ tới blob&quot;| O
+  W[&quot;Working tree&quot;] --&gt;|&quot;git add&quot;| I</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;git init&quot;] --&gt; B[&quot;Có HEAD, config, objects rỗng, refs rỗng&quot;]
+  B --&gt;|&quot;git add&quot;| C[&quot;Thêm index và một blob&quot;]
+  C --&gt;|&quot;git commit&quot;| D[&quot;Thêm tree, commit, refs/heads/main, logs&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Thư mục .git của repository hiện tại nằm ở đâu
+git rev-parse --git-dir
+
+# Đường dẫn đúng của một thành phần nội bộ
+git rev-parse --git-path index
+git rev-parse --git-path hooks
+
+# Đọc nhánh đang checkout qua HEAD (cách chuẩn, không đọc tệp)
+git symbolic-ref HEAD
+
+# Xem cấu hình local
+git config --local --list
+
+# Xem reflog thay vì đọc .git/logs
+git reflog</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Kiểu</th>
+<th>Lệnh nên dùng để đọc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>HEAD</code></td>
+<td>Văn bản</td>
+<td><code>git symbolic-ref HEAD</code>, <code>git rev-parse HEAD</code></td>
+</tr>
+<tr>
+<td><code>config</code></td>
+<td>Văn bản</td>
+<td><code>git config --local --list</code></td>
+</tr>
+<tr>
+<td><code>objects/</code></td>
+<td>Nén zlib</td>
+<td><code>git cat-file</code></td>
+</tr>
+<tr>
+<td><code>refs/</code>, <code>packed-refs</code></td>
+<td>Văn bản</td>
+<td><code>git show-ref</code>, <code>git for-each-ref</code></td>
+</tr>
+<tr>
+<td><code>index</code></td>
+<td>Nhị phân</td>
+<td><code>git ls-files --stage</code></td>
+</tr>
+<tr>
+<td><code>logs/</code></td>
+<td>Văn bản</td>
+<td><code>git reflog</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository vừa khởi tạo, chưa có commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git init -q r
+cd r
+ls -F .git
+cat .git/HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD
+branches/
+config
+description
+hooks/
+info/
+objects/
+refs/
+ref: refs/heads/main</code></pre></div>
+<p>Chưa có <code>index</code>. HEAD đã trỏ tới <code>refs/heads/main</code> dù nhánh này chưa tồn tại. Thêm một tệp vào staging:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">echo &quot;Bài tập Git&quot; &gt; README.md
+git add README.md
+ls -F .git
+find .git/objects -type f</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD
+branches/
+config
+description
+hooks/
+index
+info/
+objects/
+refs/
+.git/objects/3f/01b4f03f3a2193f92a57add2627ce240056f0f</code></pre></div>
+<p>Tệp <code>index</code> xuất hiện, và kho object có một blob. Commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -qm &quot;Khởi tạo&quot;
+find .git/objects -type f
+cat .git/refs/heads/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.git/objects/3f/01b4f03f3a2193f92a57add2627ce240056f0f
+.git/objects/c8/4aa38e60aec99583588637e9aeed74defb6508
+.git/objects/39/6f5cde5ccbf07db9559b319a28620813909306
+396f5cde5ccbf07db9559b319a28620813909306</code></pre></div>
+<p>Thêm hai object (một tree, một commit), và nhánh main giờ là một tệp chứa object ID của commit. Hỏi Git đường dẫn nội bộ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-parse --git-path index
+git rev-parse --git-path hooks</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.git/index
+.git/hooks</code></pre></div>
+<p>Object ID trên máy bạn có thể khác vì commit chứa tên tác giả và thời gian; riêng blob của cùng nội dung sẽ giống hệt.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đừng xóa hay sửa tệp trong <code>.git</code> của repository thật để &quot;dọn dẹp&quot;. Một tệp ref hoặc index hỏng có thể khiến Git không mở được repository. Muốn thử nghiệm, hãy làm trong thư mục tạm.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Sửa <code>.git/HEAD</code> hoặc tệp nhánh bằng tay.</strong> Có thể chạy trong trường hợp đơn giản, nhưng bỏ qua reflog và khóa. Dùng <code>git switch</code>, <code>git update-ref</code>, <code>git symbolic-ref</code>.</p>
+<p><strong>Tìm nhánh trong <code>.git/refs/heads</code> mà không thấy.</strong> Nhánh có thể đã được gom vào <code>packed-refs</code>. Dùng <code>git show-ref</code> hoặc <code>git branch</code>.</p>
+<p><strong>Commit nhầm thư mục <code>.git</code> lồng nhau.</strong> Copy một repository vào trong repository khác tạo ra <code>.git</code> lồng, Git sẽ coi thư mục đó là repository con. Nếu không định dùng submodule, xóa <code>.git</code> bên trong.</p>
+<p><strong>Ghép đường dẫn <code>.git/...</code> trong script.</strong> Sai trong worktree phụ hoặc khi dùng <code>core.hooksPath</code>. Dùng <code>git rev-parse --git-path</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Danh sách tệp trong <code>.git</code> có thể khác đôi chút giữa các phiên bản Git. Đừng viết công cụ phụ thuộc vào việc tệp nào có mặt; hãy dựa vào lệnh Git.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Một QA mới báo &quot;repository bị hỏng&quot; vì Git nói không tìm thấy nhánh <code>test/regression</code>. Bạn kiểm tra <code>.git/refs/heads</code> thấy không có tệp tương ứng, nhưng <code>git show-ref</code> vẫn liệt kê nhánh đó vì nó nằm trong <code>packed-refs</code> sau một lần <code>git gc</code>. Nguyên nhân thật là bạn ấy gõ sai hoa thường trên máy macOS. Đọc <code>.git</code> giúp bạn hiểu, còn lệnh Git cho câu trả lời chính xác.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi tệp nào trong <code>.git</code> lưu vùng staging. Hãy ôn bảng thành phần ở trên.</p>
+<p>Nếu muốn tự quan sát, mở repository bài tập, chạy <code>ls -F .git</code>, rồi thử <code>git rev-parse --git-path</code> với vài tên khác nhau. Chỉ đọc, đừng sửa gì.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>.git</code> chứa toàn bộ repository: object, ref, index, cấu hình, reflog, hook.</li>
+<li><code>HEAD</code> cho biết bạn đang ở nhánh nào; <code>refs/</code> lưu tên nhánh và tag.</li>
+<li><code>objects/</code> là kho nội dung, <code>index</code> là bản nháp commit kế tiếp.</li>
+<li>Đọc <code>.git</code> để học, nhưng ghi bằng lệnh Git.</li>
+<li><code>git rev-parse --git-path</code> cho đường dẫn nội bộ chính xác.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open git-directory
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/sync-forks.html" rel="prev"><small>Bài trước</small>Đồng bộ fork (Quy trình hằng ngày)</a><a class="next" href="../internals/object-database.html" rel="next"><small>Bài sau</small>Kho lưu trữ object</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 1/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

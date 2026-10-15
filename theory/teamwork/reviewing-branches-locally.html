@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Xem nhánh người khác ở local - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 3/8</span></p>
+<h1>Xem nhánh người khác ở local</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>reviewing-branches-locally</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Tải nhánh của đồng nghiệp về máy mà không đụng tới nhánh đang làm.</li>
+<li>Tạo nhánh review local từ remote-tracking ref và chạy thử thay đổi.</li>
+<li>Dùng <code>git worktree</code> để review song song mà không phải stash hay commit dở.</li>
+<li>Dọn dẹp sau khi review xong.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Đọc diff trên giao diện web là bước đầu, nhưng nhiều lỗi chỉ lộ ra khi chạy: test thất bại, script thiếu quyền thực thi, cấu hình sai đường dẫn. Review tốt thường gồm cả việc tải nhánh về và chạy thử trong môi trường an toàn.</p>
+<p>Quy trình gồm ba ý:</p>
+<ol>
+<li><strong>Fetch</strong>: <code>git fetch origin</code> tải commit và ref mới từ origin về, cập nhật các remote-tracking ref như <code>origin/kiem-thu-phi</code>. Fetch không đụng tới nhánh local và working tree của bạn, nên luôn an toàn.</li>
+<li><strong>Mở nhánh để xem</strong>: tạo một nhánh local từ remote-tracking ref, ví dụ <code>git switch -c review/phi origin/kiem-thu-phi</code>. Đặt tiền tố <code>review/</code> giúp phân biệt với nhánh của chính bạn. Nếu chỉ cần xem, <code>git switch --detach origin/kiem-thu-phi</code> cũng được.</li>
+<li><strong>Chạy thử và so sánh</strong>: chạy test, đọc <code>git log main..origin/kiem-thu-phi</code> và <code>git diff main...origin/kiem-thu-phi</code>.</li>
+</ol>
+<p>Nếu bạn đang làm dở việc khác, <code>git worktree add</code> tạo một thư mục làm việc thứ hai dùng chung repository: bạn review ở thư mục đó, còn thư mục chính giữ nguyên trạng thái. Xong thì <code>git worktree remove</code>.</p>
+<p>Một tiện ích nhỏ: nếu chưa có nhánh local tên <code>kiem-thu-phi</code> mà có đúng một remote có nhánh đó, <code>git switch kiem-thu-phi</code> tự tạo nhánh local theo dõi <code>origin/kiem-thu-phi</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant M as &quot;Minh&quot;
+  participant O as &quot;origin&quot;
+  participant B as &quot;Máy bạn&quot;
+  M-&gt;&gt;O: &quot;push kiem-thu-phi&quot;
+  B-&gt;&gt;O: &quot;git fetch origin&quot;
+  O--&gt;&gt;B: &quot;cập nhật origin/kiem-thu-phi&quot;
+  B-&gt;&gt;B: &quot;switch -c review/phi&quot;
+  B-&gt;&gt;B: &quot;chạy test, đọc diff&quot;
+  B--&gt;&gt;M: &quot;nhận xét review&quot;</pre>
+<pre class="mermaid">flowchart LR
+  F[&quot;git fetch origin&quot;] --&gt; RT[&quot;origin/kiem-thu-phi&quot;]
+  RT --&gt; RB[&quot;Nhánh review/phi&quot;]
+  RT --&gt; WT[&quot;Worktree ../review-phi&quot;]
+  M[&quot;main của bạn&quot;] -.-&gt;|&quot;không đổi&quot;| M</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tải ref mới, không merge
+git fetch origin
+
+# Nhánh có trên remote
+git branch -r
+
+# Commit sẽ được thêm vào main
+git log --oneline main..origin/kiem-thu-phi
+
+# Mở nhánh review local
+git switch -c review/phi origin/kiem-thu-phi
+
+# Hoặc review ở thư mục riêng
+git worktree add ../review-phi origin/kiem-thu-phi
+git worktree remove ../review-phi
+
+# Dọn nhánh review
+git branch -D review/phi</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Minh đã push nhánh <code>kiem-thu-phi</code> lên origin. Trên máy bạn, origin chưa có gì mới (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -r
+git fetch origin
+git branch -r</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">  origin/HEAD -&gt; origin/main
+  origin/main
+From /tmp/pb/x/tw3/origin
+ * [new branch]      kiem-thu-phi -&gt; origin/kiem-thu-phi
+  origin/HEAD -&gt; origin/main
+  origin/kiem-thu-phi
+  origin/main</code></pre></div>
+<p>(Đường dẫn trong dòng &quot;From&quot; là của máy thử nghiệm.) Xem nhánh mang gì vào:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline main..origin/kiem-thu-phi</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">cb388c4 Thêm test phí</code></pre></div>
+<p>Mở nhánh review và chạy thử:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c review/phi origin/kiem-thu-phi
+./test.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;review/phi&#39;
+branch &#39;review/phi&#39; set up to track &#39;origin/kiem-thu-phi&#39;.
+3 test qua</code></pre></div>
+<p>Cách thứ hai, không rời nhánh hiện tại: dùng worktree.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git worktree add ../review-phi origin/kiem-thu-phi
+ls ../review-phi
+git worktree remove ../review-phi</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to branch &#39;main&#39;
+Your branch is up to date with &#39;origin/main&#39;.
+Preparing worktree (detached HEAD cb388c4)
+HEAD is now at cb388c4 Thêm test phí
+README.md
+test.sh</code></pre></div>
+<p>Worktree ở trạng thái detached HEAD vì bạn chỉ định remote-tracking ref, không phải tên nhánh local. Với việc chỉ xem và chạy thử, như vậy là đủ.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Chạy mã của người khác nghĩa là tin script đó. Với thay đổi lạ hoặc từ nguồn bên ngoài, hãy đọc script trước khi chạy và chạy trong môi trường thử nghiệm, không chạy trên máy có dữ liệu thật hay quyền truy cập hệ thống sản xuất.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>git pull</code> để &quot;xem&quot; nhánh người khác.</strong> Pull merge vào nhánh hiện tại của bạn. Để xem, chỉ cần fetch.</p>
+<p><strong>Review bản cũ.</strong> Quên fetch lại sau khi tác giả push sửa đổi. Fetch trước mỗi vòng review.</p>
+<p><strong>Sửa trực tiếp trên nhánh review rồi push nhầm lên nhánh của tác giả.</strong> Nếu muốn đề xuất sửa, hãy ghi nhận xét hoặc thống nhất trước với tác giả.</p>
+<p><strong>Để lại hàng chục nhánh <code>review/...</code>.</strong> Dọn sau mỗi lần review bằng <code>git branch -D</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git fetch --prune</code> vừa tải mới vừa xóa remote-tracking ref của nhánh đã bị xóa trên remote, giữ danh sách <code>git branch -r</code> gọn gàng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Minh thêm bộ test cho phí chuyển khoản. Trên web, diff trông ổn. Bạn fetch, mở worktree, chạy thử và phát hiện script test gọi một đường dẫn chỉ có trên máy Minh. Bạn ghi nhận xét kèm lệnh tái hiện, Minh sửa trước khi merge. Lỗi được bắt ở review thay vì ở pipeline đêm.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành dùng origin local. Nhánh tính năng chỉ có trên origin, chưa có ở máy bạn. Bạn cần tải nhánh về, tạo nhánh review local tên theo đề bài trỏ đúng commit của nhánh tính năng, giữ main nguyên và working tree sạch. Câu hỏi kiến thức hỏi lệnh tải ref từ origin trước khi checkout.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Fetch tải ref mới mà không đụng tới nhánh local và working tree.</li>
+<li>Tạo nhánh <code>review/...</code> từ remote-tracking ref để chạy thử.</li>
+<li><code>git worktree</code> cho phép review song song với công việc đang dở.</li>
+<li>Đọc script trước khi chạy và chạy trong môi trường thử nghiệm.</li>
+<li>Dọn nhánh và worktree review sau khi xong.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reviewing-branches-locally
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/pr-lifecycle.html" rel="prev"><small>Bài trước</small>Vòng đời PR mô phỏng</a><a class="next" href="../teamwork/resolving-conflicts-team.html" rel="next"><small>Bài sau</small>Cùng giải quyết xung đột</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 3/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

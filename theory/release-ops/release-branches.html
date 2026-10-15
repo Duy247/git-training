@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhánh phát hành - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 7/10</span></p>
+<h1>Nhánh phát hành</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>release-branches</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao nhóm tách một release branch thay vì phát hành thẳng từ <code>main</code>.</li>
+<li>Tạo release branch từ đúng điểm xuất phát và đặt tên theo quy ước.</li>
+<li>Biết những gì được và không được commit vào release branch trong giai đoạn ổn định.</li>
+<li>Kết thúc release branch: gắn tag, đưa bản sửa về nhánh phát triển, dọn branch.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Hãy hình dung tuần cuối trước khi phát hành bản 3.4. Đội phát triển muốn tiếp tục đưa tính năng cho bản 3.5 vào <code>main</code>. Đội QA thì cần một bản mã <strong>đứng yên</strong> để chạy regression: nếu <code>main</code> thay đổi mỗi giờ, kết quả test sáng nay không còn ý nghĩa vào chiều. Hai nhu cầu này xung đột nếu mọi người cùng làm trên một branch.</p>
+<p><strong>Release branch</strong> tách hai luồng ra. Đến thời điểm &quot;đóng băng tính năng&quot; (feature freeze), nhóm tạo một branch từ <code>main</code>, ví dụ <code>release/3.4</code>. Từ lúc đó:</p>
+<ul>
+<li><code>main</code> tiếp tục nhận tính năng mới cho bản sau.</li>
+<li><code>release/3.4</code> chỉ nhận những thứ phục vụ việc phát hành: sửa lỗi QA tìm thấy, cập nhật số phiên bản, ghi chú phát hành, chỉnh cấu hình. Không thêm tính năng mới.</li>
+</ul>
+<p>Về kỹ thuật, release branch chẳng có gì đặc biệt: nó là một branch bình thường. Cái làm nên nó là <strong>quy ước</strong> của nhóm: tên có tiền tố thống nhất, điểm xuất phát rõ ràng, luật commit chặt hơn và vòng đời có kết thúc. Tiền tố <code>release/</code> theo sau là số phiên bản (ví dụ <code>release/3.4</code>) là quy ước phổ biến, giúp người và công cụ nhận ra ngay vai trò của branch; nhiều hệ thống CI hay quy tắc bảo vệ branch còn khớp theo mẫu <code>release/*</code>. Dấu <code>/</code> trong tên branch hoàn toàn hợp lệ; Git lưu nó như thư mục con trong <code>refs/heads/</code>.</p>
+<p>Điểm xuất phát rất quan trọng. Bạn tạo release branch từ commit mà nhóm đã đồng ý là đủ tính năng cho bản phát hành, thường là đầu <code>main</code> tại thời điểm freeze. Nếu đang đứng ở <code>main</code> thì <code>git switch -c release/3.4</code> là đủ; ghi rõ điểm xuất phát (<code>git switch -c release/3.4 main</code>) giúp tránh nhầm khi bạn đang ở branch khác.</p>
+<p>Trong giai đoạn ổn định, mỗi bản sửa trên release branch cũng cần về lại <code>main</code>, nếu không bản 3.5 sẽ mang lại lỗi đã sửa ở 3.4. Có hai cách phổ biến: merge release branch về <code>main</code> định kỳ hoặc lúc kết thúc, hoặc sửa trên <code>main</code> trước rồi cherry-pick sang release branch. Nhóm chọn một cách và giữ nhất quán.</p>
+<p>Khi QA ký duyệt, commit cuối của release branch được gắn annotated tag (ví dụ <code>v3.4.0</code>), đó chính là bản được triển khai. Sau khi các thay đổi đã về <code>main</code>, branch có thể xóa; tag giữ lại dấu vết vĩnh viễn. Một số nhóm giữ release branch lâu hơn để làm bản vá cho phiên bản đó, nhưng cách xử lý sự cố khẩn trên bản đã phát hành có bài riêng ngay sau bài này.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  commit id: &quot;Thêm chuyển khoản&quot;
+  branch release/3.4
+  checkout release/3.4
+  commit id: &quot;Chuẩn bị phát hành 3.4&quot;
+  checkout main
+  commit id: &quot;Tính năng cho 3.5&quot;
+  checkout release/3.4
+  commit id: &quot;Sửa lỗi QA tìm thấy&quot;
+  commit id: &quot;Phát hành 3.4.0&quot; tag: &quot;v3.4.0&quot;
+  checkout main
+  merge release/3.4</pre>
+<pre class="mermaid">stateDiagram-v2
+  state &quot;Phát triển trên main&quot; as Dev
+  state &quot;Feature freeze, tạo release branch&quot; as Freeze
+  state &quot;Ổn định, chỉ sửa lỗi&quot; as Stab
+  state &quot;Gắn tag phát hành&quot; as Tag
+  state &quot;Merge về main, xóa branch&quot; as Close
+  [*] --&gt; Dev
+  Dev --&gt; Freeze
+  Freeze --&gt; Stab
+  Stab --&gt; Stab: QA tìm lỗi, sửa
+  Stab --&gt; Tag: QA duyệt
+  Tag --&gt; Close
+  Close --&gt; [*]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c release/3.4 main          # tạo release branch từ main và chuyển sang
+git branch --show-current               # chắc chắn đang ở đâu
+git branch --list &#39;release/*&#39;           # liệt kê các release branch
+git log --oneline main..release/3.4     # commit chỉ có trên release branch
+git ls-tree --name-only &lt;branch&gt;        # tệp có trong commit đầu của một branch
+git cat-file -e main:&lt;tệp&gt;              # thành công nếu main có tệp đó
+git tag -a v3.4.0 -m &quot;Phát hành 3.4.0&quot;  # đánh dấu bản phát hành
+git merge --no-ff release/3.4           # đưa bản sửa về main (đứng ở main)
+git branch -d release/3.4               # xóa branch đã merge</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Được commit vào release branch</th>
+<th>Không nên</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sửa lỗi do QA tìm thấy</td>
+<td>Tính năng mới</td>
+</tr>
+<tr>
+<td>Số phiên bản, ghi chú phát hành</td>
+<td>Refactor lớn</td>
+</tr>
+<tr>
+<td>Cấu hình phát hành</td>
+<td>Nâng cấp thư viện không cần thiết</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai commit trên <code>main</code>. Đến lúc freeze bản 3.4 (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c release/3.4
+git branch --show-current
+echo &quot;3.4.0-rc.1&quot; &gt; VERSION
+git add VERSION
+git commit -qm &quot;Chuẩn bị phát hành 3.4&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;release/3.4&#39;
+release/3.4</code></pre></div>
+<p>Đội phát triển tiếp tục trên <code>main</code>, còn QA tìm ra một lỗi trên bản 3.4 và được sửa trên release branch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -q main
+echo &quot;tinh nang moi&quot; &gt; next.txt; git add .; git commit -qm &quot;Bắt đầu tính năng cho 3.5&quot;
+git switch -q release/3.4
+echo &quot;sua loi hien thi&quot; &gt;&gt; app.txt; git commit -qam &quot;Sửa lỗi hiển thị số dư trên bản 3.4&quot;
+git log --oneline --graph --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* c76256e Bắt đầu tính năng cho 3.5
+| * f58cc39 Sửa lỗi hiển thị số dư trên bản 3.4
+| * 366e462 Chuẩn bị phát hành 3.4
+|/
+* 7da9aab Thêm chuyển khoản
+* 9261644 Khởi tạo</code></pre></div>
+<p>Kiểm tra hai luồng thật sự tách biệt: tệp <code>VERSION</code> chỉ có trên release branch.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -e main:VERSION 2&gt;/dev/null || echo &quot;main chưa có VERSION&quot;
+git ls-tree --name-only release/3.4
+git log --oneline main..release/3.4</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">main chưa có VERSION
+VERSION
+app.txt
+f58cc39 Sửa lỗi hiển thị số dư trên bản 3.4
+366e462 Chuẩn bị phát hành 3.4</code></pre></div>
+<p>QA duyệt. Chốt số phiên bản, gắn tag, đưa thay đổi về <code>main</code> và dọn branch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">echo 3.4.0 &gt; VERSION; git commit -qam &quot;Phát hành 3.4.0&quot;
+git tag -a v3.4.0 -m &quot;Phát hành 3.4.0&quot;
+git switch -q main
+git merge --no-ff -q release/3.4 -m &quot;Merge release/3.4 về main&quot;
+git log --oneline --graph | head -8
+git branch -d release/3.4</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">*   9d7919b Merge release/3.4 về main
+|\
+| * d26f33b Phát hành 3.4.0
+| * f58cc39 Sửa lỗi hiển thị số dư trên bản 3.4
+| * 366e462 Chuẩn bị phát hành 3.4
+* | c76256e Bắt đầu tính năng cho 3.5
+|/
+* 7da9aab Thêm chuyển khoản
+Deleted branch release/3.4 (was d26f33b).</code></pre></div>
+<p>Trong dự án thật, merge này có thể gặp conflict (ví dụ cả hai bên cùng sửa tệp phiên bản); xử lý như conflict merge bình thường.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tạo release branch từ sai chỗ.</strong> Đang đứng ở một feature branch rồi chạy <code>git switch -c release/...</code> sẽ kéo cả tính năng dở vào bản phát hành. Ghi rõ điểm xuất phát trong lệnh và xem lại bằng <code>git log --oneline -3</code>.</p>
+<p><strong>Commit nhầm lên <code>main</code> thay vì release branch, hoặc ngược lại.</strong> Luôn kiểm tra <code>git branch --show-current</code> trước khi commit. Nếu commit nhầm và chưa push, cherry-pick sang đúng branch rồi bỏ commit ở branch sai.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Quên đưa bản sửa của release branch về <code>main</code> là lỗi kinh điển: bản phát hành sau mang lại đúng lỗi đã sửa. Đặt việc merge về <code>main</code> thành một bước bắt buộc trong checklist phát hành.</p>
+</aside>
+<p><strong>Để tính năng mới lọt vào release branch.</strong> Mỗi thay đổi thêm vào giai đoạn ổn định là thêm rủi ro và thêm vòng test. Tính năng trễ hẹn chờ bản sau.</p>
+<p><strong>Tên branch không theo quy ước.</strong> <code>rel-3.4</code>, <code>release3.4</code>, <code>Release/3.4</code> làm vỡ các quy tắc CI và bảo vệ branch khớp theo mẫu. Thống nhất một tiền tố cho cả nhóm.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git branch --list &#39;release/*&#39;</code> liệt kê nhanh mọi release branch còn mở; nếu có quá nhiều, có thể nhóm đang quên dọn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Ứng dụng ngân hàng di động phát hành hai tuần một lần. Thứ hai tuần thứ hai, trưởng nhóm tạo <code>release/3.4</code> từ <code>main</code>; pipeline tự build bản <code>rc</code> từ mọi branch khớp <code>release/*</code> và đẩy lên môi trường UAT. QA chạy regression trên bản đó, ghi bug kèm tên branch. Lập trình viên sửa trên release branch, mỗi bản sửa sinh build <code>rc</code> mới. Khi QA duyệt, tag <code>v3.4.0</code> được gắn và release branch merge về <code>main</code>, trong khi đội còn lại vẫn đưa tính năng 3.5 vào <code>main</code> suốt hai tuần mà không làm xáo trộn đợt test.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành cho bạn một repository chỉ có <code>main</code>. Bạn cần tạo release branch cho phiên bản mà đề bài nêu, theo đúng quy ước tiền tố, rồi commit một tệp ghi chú phát hành trên branch đó. Trình kiểm tra so <strong>chính xác</strong> tên branch, tên tệp và nội dung tệp, đồng thời xác nhận <code>main</code> không có tệp đó và working tree sạch. Câu hỏi kiến thức hỏi về tiền tố tên branch phù hợp. Hãy:</p>
+<ul>
+<li>Đọc kỹ đề bài bằng <code>git-training status</code> (hoặc trong bảng học) và chép đúng tên tệp và nội dung yêu cầu, kể cả dấu tiếng Việt.</li>
+<li>Kiểm tra mình đang ở branch mới bằng <code>git branch --show-current</code> trước khi commit.</li>
+<li>Sau khi commit, xác nhận <code>main</code> chưa có tệp đó (như ví dụ <code>git cat-file -e</code> ở trên) và <code>git status --short</code> trống.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Release branch tách phần mã đã freeze để ổn định, trong khi <code>main</code> tiếp tục nhận tính năng.</li>
+<li>Tạo từ đúng điểm freeze, đặt tên theo quy ước như <code>release/&lt;phiên bản&gt;</code>.</li>
+<li>Trong giai đoạn ổn định chỉ commit sửa lỗi và việc phục vụ phát hành.</li>
+<li>Kết thúc bằng annotated tag cho bản phát hành và đưa bản sửa về <code>main</code>.</li>
+<li>Về kỹ thuật đây là branch bình thường; giá trị nằm ở quy ước của nhóm.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open release-branches
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/tag-signing.html" rel="prev"><small>Bài trước</small>Ký tag</a><a class="next" href="../release-ops/hotfix-branches.html" rel="next"><small>Bài sau</small>Nhánh sửa lỗi khẩn</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 7/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

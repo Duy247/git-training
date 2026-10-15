@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Quy ước tài liệu - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 8/8</span></p>
+<h1>Quy ước tài liệu</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>documentation-conventions</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu nguyên tắc &quot;tài liệu đi cùng mã&quot; (docs as code) và vì sao nó giữ tài liệu không lệch hành vi.</li>
+<li>Biết vai trò của các tệp tài liệu quy ước: <code>README.md</code>, <code>CONTRIBUTING.md</code>, thư mục <code>docs/</code>.</li>
+<li>Commit thay đổi hành vi cùng thay đổi tài liệu trong một commit.</li>
+<li>Dùng <code>git log -- &lt;đường dẫn&gt;</code> để kiểm tra tài liệu có được cập nhật cùng mã hay không.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Tài liệu lệch khỏi thực tế là chuyện thường gặp: wiki ghi hạn mức là 100 trong khi cấu hình đã đổi thành 200 từ ba tháng trước. Nguyên nhân thường là tài liệu sống ở một nơi, mã sống ở nơi khác, và không có gì buộc hai thứ đổi cùng nhau.</p>
+<p>&quot;Tài liệu đi cùng mã&quot; giải quyết bằng cách đặt tài liệu ngay trong repository, viết bằng văn bản thuần (thường là Markdown), và đối xử với nó như mã:</p>
+<ul>
+<li>Thay đổi hành vi nào cần cập nhật tài liệu thì cập nhật <strong>trong cùng commit</strong> (hoặc ít nhất cùng PR). Người review thấy cả hai, và lịch sử ghi lại chúng cùng lúc.</li>
+<li>Tài liệu đi qua review như mọi thay đổi khác.</li>
+<li>Lịch sử Git trả lời được &quot;tài liệu này đổi khi nào, vì sao, ai đổi&quot;.</li>
+</ul>
+<p>Các tệp quy ước thường gặp:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tệp</th>
+<th>Dành cho</th>
+<th>Nội dung</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>README.md</code></td>
+<td>Mọi người, nhất là người mới</td>
+<td>Dự án là gì, cài đặt, chạy, kiểm thử</td>
+</tr>
+<tr>
+<td><code>CONTRIBUTING.md</code></td>
+<td>Người muốn đóng góp</td>
+<td>Quy ước nhánh, quy trình review, yêu cầu kiểm thử trước khi mở PR</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>Người cần chi tiết</td>
+<td>Kiến trúc, cấu hình, hướng dẫn chuyên sâu</td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>Người dùng bản phát hành</td>
+<td>Thay đổi theo từng phiên bản</td>
+</tr>
+</tbody></table></div>
+<p><code>CONTRIBUTING.md</code> là nơi ghi &quot;luật chơi&quot; của nhóm: nhánh đặt tên ra sao, commit message theo chuẩn nào, ai cần duyệt, test nào phải chạy. Nhiều nền tảng hosting tự hiển thị đường dẫn tới tệp này khi ai đó mở PR hay issue mới.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  CH[&quot;Thay đổi hành vi: hạn mức 100 thành 200&quot;] --&gt; CODE[&quot;Sửa tests/config.txt&quot;]
+  CH --&gt; DOC[&quot;Sửa docs/cau-hinh.md&quot;]
+  CODE --&gt; ONE[&quot;Một commit chứa cả hai&quot;]
+  DOC --&gt; ONE
+  ONE --&gt; REV[&quot;Review thấy mã và tài liệu cùng lúc&quot;]
+  REV --&gt; LOG[&quot;git log -- docs/ khớp với git log -- tests/&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Xem đã stage những gì, chắc chắn có cả mã và tài liệu
+git diff --cached --stat
+
+# Commit cả hai
+git commit -m &quot;Tăng hạn mức test lên 200, cập nhật tài liệu&quot;
+
+# Lịch sử của tài liệu và của mã
+git log --oneline -- docs/
+git log --oneline -- tests/config.txt
+
+# Commit kèm danh sách tệp
+git log --stat --format=&#39;%h %s&#39; -1
+
+# Mọi tệp Markdown trong repository
+git ls-files &#39;*.md&#39;</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có <code>tests/config.txt</code> (cấu hình hạn mức test), <code>docs/cau-hinh.md</code> (mô tả cấu hình) và <code>CONTRIBUTING.md</code> của nhóm. Phần quy ước trong đó trông như sau:</p>
+<div class="code-block" data-lang="markdown"><pre><code class="language-markdown">## Đặt tên nhánh
+Dùng dạng qa/&lt;mã-ticket&gt;-&lt;mô-tả-ngắn&gt;.
+
+## Trước khi mở PR
+Chạy toàn bộ test và cập nhật docs/ nếu hành vi thay đổi.
+
+## Người duyệt
+Ít nhất một QA lead duyệt mỗi PR.</code></pre></div>
+<p>Bạn đổi hạn mức từ 100 lên 200. Sau khi sửa cấu hình:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --stat</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> tests/config.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</code></pre></div>
+<p>Chỉ có mã. Theo quy ước, bạn cập nhật luôn <code>docs/cau-hinh.md</code>, stage cả hai và kiểm tra (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add tests/config.txt docs/cau-hinh.md
+git diff --cached --stat
+git commit -m &quot;Tăng hạn mức test lên 200, cập nhật tài liệu&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> docs/cau-hinh.md | 2 +-
+ tests/config.txt | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+[main d5b9800] Tăng hạn mức test lên 200, cập nhật tài liệu
+ 2 files changed, 2 insertions(+), 2 deletions(-)</code></pre></div>
+<p>Lịch sử của tài liệu và của cấu hình đi song song:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline -- docs/
+git log --oneline -- tests/config.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">d5b9800 Tăng hạn mức test lên 200, cập nhật tài liệu
+333b4a9 Thêm cấu hình test và quy ước đóng góp
+d5b9800 Tăng hạn mức test lên 200, cập nhật tài liệu
+333b4a9 Thêm cấu hình test và quy ước đóng góp</code></pre></div>
+<p>Nếu một ngày <code>git log -- tests/config.txt</code> có commit mới mà <code>git log -- docs/</code> thì không, đó là tín hiệu tài liệu có thể đã lệch.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Thêm một dòng vào mẫu mô tả PR của nhóm: &quot;Tài liệu đã cập nhật chưa?&quot;. Câu hỏi nhỏ này nhắc cả tác giả lẫn người review.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Để tài liệu &quot;làm sau&quot;.</strong> &quot;Sau&quot; thường là không bao giờ. Cập nhật trong cùng commit hoặc cùng PR.</p>
+<p><strong>Tài liệu nằm ngoài repository.</strong> Không có review, không có lịch sử đi kèm mã, dễ lệch.</p>
+<p><strong><code>CONTRIBUTING.md</code> quá chung chung.</strong> &quot;Hãy viết code tốt&quot; không giúp ai. Ghi quy ước cụ thể: tên nhánh, ai duyệt, lệnh test nào.</p>
+<p><strong>Gộp mọi thứ vào README.</strong> README phình to, người mới bị ngợp. Tách quy ước đóng góp sang <code>CONTRIBUTING.md</code>, chi tiết sang <code>docs/</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Commit tách riêng &quot;chỉ sửa tài liệu&quot; vẫn hợp lệ khi sửa lỗi chính tả hay bổ sung giải thích. Quy tắc &quot;cùng commit&quot; áp dụng cho trường hợp hành vi thay đổi.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Kiểm toán nội bộ hỏi: &quot;Hạn mức trong môi trường test được đổi từ khi nào, có ai duyệt không?&quot;. Vì cấu hình và tài liệu đổi cùng commit, đi qua PR có người duyệt, bạn trả lời bằng một lệnh <code>git log --stat -- docs/cau-hinh.md</code>, kèm commit ID và tên người duyệt trong lịch sử PR.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có repository với một commit ban đầu. Bạn cần tạo tệp mô tả quy ước đóng góp ở gốc repository, có đủ các mục mà đề bài liệt kê (đọc kỹ tên mục), kiểm tra diff rồi commit để working tree sạch. Câu hỏi kiến thức hỏi tệp nào mô tả quy ước đóng góp cho repository; ôn lại bảng các tệp quy ước ở trên.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Tài liệu nằm cùng mã, viết bằng văn bản thuần và đi qua review.</li>
+<li>Thay đổi hành vi thì cập nhật tài liệu trong cùng commit hoặc PR.</li>
+<li><code>README.md</code> cho người mới, <code>CONTRIBUTING.md</code> cho quy ước đóng góp, <code>docs/</code> cho chi tiết.</li>
+<li><code>git log -- &lt;đường dẫn&gt;</code> giúp phát hiện tài liệu bị lệch.</li>
+<li>Quy ước càng cụ thể càng hữu ích.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open documentation-conventions
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/repo-onboarding.html" rel="prev"><small>Bài trước</small>Giúp thành viên mới bắt đầu</a><a class="next" href="../forensics/bisect-basics.html" rel="next"><small>Bài sau</small>Bisect cơ bản (Điều tra lịch sử)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 8/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

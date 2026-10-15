@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Repository con dạng submodule - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 3/13</span></p>
+<h1>Repository con dạng submodule</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>submodules</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu superproject lưu submodule như thế nào: tệp <code>.gitmodules</code> và gitlink.</li>
+<li>Thêm một repository con, commit nó, và clone lại cho đúng.</li>
+<li>Cập nhật submodule lên commit mới và biết vì sao phải commit lại ở superproject.</li>
+<li>Nhận ra các tình huống submodule &quot;trống&quot; hoặc &quot;lệch&quot; và cách xử lý.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Đôi khi dự án của bạn cần dùng mã của một repository khác, nhưng bạn muốn giữ lịch sử của nó tách biệt: một bộ thư viện test dùng chung, một bộ dữ liệu mẫu, một module do nhóm khác quản lý. Submodule là cách Git cho phép đặt một repository bên trong repository khác mà mỗi bên vẫn có lịch sử riêng.</p>
+<p>Repository bên ngoài gọi là superproject. Superproject không chứa tệp của repository con trong lịch sử của nó. Thay vào đó, nó lưu hai thứ:</p>
+<ol>
+<li>Tệp <code>.gitmodules</code> ở gốc, ghi đường dẫn và URL của từng submodule. Tệp này được commit như tệp thường.</li>
+<li>Một mục đặc biệt trong tree, gọi là gitlink, có mode <code>160000</code> và kiểu <code>commit</code>. Gitlink ghi chính xác object ID của commit trong repository con mà superproject đang &quot;ghim&quot;.</li>
+</ol>
+<p>Điều này dẫn tới mô hình tư duy quan trọng nhất: superproject ghim một commit cụ thể của repository con, không ghim một nhánh. Khi repository con có commit mới, superproject không tự đi theo. Bạn phải vào submodule, checkout commit mới, rồi quay ra superproject commit lại gitlink. Ngược lại, khi người khác cập nhật gitlink, bạn phải chạy <code>git submodule update</code> để thư mục con nhảy tới commit được ghim.</p>
+<p>Submodule hữu ích khi bạn muốn kiểm soát chặt phiên bản phụ thuộc. Nó cũng có giá: thêm bước khi clone, thêm bước khi cập nhật, và dễ gây nhầm cho người chưa quen.</p>
+<p>Một chi tiết bảo mật: từ Git 2.38.1, khi URL submodule là đường dẫn local (giao thức <code>file</code>), Git mặc định chặn việc clone submodule. Đây là biện pháp phòng tấn công qua repository độc hại. Trong bài tập local, bạn bật riêng cho một lệnh bằng <code>-c protocol.file.allow=always</code>, thay vì đổi cấu hình toàn máy.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph SP[&quot;Superproject&quot;]
+    T[&quot;Tree của commit&quot;]
+    GM[&quot;.gitmodules: path và url&quot;]
+    GL[&quot;Gitlink 160000 tại modules/sample&quot;]
+  end
+  subgraph SUB[&quot;Repository con&quot;]
+    C1[&quot;Commit d1a1d25&quot;]
+    C2[&quot;Commit 4df0b29 mới hơn&quot;]
+  end
+  T --&gt; GM
+  T --&gt; GL
+  GL --&gt;|&quot;ghim đúng commit này&quot;| C1
+  C1 --&gt; C2</pre>
+<p>Quy trình cập nhật submodule lên commit mới:</p>
+<pre class="mermaid">sequenceDiagram
+  participant Dev as Bạn
+  participant Sub as Thư mục submodule
+  participant Sup as Superproject
+  Dev-&gt;&gt;Sub: fetch hoặc pull, checkout commit mới
+  Sub--&gt;&gt;Sup: git status báo modules/sample đã đổi
+  Dev-&gt;&gt;Sup: git add modules/sample
+  Dev-&gt;&gt;Sup: git commit ghi gitlink mới</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Thêm submodule (URL hoặc đường dẫn, rồi vị trí trong superproject)
+git submodule add &lt;url&gt; modules/sample
+
+# Với nguồn local trong bài tập, cho phép giao thức file cho riêng lệnh này
+git -c protocol.file.allow=always submodule add &lt;đường-dẫn&gt; modules/sample
+
+# Xem commit đang được ghim cho từng submodule
+git submodule status
+
+# Sau khi clone superproject: đăng ký và checkout submodule
+git submodule update --init
+
+# Clone kèm submodule ngay từ đầu
+git clone --recurse-submodules &lt;url&gt;
+
+# Xem thay đổi submodule dưới dạng danh sách commit
+git diff --submodule</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Nằm ở đâu</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.gitmodules</code></td>
+<td>Gốc superproject, được commit</td>
+<td>Đường dẫn và URL</td>
+</tr>
+<tr>
+<td>Gitlink</td>
+<td>Tree của superproject, mode 160000</td>
+<td>Commit được ghim</td>
+</tr>
+<tr>
+<td><code>.git/modules/&lt;tên&gt;</code></td>
+<td>Trong <code>.git</code> của superproject</td>
+<td>Kho object thật của submodule</td>
+</tr>
+<tr>
+<td><code>submodule.&lt;tên&gt;.url</code> trong <code>.git/config</code></td>
+<td>Cấu hình local</td>
+<td>Ghi khi <code>init</code>, có thể ghi đè</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình có repository <code>module-source</code> với một commit &quot;Tạo module&quot;, và một superproject <code>sp</code>. Thử thêm submodule mà không bật giao thức file:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git submodule add /tmp/pb/x/w/module-source modules/sample</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Cloning into &#39;/tmp/pb/x/w/sp/modules/sample&#39;...
+fatal: transport &#39;file&#39; not allowed
+fatal: clone of &#39;/tmp/pb/x/w/module-source&#39; into submodule path &#39;/tmp/pb/x/w/sp/modules/sample&#39; failed</code></pre></div>
+<p>Bật cho riêng lệnh này:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -c protocol.file.allow=always submodule add /tmp/pb/x/w/module-source modules/sample
+cat .gitmodules
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[submodule &quot;modules/sample&quot;]
+	path = modules/sample
+	url = /tmp/pb/x/w/module-source
+A  .gitmodules
+A  modules/sample</code></pre></div>
+<p>Commit rồi xem tree. Object ID trên máy bạn sẽ khác:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Thêm submodule&quot;
+git ls-tree HEAD modules/sample
+git submodule status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">160000 commit d1a1d259eaeed93a432e299c8b520db2ba937774	modules/sample
+ d1a1d259eaeed93a432e299c8b520db2ba937774 modules/sample (heads/main)</code></pre></div>
+<p>Repository con có commit mới &quot;Module v2&quot;. Vào submodule kéo về, superproject thấy gitlink lệch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -C modules/sample pull -q
+git status --short
+git diff --submodule</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M modules/sample
+Submodule modules/sample d1a1d25..4df0b29:
+  &gt; Module v2</code></pre></div>
+<p>Nếu muốn ghim phiên bản mới, <code>git add modules/sample</code> rồi commit. Cuối cùng, clone superproject sang chỗ khác thì thư mục submodule trống cho tới khi chạy update:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone -q /tmp/pb/x/w/sp /tmp/pb/x/w/sp-clone
+ls /tmp/pb/x/w/sp-clone/modules/sample
+git -C /tmp/pb/x/w/sp-clone -c protocol.file.allow=always submodule update --init</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Submodule &#39;modules/sample&#39; (/tmp/pb/x/w/module-source) registered for path &#39;modules/sample&#39;
+Cloning into &#39;/tmp/pb/x/w/sp-clone/modules/sample&#39;...
+done.
+Submodule path &#39;modules/sample&#39;: checked out &#39;d1a1d259eaeed93a432e299c8b520db2ba937774&#39;</code></pre></div>
+<p>Để ý bản clone checkout đúng <code>d1a1d25</code>, tức commit đã được ghim, chứ không phải commit mới nhất của module.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>protocol.file.allow=always</code> chỉ nên bật cho từng lệnh với nguồn bạn tin cậy, như repository trong thư mục bài tập. Đừng đặt nó vào cấu hình global.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Clone xong thư mục submodule trống.</strong> Đây là hành vi mặc định. Chạy <code>git submodule update --init</code> (thêm <code>--recursive</code> nếu có submodule lồng nhau), hoặc clone bằng <code>--recurse-submodules</code>.</p>
+<p><strong>Commit trong submodule nhưng quên commit superproject.</strong> Đồng nghiệp kéo về vẫn thấy commit cũ được ghim. Luôn kiểm tra <code>git status</code> ở superproject sau khi đổi submodule.</p>
+<p><strong>Submodule ở trạng thái detached HEAD.</strong> Sau <code>submodule update</code>, thư mục con thường đứng ở detached HEAD tại commit được ghim. Nếu muốn sửa code trong đó, hãy <code>git switch</code> sang một nhánh trước khi commit, kẻo commit bị lạc.</p>
+<p><strong>Push superproject trước khi push submodule.</strong> Gitlink trỏ tới commit mà remote của submodule chưa có, người khác sẽ không update được. Push submodule trước, superproject sau.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA của bạn duy trì một repository <code>test-data</code> chứa bộ dữ liệu tài khoản giả lập dùng cho nhiều dự án. Dự án ứng dụng ngân hàng di động thêm <code>test-data</code> làm submodule tại <code>fixtures/shared</code>. Khi <code>test-data</code> thêm bộ dữ liệu cho tính năng mới, dự án không tự nhận ngay; người phụ trách test cập nhật submodule, chạy lại bộ test, rồi mới commit gitlink mới. Nhờ đó một thay đổi dữ liệu không âm thầm làm đỏ pipeline của dự án.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài tập đặt sẵn repository <code>module-source</code> bên cạnh repository bài tập. Bạn cần thêm nó làm submodule tại <code>modules/sample</code> và commit để HEAD có gitlink, working tree sạch. Câu hỏi kiến thức hỏi lệnh dùng để thêm một repository local làm submodule.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Lấy đúng đường dẫn tới <code>module-source</code> (lệnh <code>git-training hint</code> có thể in đường dẫn cụ thể).</li>
+<li>Nhớ vụ chặn giao thức file và cách bật cho riêng một lệnh.</li>
+<li>Sau khi thêm, xem <code>git status</code> có những gì đã stage, rồi commit.</li>
+<li>Kiểm tra bằng <code>git ls-tree HEAD modules/sample</code> xem có mode 160000 chưa.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Submodule là repository con được superproject ghim tại một commit cụ thể.</li>
+<li><code>.gitmodules</code> lưu đường dẫn và URL; gitlink mode 160000 lưu commit được ghim.</li>
+<li>Cập nhật submodule cần hai bước: đổi commit trong con, rồi commit gitlink ở cha.</li>
+<li>Sau clone, cần <code>git submodule update --init</code> để có tệp trong submodule.</li>
+<li>Nguồn local bị chặn mặc định; bật bằng <code>-c protocol.file.allow=always</code> cho từng lệnh.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open submodules
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/worktrees.html" rel="prev"><small>Bài trước</small>Nhiều worktree</a><a class="next" href="../advanced/hooks-automation.html" rel="next"><small>Bài sau</small>Hook và tự động hóa</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 3/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

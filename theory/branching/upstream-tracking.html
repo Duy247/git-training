@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhánh upstream - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 8/10</span></p>
+<h1>Nhánh upstream</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>upstream-tracking</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu upstream là gì: liên kết giữa nhánh local và một nhánh remote-tracking.</li>
+<li>Đặt upstream ngay lần push đầu tiên, hoặc đặt và gỡ sau đó.</li>
+<li>Đọc thông tin ahead và behind trong <code>git status</code> và <code>git branch -vv</code>.</li>
+<li>Biết upstream được lưu ở đâu và dùng cú pháp <code>@{upstream}</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi bạn gõ <code>git push</code> hay <code>git pull</code> mà không kèm tên remote và nhánh, Git cần biết &quot;đẩy đi đâu, kéo về từ đâu&quot;. Câu trả lời là <strong>upstream</strong> của nhánh hiện tại: một nhánh trên remote mà nhánh local được gắn với. Ví dụ nhánh local <code>feature</code> có upstream là <code>origin/feature</code>.</p>
+<p>Upstream được lưu trong cấu hình repository dưới hai khóa:</p>
+<ul>
+<li><code>branch.&lt;tên&gt;.remote</code>: tên remote, như <code>origin</code>.</li>
+<li><code>branch.&lt;tên&gt;.merge</code>: tên nhánh trên remote, như <code>refs/heads/feature</code>.</li>
+</ul>
+<p>Khi đã có upstream, bạn được ba lợi ích:</p>
+<ol>
+<li><code>git push</code> và <code>git pull</code> không cần đối số.</li>
+<li><code>git status</code> cho biết nhánh local đi trước (ahead) hay đi sau (behind) bao nhiêu commit so với upstream, dựa trên lần fetch gần nhất.</li>
+<li>Cú pháp <code>@{upstream}</code> (viết tắt <code>@{u}</code>) dùng được trong mọi lệnh, như <code>git log @{u}..</code> để xem commit chưa push.</li>
+</ol>
+<p>Nhánh tạo bằng <code>git clone</code> (thường là <code>main</code>) hoặc tạo từ một nhánh remote-tracking (<code>git switch &lt;tên&gt;</code> khi có <code>origin/&lt;tên&gt;</code>) tự động có upstream. Nhưng nhánh bạn tự tạo local thì <strong>chưa có</strong>. Lần push đầu tiên, bạn cần nói rõ remote, tên nhánh, và yêu cầu đặt upstream bằng <code>--set-upstream</code> (viết tắt <code>-u</code>). Từ đó về sau chỉ cần <code>git push</code>.</p>
+<p>Nếu muốn mọi nhánh mới tự đặt upstream khi push lần đầu, Git có cấu hình <code>push.autoSetupRemote</code> (từ Git 2.37). Mặc định nó tắt.</p>
+<p>Đặt hoặc đổi upstream cho nhánh đã có: <code>git branch --set-upstream-to=origin/&lt;tên&gt;</code> (viết tắt <code>-u</code>). Gỡ: <code>git branch --unset-upstream</code>.</p>
+<p>Upstream cũng là &quot;đích mặc định&quot; của <code>git pull</code>: lệnh này fetch từ remote của upstream rồi hợp nhất nhánh upstream vào nhánh hiện tại. Vì thế upstream sai nghĩa là pull sai chỗ. Với <code>push</code>, cấu hình mặc định <code>push.default=simple</code> chỉ cho đẩy khi tên nhánh upstream trùng tên nhánh local, một lớp bảo vệ nhỏ chống đẩy nhầm.</p>
+<p>Lưu ý: số ahead/behind là so với <strong>remote-tracking ref local</strong> của bạn, không phải trạng thái trực tiếp của server. Muốn số liệu mới, chạy <code>git fetch</code> trước.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  L[&quot;Nhánh local: feature&quot;] --&gt;|&quot;upstream&quot;| RT[&quot;Remote-tracking: origin/feature&quot;]
+  RT --&gt;|&quot;phản ánh lần fetch gần nhất&quot;| S[&quot;Server: refs/heads/feature&quot;]
+  L --&gt;|&quot;git push&quot;| S
+  S --&gt;|&quot;git fetch&quot;| RT</pre>
+<pre class="mermaid">sequenceDiagram
+  participant L as feature local
+  participant O as origin
+  L-&gt;&gt;O: git push (chưa có upstream)
+  O--&gt;&gt;L: fatal: no upstream branch
+  L-&gt;&gt;O: git push -u origin feature
+  O--&gt;&gt;L: tạo nhánh, ghi upstream
+  L-&gt;&gt;O: git push (lần sau, không cần đối số)</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push -u origin &lt;nhánh&gt;                 # push lần đầu và đặt upstream
+git push --set-upstream origin &lt;nhánh&gt;     # dạng dài
+git branch -vv                             # upstream và ahead/behind từng nhánh
+git status -sb                             # dòng đầu cho biết nhánh...upstream [ahead N]
+git rev-parse --abbrev-ref --symbolic-full-name &quot;&lt;nhánh&gt;@{upstream}&quot;
+git branch --set-upstream-to=origin/&lt;nhánh&gt;  # đặt hoặc đổi upstream
+git branch --unset-upstream                # gỡ upstream
+git log --oneline @{u}..                   # commit local chưa push
+git config --global push.autoSetupRemote true  # tự đặt upstream lần push đầu</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh <code>feature</code> vừa tạo local, có một commit. Thử push không đối số:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: The current branch feature has no upstream branch.
+To push the current branch and set the remote as upstream, use
+
+    git push --set-upstream origin feature
+
+To have this happen automatically for branches without a tracking
+upstream, see &#39;push.autoSetupRemote&#39; in &#39;git help config&#39;.</code></pre></div>
+<p>Làm đúng như Git gợi ý, dùng dạng ngắn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push -u origin feature
+git branch -vv
+git status -sb</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../origin.git
+ * [new branch]      feature -&gt; feature
+branch &#39;feature&#39; set up to track &#39;origin/feature&#39;.
+* feature 72d67bb [origin/feature] Tính năng
+  main    7e1e491 Khởi tạo
+## feature...origin/feature</code></pre></div>
+<p>Thêm một commit, xem trạng thái ahead, rồi push không cần đối số:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -sb
+git push</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">## feature...origin/feature [ahead 1]
+To ../origin.git
+   72d67bb..8e1cbe7  feature -&gt; feature</code></pre></div>
+<p>Upstream nằm trong cấu hình:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --get-regexp &quot;^branch\.feature&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">branch.feature.remote origin
+branch.feature.merge refs/heads/feature</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên <code>-u</code> ở lần push đầu.</strong> Push vẫn thành công, nhưng lần sau <code>git push</code> trơn lại báo thiếu upstream và <code>status</code> không có ahead/behind. Sửa bằng <code>git branch --set-upstream-to=origin/&lt;nhánh&gt;</code>.</p>
+<p><strong>Tin số ahead/behind cũ.</strong> <code>status</code> không tự hỏi server. Chạy <code>git fetch</code> trước khi kết luận &quot;mình đã cập nhật&quot;.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong bài thực hành, <code>origin</code> là một bare repository nằm ngay trên máy bạn, nên không cần mạng hay tài khoản. Cơ chế upstream hoàn toàn giống với remote thật.</p>
+</aside>
+<p><strong>Upstream trỏ nhầm nhánh.</strong> Ví dụ nhánh <code>feature</code> có upstream <code>origin/main</code>, <code>git pull</code> sẽ kéo <code>main</code> vào nhánh tính năng. Kiểm tra <code>git branch -vv</code> và sửa bằng <code>--set-upstream-to</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git log --oneline @{u}..</code> liệt kê nhanh commit bạn chưa push; <code>git log --oneline ..@{u}</code> liệt kê commit trên remote mà bạn chưa có (sau khi fetch).</p>
+</aside>
+<p><strong>Đổi tên nhánh local mà upstream giữ tên cũ.</strong> Xem bài đổi tên nhánh.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn mở nhánh <code>test/QA-512-sao-ke</code> và muốn CI chạy test ngay sau mỗi lần push. Lần đầu, bạn <code>git push -u origin test/QA-512-sao-ke</code>. Từ đó, sau mỗi lần sửa test, chỉ cần <code>git push</code>, và <code>git status -sb</code> cho biết bạn còn bao nhiêu commit chưa đẩy. Trước khi rời máy cuối ngày, nhìn thấy <code>[ahead 2]</code> là lời nhắc đẩy nốt.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn một remote local và một nhánh tính năng chưa được đẩy. Bạn cần đẩy nhánh lên và gắn nó với nhánh cùng tên trên remote, để <code>&lt;nhánh&gt;@{upstream}</code> trả về đúng nhánh remote-tracking. Câu hỏi hỏi về tùy chọn của <code>push</code> làm việc gắn này ở lần đầu. Hãy:</p>
+<ul>
+<li>Kiểm tra tên remote bằng <code>git remote -v</code>.</li>
+<li>Ôn dạng ngắn và dạng dài của tùy chọn đặt upstream.</li>
+<li>Xác nhận bằng <code>git branch -vv</code> hoặc lệnh <code>rev-parse</code> trong mục trên.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Upstream gắn nhánh local với một nhánh remote-tracking, lưu ở <code>branch.&lt;tên&gt;.remote</code> và <code>branch.&lt;tên&gt;.merge</code>.</li>
+<li>Có upstream thì <code>push</code>, <code>pull</code> không cần đối số và <code>status</code> hiện ahead/behind.</li>
+<li>Nhánh tự tạo cần <code>git push -u origin &lt;nhánh&gt;</code> ở lần đầu.</li>
+<li><code>--set-upstream-to</code> và <code>--unset-upstream</code> để đặt, đổi, gỡ sau này.</li>
+<li>Số ahead/behind dựa trên lần fetch gần nhất.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open upstream-tracking
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/branch-naming.html" rel="prev"><small>Bài trước</small>Quy ước tên nhánh</a><a class="next" href="../branching/squash-merge.html" rel="next"><small>Bài sau</small>Gộp commit bằng squash merge</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 8/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>
