@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
-import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, readFile, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as wait } from 'node:timers/promises';
 import { allCourses, getCourse, getExercise, type Finding } from './courses.js';
 import { roadmap } from './curriculum.js';
 import { git } from './git.js';
@@ -40,7 +41,16 @@ const marker = 'session.json';
 const profilePath = () => path.join(stateHome(), 'profile.json');
 const emptyProfile = (): Profile => ({ version: 2, sessions: {}, completed: {}, migrated: {} });
 
-async function json<T>(file: string): Promise<T> { return JSON.parse(await readFile(file, 'utf8')) as T; }
+async function json<T>(file: string): Promise<T> {
+  let content: string;
+  try { content = await readFile(file, 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw Object.assign(new Error(`Không tìm thấy dữ liệu học tại ${file}. Hãy chạy git-training start <track> để tạo phiên mới.`), { code: 'ENOENT' });
+    throw error;
+  }
+  try { return JSON.parse(content) as T; }
+  catch { throw new Error(`Dữ liệu học tại ${file} không phải JSON hợp lệ. Hãy khôi phục bản sao lưu hoặc tạo phiên mới.`); }
+}
 async function atomicJson(file: string, data: unknown): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
@@ -67,6 +77,15 @@ async function locateSessionDir(options: SessionOptions = {}): Promise<string> {
   const profile = await loadProfile();
   const active = profile.active ?? await legacyIndex();
   if (!active) throw new Error('Chưa có phiên học. Hãy chạy git-training start <track>.');
+  try { await readFile(path.join(active, marker)); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    if (profile.active === active) {
+      profile.active = undefined;
+      await saveProfile(profile);
+    }
+    throw new Error('Thư mục phiên học đã bị xóa hoặc di chuyển. Hãy chạy git-training start <track> để tạo phiên mới.');
+  }
   return active;
 }
 function exerciseRoot(session: Session, exerciseId: string): string {
@@ -83,6 +102,22 @@ function renderPaths(session: Session, exerciseId: string, value: string): strin
     .replaceAll('{submodule}', path.join(root, 'module-source'));
 }
 async function save(session: Session): Promise<void> { session.updatedAt = new Date().toISOString(); await atomicJson(path.join(session.dir, marker), session); }
+async function withSessionLock<T>(dir: string, action: () => Promise<T>): Promise<T> {
+  const lockPath = path.join(dir, '.session.lock');
+  const deadline = Date.now() + 30_000;
+  while (true) {
+    try {
+      const handle = await open(lockPath, 'wx');
+      try { return await action(); }
+      finally { await handle.close(); await unlink(lockPath).catch(() => undefined); }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      try { if (Date.now() - (await stat(lockPath)).mtimeMs > 30_000) await unlink(lockPath); } catch { /* khóa vừa được giải phóng */ }
+      if (Date.now() >= deadline) throw new Error('Phiên đang được lệnh khác sử dụng quá lâu. Hãy thử lại.');
+      await wait(50);
+    }
+  }
+}
 function unlocked(session: Session, exerciseId: string): boolean {
   const exercises = getCourse(session.courseId).exercises;
   const index = exercises.findIndex(item => item.id === exerciseId);
@@ -137,14 +172,23 @@ export async function createSession(courseId: string, options: CreateSessionOpti
   const profile = await loadProfile();
   const previous = profile.sessions[courseId];
   if (previous) {
-    const session = await getSession({ sessionDir: previous });
-    profile.active = session.dir;
-    await saveProfile(profile);
-    return session;
+    try {
+      const session = await getSession({ sessionDir: previous });
+      profile.active = session.dir;
+      await saveProfile(profile);
+      return session;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      delete profile.sessions[courseId];
+      if (profile.active === previous) profile.active = undefined;
+      await saveProfile(profile);
+    }
   }
   const first = course.exercises[0];
   if (!first) throw new Error(`Track ${courseId} không có bài học.`);
-  await git(process.cwd(), '--version');
+  const version = await git(process.cwd(), '--version');
+  const majorMinor = /git version (\d+)\.(\d+)/.exec(version);
+  if (!majorMinor || Number(majorMinor[1]) < 2 || (Number(majorMinor[1]) === 2 && Number(majorMinor[2]) < 28)) throw new Error('Cần Git 2.28 trở lên để chạy bài học.');
   const id = randomUUID();
   const dir = path.resolve(options.workspaceDir ?? workspaceHome(), id);
   await mkdir(path.dirname(dir), { recursive: true });
@@ -176,20 +220,23 @@ export async function getSession(options: SessionOptions = {}): Promise<Session>
 
 /** Mở checkpoint mới; kết quả đã đạt không bị xóa. */
 export async function openExercise(exerciseId: string, options: SessionOptions = {}): Promise<{ session: Session; repo: string }> {
-  const session = await getSession(options);
-  const exercise = getExercise(getCourse(session.courseId), exerciseId);
-  if (!unlocked(session, exerciseId)) throw new Error(`Bài ${exerciseId} chưa mở khóa. Hãy hoàn thành bài trước.`);
-  const root = exerciseRoot(session, exerciseId);
-  try { if ((await lstat(root)).isSymbolicLink()) throw new Error('Checkpoint là liên kết tượng trưng không an toàn.'); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-  await rm(root, { recursive: true, force: true });
-  await mkdir(root, { recursive: true });
-  await exercise.setup(repoDir(session, exerciseId));
-  session.currentExerciseId = exerciseId;
-  session.hintsSeen[exerciseId] = 0;
-  delete session.answers[exerciseId];
-  await save(session);
-  return { session, repo: repoDir(session, exerciseId) };
+  const current = await getSession(options);
+  return withSessionLock(current.dir, async () => {
+    const session = await getSession({ sessionDir: current.dir });
+    const exercise = getExercise(getCourse(session.courseId), exerciseId);
+    if (!unlocked(session, exerciseId)) throw new Error(`Bài ${exerciseId} chưa mở khóa. Hãy hoàn thành bài trước.`);
+    const root = exerciseRoot(session, exerciseId);
+    try { if ((await lstat(root)).isSymbolicLink()) throw new Error('Checkpoint là liên kết tượng trưng không an toàn.'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    await rm(root, { recursive: true, force: true });
+    await mkdir(root, { recursive: true });
+    await exercise.setup(repoDir(session, exerciseId));
+    session.currentExerciseId = exerciseId;
+    session.hintsSeen[exerciseId] = 0;
+    delete session.answers[exerciseId];
+    await save(session);
+    return { session, repo: repoDir(session, exerciseId) };
+  });
 }
 
 export async function getProgress(options: SessionOptions = {}): Promise<ExerciseProgress[]> {
@@ -208,10 +255,18 @@ export async function getRoadmapProgress(): Promise<TrackProgress[]> {
 /** Kiểm tra cả Git state lẫn câu trả lời nếu bài yêu cầu. */
 export async function checkExercise(options: SessionOptions = {}): Promise<CheckResult> {
   const session = await getSession(options);
+  return withSessionLock(session.dir, async () => checkExerciseUnlocked(await getSession({ sessionDir: session.dir })));
+}
+async function checkExerciseUnlocked(session: Session): Promise<CheckResult> {
   const course = getCourse(session.courseId);
   const exercise = getExercise(course, session.currentExerciseId);
   const repo = repoDir(session, exercise.id);
-  const actualRepo = await realpath(repo);
+  let actualRepo: string;
+  try { actualRepo = await realpath(repo); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`Repository của bài ${exercise.id} đã mất. Chạy git-training open ${exercise.id} để tạo lại checkpoint.`);
+    throw error;
+  }
   const actualRoot = await realpath(exerciseRoot(session, exercise.id));
   const actualSession = await realpath(session.dir);
   if (!actualRoot.startsWith(actualSession + path.sep) || !actualRepo.startsWith(actualRoot + path.sep)) throw new Error('Repository nằm ngoài sandbox bài học.');
@@ -221,9 +276,9 @@ export async function checkExercise(options: SessionOptions = {}): Promise<Check
     gitRoot = await realpath(await git(repo, 'rev-parse', '--show-toplevel'));
     gitDir = await realpath(await git(repo, 'rev-parse', '--absolute-git-dir'));
   } catch (error) {
-    if (exercise.needsGit !== false) throw error;
+    if (exercise.needsGit !== false || (error as NodeJS.ErrnoException).code === 'ENOENT') throw error;
   }
-  if (gitRoot && gitDir && (gitRoot !== actualRepo || !gitDir.startsWith(actualRoot + path.sep))) throw new Error('Metadata Git nằm ngoài sandbox bài học.');
+  if (gitRoot && gitDir && (gitRoot !== actualRepo || !gitDir.startsWith(actualRoot + path.sep)) && (exercise.needsGit !== false || gitRoot === actualRepo)) throw new Error('Metadata Git nằm ngoài sandbox bài học.');
   const findings = await exercise.validate(repo);
   if (exercise.evaluateAnswer) {
     const answer = session.answers[exercise.id];
@@ -247,12 +302,14 @@ export async function checkExercise(options: SessionOptions = {}): Promise<Check
 /** Lưu đáp án rồi chấm toàn bộ bài, kể cả phần thực hành nếu có. */
 export async function submitAnswer(answer: string, options: SessionOptions = {}): Promise<CheckResult> {
   const session = await getSession(options);
-  const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
-  if (!exercise.evaluateAnswer) throw new Error('Bài này không yêu cầu câu trả lời. Hãy chạy git-training check.');
   if (!answer.trim()) throw new Error('Câu trả lời không được để trống.');
-  session.answers[exercise.id] = answer;
-  await save(session);
-  return checkExercise({ sessionDir: session.dir });
+  return withSessionLock(session.dir, async () => {
+    const latest = await getSession({ sessionDir: session.dir });
+    const exercise = getExercise(getCourse(latest.courseId), latest.currentExerciseId);
+    if (!exercise.evaluateAnswer) throw new Error('Bài này không yêu cầu câu trả lời. Hãy chạy git-training check.');
+    latest.answers[exercise.id] = answer;
+    return checkExerciseUnlocked(latest);
+  });
 }
 
 export async function nextExercise(options: SessionOptions = {}): Promise<{ session: Session; repo: string } | undefined> {
@@ -268,13 +325,19 @@ export async function getExerciseInfo(options: SessionOptions = {}): Promise<{ s
   const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
   return { session, repo: repoDir(session, exercise.id), id: exercise.id, title: exercise.title, concept: exercise.concept ?? '', instructions: renderPaths(session, exercise.id, exercise.instructions), expected: exercise.expected ?? '', question: exercise.question, mode: exercise.mode ?? 'state', simulated: exercise.simulated ?? false, sourceUrl: exercise.sourceUrl };
 }
-export async function getHint(options: SessionOptions = {}): Promise<{ text: string; level: number; total: number }> {
-  const session = await getSession(options);
-  const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
-  const level = Math.min((session.hintsSeen[exercise.id] ?? 0) + 1, exercise.hints.length);
-  session.hintsSeen[exercise.id] = level;
-  await save(session);
-  return { text: renderPaths(session, exercise.id, exercise.hints[level - 1] ?? 'Bài này chưa có gợi ý.'), level, total: exercise.hints.length };
+export async function getHint(options: SessionOptions = {}): Promise<{ text: string; level: number; total: number; exhausted: boolean }> {
+  const current = await getSession(options);
+  return withSessionLock(current.dir, async () => {
+    const session = await getSession({ sessionDir: current.dir });
+    const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
+    const exhausted = (session.hintsSeen[exercise.id] ?? 0) >= exercise.hints.length;
+    const level = Math.min((session.hintsSeen[exercise.id] ?? 0) + 1, exercise.hints.length);
+    if (!exhausted) {
+      session.hintsSeen[exercise.id] = level;
+      await save(session);
+    }
+    return { text: exhausted ? 'Đã xem hết gợi ý. Dùng git-training solution nếu cần lời giải.' : renderPaths(session, exercise.id, exercise.hints[level - 1] ?? 'Bài này chưa có gợi ý.'), level, total: exercise.hints.length, exhausted };
+  });
 }
 export async function getSolution(options: SessionOptions = {}): Promise<string> {
   const session = await getSession(options);

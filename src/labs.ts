@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { commit, git, init, isAncestor, read, status, write } from './git.js';
 import type { Finding } from './courses.js';
@@ -28,7 +28,16 @@ export const labs: Record<string, Lab> = {
     task: 'Khởi tạo thư mục bài tập thành repository với nhánh main.', expected: 'Thư mục có .git và nhánh mặc định main.',
     hint: 'Dùng git init -b main ngay trong thư mục bài tập.', solution: 'git init -b main', needsGit: false,
     setup: async repo => { await mkdir(repo, { recursive: true }); },
-    validate: async repo => { try { return result((await git(repo, 'rev-parse', '--show-toplevel')).replaceAll('/', path.sep).toLowerCase() === path.resolve(repo).toLowerCase() && await git(repo, 'symbolic-ref', '--short', 'HEAD') === 'main', 'Hãy khởi tạo Git ngay tại thư mục bài tập với nhánh main.'); } catch { return result(false, 'Thư mục bài tập chưa là repository Git.'); } },
+    validate: async repo => {
+      try {
+        const top = await realpath(await git(repo, 'rev-parse', '--show-toplevel'));
+        const actual = await realpath(repo);
+        return result((process.platform === 'win32' ? top.toLowerCase() === actual.toLowerCase() : top === actual) && await git(repo, 'symbolic-ref', '--short', 'HEAD') === 'main', 'Hãy khởi tạo Git ngay tại thư mục bài tập với nhánh main.');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw error;
+        return result(false, 'Thư mục bài tập chưa là repository Git.');
+      }
+    },
     solve: async repo => { await git(repo, 'init', '-b', 'main'); },
   },
   stage: {
@@ -49,14 +58,14 @@ export const labs: Record<string, Lab> = {
     task: 'Tạo .gitignore để Git bỏ qua local.env nhưng vẫn theo dõi README.md.', expected: 'git check-ignore nhận local.env.',
     hint: 'Thêm chính xác local.env vào .gitignore.', solution: 'Ghi local.env vào .gitignore.',
     setup: async repo => { await base(repo); await write(repo, 'local.env', 'DEMO=1\n'); },
-    validate: async repo => { let ignored = false; try { ignored = (await git(repo, 'check-ignore', 'local.env')) === 'local.env'; } catch { /* chưa bỏ qua */ } return result(ignored && (await status(repo)).includes('?? .gitignore'), 'Hãy tạo .gitignore bỏ qua local.env.'); },
+    validate: async repo => { let ignored = false; try { ignored = (await git(repo, 'check-ignore', 'local.env')) === 'local.env'; } catch { /* chưa bỏ qua */ } return result(ignored && (await read(repo, '.gitignore')) !== undefined && await tipFile(repo, 'README.md') !== undefined, 'Hãy tạo .gitignore bỏ qua local.env và giữ README.md được theo dõi.'); },
     solve: async repo => { await write(repo, '.gitignore', 'local.env\n'); },
   },
   config: {
     task: 'Đặt user.name riêng cho repository thành Hoc Vien Git.', expected: 'Cấu hình local có user.name mới.',
     hint: 'Đặt tên bằng git config --local user.name "Hoc Vien Git"', solution: 'git config --local user.name "Hoc Vien Git"',
     setup: base,
-    validate: async repo => result((await git(repo, 'config', '--local', 'user.name')) === 'Hoc Vien Git', 'Hãy đặt user.name local thành Hoc Vien Git.'),
+    validate: async repo => { let name = ''; try { name = await git(repo, 'config', '--local', 'user.name'); } catch { /* chưa có giá trị */ } return result(name === 'Hoc Vien Git', 'Hãy đặt user.name local thành Hoc Vien Git.'); },
     solve: async repo => { await git(repo, 'config', '--local', 'user.name', 'Hoc Vien Git'); },
   },
   branch: {
@@ -98,7 +107,7 @@ export const labs: Record<string, Lab> = {
     task: 'Giải quyết xung đột trong loi-chao.txt, giữ cả hai dòng rồi hoàn tất merge.', expected: 'Merge commit có hai cha, tệp không còn dấu xung đột.',
     hint: 'Sửa tệp, git add rồi git commit.', solution: 'Ghi hai dòng Main và Topic vào loi-chao.txt, rồi git add và git commit.',
     setup: async repo => { await base(repo); await write(repo, 'loi-chao.txt', 'Goc\n'); await commit(repo, 'Tạo lời chào'); await git(repo, 'switch', '-c', 'topic'); await write(repo, 'loi-chao.txt', 'Topic\n'); await commit(repo, 'Topic sửa'); await git(repo, 'switch', 'main'); await write(repo, 'loi-chao.txt', 'Main\n'); await commit(repo, 'Main sửa'); try { await git(repo, 'merge', 'topic'); } catch { /* xung đột dự kiến */ } },
-    validate: async repo => result(await read(repo, 'loi-chao.txt') === 'Main\nTopic\n' && await parents(repo) === 2 && await clean(repo), 'Hãy giữ cả hai dòng và hoàn tất merge commit.'),
+    validate: async repo => { const lines = (await read(repo, 'loi-chao.txt') ?? '').split(/\r?\n/).map(line => line.trim()).filter(Boolean); return result(lines.length === 2 && lines.includes('Main') && lines.includes('Topic') && await parents(repo) === 2 && await clean(repo), 'Hãy giữ cả hai dòng Main và Topic, bỏ dấu xung đột rồi hoàn tất merge commit.'); },
     solve: async repo => { await write(repo, 'loi-chao.txt', 'Main\nTopic\n'); await git(repo, 'add', 'loi-chao.txt'); await git(repo, 'commit', '-m', 'Giải quyết xung đột'); },
   },
   tag: {
@@ -165,10 +174,10 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await git(repo, 'mv', 'old.txt', 'new.txt'); await git(repo, 'commit', '-m', 'Đổi tên tệp'); },
   },
   message: {
-    task: 'Commit bai.txt với subject theo Conventional Commits bắt đầu bằng feat: và dưới 73 ký tự.', expected: 'Commit mới có subject hợp lệ và working tree sạch.',
+    task: 'Commit bai.txt với subject Conventional Commits loại feat (có thể có scope hoặc !), dưới 73 ký tự.', expected: 'Commit mới có subject hợp lệ và working tree sạch.',
     hint: 'Ví dụ: git commit -m "feat: thêm bài tập".', solution: 'git add bai.txt; git commit -m "feat: thêm bài tập"',
     setup: async repo => { await base(repo); await write(repo, 'bai.txt', 'Bài tập\n'); },
-    validate: async repo => { const subject = await git(repo, 'log', '-1', '--format=%s'); return result(await commits(repo) === 2 && /^feat: .{1,66}$/.test(subject) && await tipFile(repo, 'bai.txt') === 'Bài tập' && await clean(repo), 'Hãy commit bai.txt với subject feat: ngắn gọn.'); },
+    validate: async repo => { const subject = await git(repo, 'log', '-1', '--format=%s'); return result(await commits(repo) === 2 && /^feat(?:\([^)]+\))?!?: .+$/.test(subject) && subject.length < 73 && await tipFile(repo, 'bai.txt') === 'Bài tập' && await clean(repo), 'Hãy commit bai.txt với subject feat hợp lệ, dưới 73 ký tự.'); },
     solve: async repo => { await git(repo, 'add', 'bai.txt'); await git(repo, 'commit', '-m', 'feat: thêm bài tập'); },
   },
   ref: {
@@ -196,7 +205,7 @@ export const labs: Record<string, Lab> = {
     task: 'Tạo alias local st cho lệnh status --short.', expected: 'Cấu hình alias.st chứa status --short.',
     hint: 'Tạo alias local bằng git config --local alias.st "status --short".', solution: 'git config --local alias.st "status --short"',
     setup: base,
-    validate: async repo => { let value = ''; try { value = await git(repo, 'config', '--local', 'alias.st'); } catch { /* chưa có */ } return result(value === 'status --short', 'Hãy cấu hình alias.st local.'); },
+    validate: async repo => { let value = ''; try { value = await git(repo, 'config', '--local', 'alias.st'); } catch { /* chưa có */ } return result(['status --short', 'status -s'].includes(value.trim()), 'Hãy cấu hình alias.st local cho status ngắn gọn.'); },
     solve: async repo => { await git(repo, 'config', '--local', 'alias.st', 'status --short'); },
   },
   worktree: {
@@ -298,14 +307,14 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await git(repo, 'remote', 'prune', 'origin'); },
   },
   releaseBranch: {
-    task: 'Tạo nhánh release/2.0 từ main và commit ghi chú đóng băng tính năng.', expected: 'HEAD ở release/2.0, main chưa có tệp release.txt.',
+    task: 'Tạo nhánh release/2.0 từ main, ghi “Đóng băng 2.0” vào release.txt rồi commit.', expected: 'HEAD ở release/2.0, main chưa có tệp release.txt.',
     hint: 'git switch -c release/2.0; tạo release.txt rồi commit.', solution: 'git switch -c release/2.0; ghi release.txt; git add release.txt; git commit -m "Chuẩn bị 2.0"',
     setup: base,
     validate: async repo => { let mainFile = ''; try { mainFile = await git(repo, 'show', 'main:release.txt'); } catch { /* main chưa có */ } return result((await git(repo, 'branch', '--show-current')) === 'release/2.0' && await tipFile(repo, 'release.txt') === 'Đóng băng 2.0' && mainFile === '' && await clean(repo), 'Hãy commit ghi chú trên release/2.0, giữ main nguyên.'); },
     solve: async repo => { await git(repo, 'switch', '-c', 'release/2.0'); await write(repo, 'release.txt', 'Đóng băng 2.0\n'); await commit(repo, 'Chuẩn bị 2.0'); },
   },
   hotfix: {
-    task: 'Tạo hotfix/1.0.1 từ tag v1.0.0 và commit fix.txt trên nhánh đó.', expected: 'Nhánh hotfix có fix, còn main chưa có.',
+    task: 'Tạo hotfix/1.0.1 từ tag v1.0.0, ghi “Sửa production” vào fix.txt rồi commit.', expected: 'Nhánh hotfix có fix, còn main chưa có.',
     hint: 'Tạo nhánh từ tag bằng git switch -c hotfix/1.0.1 v1.0.0.', solution: 'git switch -c hotfix/1.0.1 v1.0.0; tạo fix.txt rồi commit.',
     setup: async repo => { await base(repo); await git(repo, 'tag', 'v1.0.0'); await write(repo, 'next.txt', 'Đang phát triển\n'); await commit(repo, 'Phiên bản kế'); },
     validate: async repo => { let mainFile = ''; try { mainFile = await git(repo, 'show', 'main:fix.txt'); } catch { /* main chưa có */ } return result((await git(repo, 'branch', '--show-current')) === 'hotfix/1.0.1' && await tipFile(repo, 'fix.txt') === 'Sửa production' && mainFile === '' && await isAncestor(repo, 'v1.0.0', 'HEAD') && await clean(repo), 'Hãy tạo hotfix từ tag cũ và commit fix riêng.'); },
@@ -336,7 +345,7 @@ export const labs: Record<string, Lab> = {
     task: 'Tách commit cuối chứa a.txt và b.txt thành hai commit riêng, mỗi commit một tệp.', expected: 'HEAD có hai commit mới, mỗi commit đổi một tệp.',
     hint: 'git reset HEAD~1 giữ file trong working tree; stage và commit từng tệp.', solution: 'git reset HEAD~1; git add a.txt; git commit -m "A"; git add b.txt; git commit -m "B"',
     setup: async repo => { await base(repo); await write(repo, 'a.txt', 'A\n'); await write(repo, 'b.txt', 'B\n'); await commit(repo, 'Hai thay đổi lẫn nhau'); },
-    validate: async repo => { const a = await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD~1'); const b = await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'); return result(await commits(repo) === 3 && a === 'a.txt' && b === 'b.txt' && await clean(repo), 'Hãy tách thành commit a.txt rồi commit b.txt.'); },
+    validate: async repo => { const a = await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD~1'); const b = await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'); return result(await commits(repo) === 3 && new Set([a, b]).size === 2 && [a, b].every(file => ['a.txt', 'b.txt'].includes(file)) && await clean(repo), 'Hãy tách a.txt và b.txt thành hai commit riêng.'); },
     solve: async repo => { await git(repo, 'reset', 'HEAD~1'); await git(repo, 'add', 'a.txt'); await git(repo, 'commit', '-m', 'A'); await git(repo, 'add', 'b.txt'); await git(repo, 'commit', '-m', 'B'); },
   },
   reorder: {
@@ -361,7 +370,7 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await write(repo, 'README.md', '# Bắt đầu\n## Cài đặt\n## Kiểm thử\n## Nhánh\n'); await commit(repo, 'Viết hướng dẫn'); },
   },
   flag: {
-    task: 'Commit feature.txt nhưng giữ cờ bật tính năng trong flags.json là false.', expected: 'main có mã tính năng và cờ vẫn tắt.',
+    task: 'Ghi “Tính năng mới” vào feature.txt rồi commit; giữ cờ bật tính năng trong flags.json là false.', expected: 'main có mã tính năng và cờ vẫn tắt.',
     hint: 'Commit cả feature.txt và flags.json với enabled: false.', solution: 'Tạo feature.txt, giữ {"enabled":false} trong flags.json rồi commit.',
     setup: async repo => { await base(repo); await write(repo, 'flags.json', '{"enabled":false}\n'); await commit(repo, 'Thêm cờ'); },
     validate: async repo => result(await tipFile(repo, 'feature.txt') === 'Tính năng mới' && await tipFile(repo, 'flags.json') === '{"enabled":false}' && await clean(repo), 'Hãy commit tính năng nhưng giữ cờ enabled=false.'),
@@ -385,7 +394,7 @@ export const labs: Record<string, Lab> = {
       let configured = '';
       try { configured = await git(repo, 'config', '--no-includes', '-f', '.gitmodules', '--get', 'submodule.modules/sample.url'); } catch { /* chưa có submodule */ }
       const submoduleFile = await read(repo, 'modules/sample/module.txt');
-      return result(entry.startsWith('160000 commit ') && configured === source && submoduleFile === 'Module local\n' && await clean(repo), 'Hãy thêm submodule local và commit gitlink.');
+      return result(entry.startsWith('160000 commit ') && path.resolve(repo, configured) === source && submoduleFile === 'Module local\n' && await clean(repo), 'Hãy thêm submodule local và commit gitlink.');
     },
     solve: async repo => {
       await git(repo, '-c', 'protocol.file.allow=always', 'submodule', 'add', path.join(path.dirname(repo), 'module-source'), 'modules/sample');
@@ -400,6 +409,131 @@ export const labs: Record<string, Lab> = {
     setup: async repo => { await base(repo); await write(repo, 'docs/guide.txt', 'Hướng dẫn\n'); await write(repo, 'src/app.txt', 'Mã nguồn\n'); await commit(repo, 'Thêm tài liệu và mã'); },
     validate: async repo => { let enabled = false; try { enabled = (await git(repo, 'config', '--bool', 'core.sparseCheckout')) === 'true'; } catch { /* chưa bật */ } return result(enabled && await read(repo, 'docs/guide.txt') === 'Hướng dẫn\n' && await read(repo, 'src/app.txt') === undefined && await tipFile(repo, 'src/app.txt') === 'Mã nguồn' && await clean(repo), 'Hãy để sparse-checkout chỉ hiển thị docs.'); },
     solve: async repo => { await git(repo, 'sparse-checkout', 'init', '--cone'); await git(repo, 'sparse-checkout', 'set', 'docs'); },
+  },
+  partialStage: {
+    task: 'Trong bai.txt có thay đổi tính năng và dòng thử nghiệm. Chỉ commit dòng “Tính năng”; giữ dòng “Thử nghiệm” ngoài commit.',
+    expected: 'HEAD có Tính năng nhưng không có Thử nghiệm; working tree vẫn giữ Thử nghiệm chưa stage.',
+    hint: 'Dùng git add -p bai.txt để chọn đúng hunk trước khi commit.',
+    solution: 'git add -p bai.txt; chọn hunk Tính năng, bỏ hunk Thử nghiệm; git commit -m "Thêm tính năng".',
+    setup: async repo => {
+      await base(repo);
+      const lines = Array.from({ length: 24 }, (_, i) => `Dòng nền ${i + 1}`);
+      await write(repo, 'bai.txt', lines.join('\n') + '\n');
+      await commit(repo, 'Tệp nền');
+      lines.splice(2, 0, 'Tính năng');
+      lines.splice(22, 0, 'Thử nghiệm');
+      await write(repo, 'bai.txt', lines.join('\n') + '\n');
+    },
+    validate: async repo => {
+      const head = await tipFile(repo, 'bai.txt') ?? '';
+      const working = await read(repo, 'bai.txt') ?? '';
+      return result(await commits(repo) === 3 && head.includes('Tính năng') && !head.includes('Thử nghiệm') && working.includes('Tính năng') && working.includes('Thử nghiệm') && (await status(repo)).split('\n').includes(' M bai.txt'), 'Hãy chỉ commit phần Tính năng và giữ Thử nghiệm ngoài commit.');
+    },
+    solve: async repo => {
+      const current = await read(repo, 'bai.txt') ?? '';
+      await write(repo, 'bai.txt', current.replace('Thử nghiệm\n', ''));
+      await git(repo, 'add', 'bai.txt');
+      await write(repo, 'bai.txt', current);
+      await git(repo, 'commit', '-m', 'Thêm tính năng');
+    },
+  },
+  symbolicRef: {
+    task: 'Tạo symbolic ref refs/lesson/current trỏ tới refs/heads/main.',
+    expected: 'git symbolic-ref refs/lesson/current trả refs/heads/main.',
+    hint: 'Dùng git symbolic-ref với hai tên ref.',
+    solution: 'git symbolic-ref refs/lesson/current refs/heads/main',
+    setup: base,
+    validate: async repo => { let value = ''; try { value = await git(repo, 'symbolic-ref', 'refs/lesson/current'); } catch { /* chưa có */ } return result(value === 'refs/heads/main', 'Hãy tạo symbolic ref trỏ tới nhánh main.'); },
+    solve: async repo => { await git(repo, 'symbolic-ref', 'refs/lesson/current', 'refs/heads/main'); },
+  },
+  mergeBase: {
+    task: 'Hai nhánh main và topic đã phân kỳ. Tìm merge base rồi lưu object ID vào refs/lesson/base.',
+    expected: 'refs/lesson/base trỏ đến tổ tiên chung gần nhất.',
+    hint: 'Dùng git merge-base main topic rồi git update-ref refs/lesson/base <object-id>.',
+    solution: 'git update-ref refs/lesson/base "$(git merge-base main topic)" (trong Bash); PowerShell: git update-ref refs/lesson/base (git merge-base main topic).',
+    setup: async repo => { await base(repo); await git(repo, 'switch', '-c', 'topic'); await write(repo, 'topic.txt', 'Topic\n'); await commit(repo, 'Topic'); await git(repo, 'switch', 'main'); await write(repo, 'main.txt', 'Main\n'); await commit(repo, 'Main'); },
+    validate: async repo => { let baseRef = ''; try { baseRef = await git(repo, 'rev-parse', 'refs/lesson/base'); } catch { /* chưa có */ } return result(baseRef !== '' && baseRef === await git(repo, 'merge-base', 'main', 'topic') && await clean(repo), 'Hãy lưu đúng merge base vào refs/lesson/base.'); },
+    solve: async repo => { await git(repo, 'update-ref', 'refs/lesson/base', await git(repo, 'merge-base', 'main', 'topic')); },
+  },
+  reviewBranch: {
+    task: 'Fetch nhánh feature từ origin local rồi tạo nhánh review/pr tại commit đó; giữ main nguyên.',
+    expected: 'review/pr trỏ tới origin/feature và main chưa nhận tính năng.',
+    hint: 'Tải nhánh bằng git fetch origin feature rồi mở review/pr từ origin/feature.',
+    solution: 'git fetch origin feature; git switch -c review/pr origin/feature; git diff main...review/pr',
+    setup: async repo => {
+      await base(repo); await bare(repo); await git(repo, 'remote', 'add', 'origin', remotePath(repo));
+      await git(repo, 'push', 'origin', 'main');
+      await git(repo, 'switch', '-c', 'feature');
+      await write(repo, 'feature.txt', 'Đề xuất\n');
+      await commit(repo, 'Đề xuất');
+      await git(repo, 'push', 'origin', 'feature');
+      await git(repo, 'switch', 'main');
+      await git(repo, 'branch', '-D', 'feature');
+    },
+    validate: async repo => { let review = ''; try { review = await git(repo, 'rev-parse', 'refs/heads/review/pr'); } catch { /* chưa có */ } return result(review !== '' && review === await git(repo, 'rev-parse', 'refs/remotes/origin/feature') && await tipFile(repo, 'feature.txt') === 'Đề xuất' && (await git(repo, 'rev-parse', 'main')) !== review && await clean(repo), 'Hãy fetch và mở nhánh review/pr mà không sửa main.'); },
+    solve: async repo => { await git(repo, 'fetch', 'origin', 'feature'); await git(repo, 'switch', '-c', 'review/pr', 'origin/feature'); },
+  },
+  editHistory: {
+    task: 'Sửa subject commit WIP trên topic thành “Cập nhật rõ nghĩa” mà giữ cả hai commit và nội dung.',
+    expected: 'topic còn hai commit sau main, không còn subject WIP.',
+    hint: 'Dùng git rebase -i main để chọn reword cho commit WIP.',
+    solution: 'git rebase -i main; đổi pick của WIP thành reword rồi nhập subject “Cập nhật rõ nghĩa”.',
+    setup: async repo => { await base(repo); await git(repo, 'switch', '-c', 'topic'); await write(repo, 'a.txt', 'A\n'); await commit(repo, 'A'); await write(repo, 'b.txt', 'B\n'); await commit(repo, 'WIP'); },
+    validate: async repo => result((await git(repo, 'branch', '--show-current')) === 'topic' && Number(await git(repo, 'rev-list', '--count', 'main..topic')) === 2 && (await git(repo, 'log', '-1', '--format=%s')) === 'Cập nhật rõ nghĩa' && await tipFile(repo, 'a.txt') === 'A' && await tipFile(repo, 'b.txt') === 'B' && await clean(repo), 'Hãy sửa subject WIP và giữ hai commit trên topic.'),
+    solve: async repo => { await git(repo, 'commit', '--amend', '-m', 'Cập nhật rõ nghĩa'); },
+  },
+  syncFork: {
+    task: 'Fetch upstream/main mới, hợp nhất vào main local rồi push main lên origin local.',
+    expected: 'main ở origin bằng main upstream và chứa commit cập nhật.',
+    hint: 'Lần lượt dùng git fetch upstream, git merge upstream/main rồi git push origin main.',
+    solution: 'git fetch upstream; git merge upstream/main; git push origin main',
+    setup: async repo => {
+      await base(repo); await bare(repo); await git(repo, 'remote', 'add', 'origin', remotePath(repo)); await git(repo, 'push', 'origin', 'main');
+      const upstream = path.join(path.dirname(repo), 'upstream.git');
+      await git(repo, 'init', '--bare', '-b', 'main', upstream); await git(repo, 'remote', 'add', 'upstream', upstream); await git(repo, 'push', 'upstream', 'main');
+      const publisher = path.join(path.dirname(repo), 'upstream-publisher');
+      await git(repo, 'clone', upstream, publisher);
+      await git(publisher, 'config', 'user.name', 'Git Training'); await git(publisher, 'config', 'user.email', 'git-training@example.invalid');
+      await write(publisher, 'upstream.txt', 'Cập nhật\n'); await commit(publisher, 'Cập nhật upstream'); await git(publisher, 'push', 'origin', 'main');
+    },
+    validate: async repo => result((await git(repo, 'rev-parse', 'main')) === await git(repo, '--git-dir', remotePath(repo), 'rev-parse', 'main') && (await git(repo, 'rev-parse', 'main')) === await git(repo, '--git-dir', path.join(path.dirname(repo), 'upstream.git'), 'rev-parse', 'main') && await tipFile(repo, 'upstream.txt') === 'Cập nhật' && await clean(repo), 'Hãy đưa cập nhật upstream vào fork origin.'),
+    solve: async repo => { await git(repo, 'fetch', 'upstream'); await git(repo, 'merge', 'upstream/main'); await git(repo, 'push', 'origin', 'main'); },
+  },
+  prFlow: {
+    task: 'Mô phỏng PR offline: push feature lên origin, ghi ref refs/lesson/review-approved tại feature, merge --no-ff vào main rồi push main.',
+    expected: 'origin/main là merge commit chứa feature; ref duyệt trỏ tới feature.',
+    hint: 'Đặt ref duyệt bằng git update-ref rồi merge --no-ff feature trên main.',
+    solution: 'git push origin feature; git update-ref refs/lesson/review-approved feature; git switch main; git merge --no-ff feature; git push origin main',
+    setup: async repo => {
+      await base(repo); await bare(repo); await git(repo, 'remote', 'add', 'origin', remotePath(repo)); await git(repo, 'push', 'origin', 'main');
+      await git(repo, 'switch', '-c', 'feature'); await write(repo, 'feature.txt', 'Đề xuất\n'); await commit(repo, 'Đề xuất thay đổi');
+    },
+    validate: async repo => {
+      let approved = ''; let remoteFeature = ''; let remoteMain = '';
+      try { approved = await git(repo, 'rev-parse', 'refs/lesson/review-approved'); } catch { /* chưa duyệt */ }
+      try { remoteFeature = await git(repo, '--git-dir', remotePath(repo), 'rev-parse', 'refs/heads/feature'); } catch { /* chưa push */ }
+      try { remoteMain = await git(repo, '--git-dir', remotePath(repo), 'rev-parse', 'refs/heads/main'); } catch { /* chưa push */ }
+      return result(approved !== '' && approved === remoteFeature && remoteMain === await git(repo, 'rev-parse', 'main') && await parents(repo) === 2 && await isAncestor(repo, 'feature', 'main') && await clean(repo), 'Hãy push feature, ghi ref duyệt, merge vào main rồi push main.');
+    },
+    solve: async repo => { await git(repo, 'push', 'origin', 'feature'); await git(repo, 'update-ref', 'refs/lesson/review-approved', 'feature'); await git(repo, 'switch', 'main'); await git(repo, 'merge', '--no-ff', '-m', 'Merge đề xuất', 'feature'); await git(repo, 'push', 'origin', 'main'); },
+  },
+  pairReview: {
+    task: 'Commit pair.txt với trailer Co-authored-by: Lan Nguyen <lan@example.invalid> và Reviewed-by: Mai Tran <mai@example.invalid>.',
+    expected: 'Commit ghi người cùng viết và người review.',
+    hint: 'Dùng nhiều -m để tạo phần thân commit với hai trailer riêng.',
+    solution: 'git add pair.txt; git commit -m "Làm việc cặp" -m "Co-authored-by: Lan Nguyen <lan@example.invalid>" -m "Reviewed-by: Mai Tran <mai@example.invalid>"',
+    setup: async repo => { await base(repo); await write(repo, 'pair.txt', 'Làm việc cặp\n'); },
+    validate: async repo => { const body = await git(repo, 'log', '-1', '--format=%B'); return result(await commits(repo) === 2 && await tipFile(repo, 'pair.txt') === 'Làm việc cặp' && body.includes('Co-authored-by: Lan Nguyen <lan@example.invalid>') && body.includes('Reviewed-by: Mai Tran <mai@example.invalid>') && await clean(repo), 'Hãy ghi cả đồng tác giả và người review trong commit.'); },
+    solve: async repo => { await git(repo, 'add', 'pair.txt'); await git(repo, 'commit', '-m', 'Làm việc cặp', '-m', 'Co-authored-by: Lan Nguyen <lan@example.invalid>', '-m', 'Reviewed-by: Mai Tran <mai@example.invalid>'); },
+  },
+  conventions: {
+    task: 'Tạo CONTRIBUTING.md với mục Quy ước nhánh, Review và Kiểm thử rồi commit.',
+    expected: 'HEAD chứa tài liệu đóng góp với ba mục.',
+    hint: 'Viết tài liệu trong CONTRIBUTING.md và kiểm tra diff trước khi commit.',
+    solution: 'Tạo CONTRIBUTING.md gồm Quy ước nhánh, Review, Kiểm thử; git add CONTRIBUTING.md; git commit -m "Viết quy ước".',
+    setup: base,
+    validate: async repo => { const content = await tipFile(repo, 'CONTRIBUTING.md') ?? ''; return result(['Quy ước nhánh', 'Review', 'Kiểm thử'].every(part => content.includes(part)) && await commits(repo) === 2 && await clean(repo), 'Hãy commit CONTRIBUTING.md đủ ba mục.'); },
+    solve: async repo => { await write(repo, 'CONTRIBUTING.md', '# Đóng góp\n## Quy ước nhánh\n## Review\n## Kiểm thử\n'); await commit(repo, 'Viết quy ước'); },
   },
 };
 

@@ -7,7 +7,7 @@ const execFileAsync = promisify(execFile);
 const TIMEOUT_MS = 10_000;
 
 export class GitError extends Error {
-  constructor(message: string, public readonly stderr: string) {
+  constructor(message: string, public readonly stderr: string, public readonly code?: string) {
     super(message);
   }
 }
@@ -22,8 +22,9 @@ export async function git(cwd: string, ...args: string[]): Promise<string> {
     });
     return stdout.trimEnd();
   } catch (error) {
-    const e = error as Error & { stderr?: string };
-    throw new GitError(`Không thể chạy lệnh git ${args[0] ?? ''} trong bài tập. Hãy kiểm tra trạng thái repository rồi thử lại.`, e.stderr ?? '');
+    const e = error as Error & { stderr?: string; code?: string };
+    if (e.code === 'ENOENT') throw new GitError('Không tìm thấy Git trên PATH. Hãy cài Git và mở lại terminal.', e.stderr ?? '', e.code);
+    throw new GitError(`Không thể chạy lệnh git ${args[0] ?? ''} trong bài tập. Hãy kiểm tra trạng thái repository rồi thử lại.`, e.stderr ?? '', e.code);
   }
 }
 

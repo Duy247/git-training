@@ -36,7 +36,7 @@ file-modes|Quyền thực thi và symlink|Git lưu mode trong index; quyền th�
 create-and-switch|Tạo và chuyển nhánh|Nhánh mới là ref độc lập tại commit hiện tại; chuyển nhánh đổi HEAD.|Lệnh nào vừa tạo vừa chuyển sang nhánh mới?|git switch -c|branch
 merge-strategies|Chiến lược merge|Fast-forward chỉ dời ref khi không phân kỳ; three-way tạo commit có nhiều cha.|Merge commit thông thường có bao nhiêu parent?|2|merge
 rebase|Rebase để lịch sử thẳng|Rebase phát lại commit trên nền mới và tạo object ID mới.|Lệnh nào đưa nhánh hiện tại lên trên main?|git rebase main|rebase
-divergent-branches|Nhánh đã phân kỳ|Hai nhánh phân kỳ khi mỗi bên có commit riêng sau tổ tiên chung.|Lệnh nào tìm tổ tiên chung gần nhất của hai nhánh?|git merge-base|merge
+divergent-branches|Nhánh đã phân kỳ|Hai nhánh phân kỳ khi mỗi bên có commit riêng sau tổ tiên chung.|Lệnh nào tìm tổ tiên chung gần nhất của hai nhánh?|git merge-base|mergeBase
 listing-branches|Liệt kê và lọc nhánh|Git có thể lọc nhánh đã merge, chưa merge và nhánh chứa commit.|Tùy chọn nào liệt kê nhánh đã merge vào HEAD?|--merged|
 renaming-branches|Đổi tên nhánh|Đổi tên nhánh chỉ thay ref, không viết lại commit.|Tùy chọn git branch nào đổi tên nhánh?|--move|rename
 branch-naming|Quy ước tên nhánh|Tên nhánh nhất quán giúp thấy mục đích và phạm vi thay đổi.|Tên nào phù hợp cho một tính năng: feature/login hay tmp1?|feature/login|branch
@@ -72,7 +72,7 @@ hard-reset-to-origin|Đồng bộ cứng với origin|reset --hard origin/main l
 `),
   track('remote', 'Remote và GitHub mô phỏng', `
 remotes-push-pull|Remote, push và pull|Remote là tên gắn với địa chỉ repository; push gửi ref, pull fetch rồi tích hợp.|Lệnh nào gửi nhánh main lên origin?|git push origin main|remote
-pull-request-workflow|Quy trình pull request|PR đề xuất thay đổi từ nhánh tính năng, sau đó có review và merge; bài tập dùng remote local.|Trước khi mở PR, nhánh tính năng cần được gửi bằng lệnh nào?|git push|remote
+pull-request-workflow|Quy trình pull request|PR đề xuất thay đổi từ nhánh tính năng, sau đó có review và merge; bài tập dùng remote local.|Trước khi mở PR, nhánh tính năng cần được gửi bằng lệnh nào?|git push|prFlow
 fork-upstream|Fork và upstream|Fork có origin riêng; upstream trỏ về dự án gốc để nhận cập nhật.|Tên remote thường đặt cho dự án gốc là gì?|upstream|addUpstream
 ssh-keys|Xác thực bằng khóa SSH|Khóa công khai có thể chia sẻ; khóa riêng phải giữ bí mật và không commit.|Phần nào của cặp SSH được phép đưa lên dịch vụ?|public key|
 personal-access-tokens|Token truy cập cá nhân|Token có quyền hạn và hạn dùng; bài mô phỏng không yêu cầu token thật.|Nơi an toàn để lưu token CI là gì?|secret|
@@ -97,13 +97,13 @@ changelog-generation|Tạo CHANGELOG|Lịch sử commit có cấu trúc giúp nh
 commit-signing|Ký commit|Chữ ký xác thực người nắm khóa; tên và email trong commit tự chúng không chứng minh danh tính.|Lệnh log nào yêu cầu hiển thị chữ ký commit?|git log --show-signature|
 `),
   track('advanced', 'Kỹ thuật Git nâng cao', `
-interactive-rebase|Rebase tương tác|Rebase tương tác cho phép sửa, đổi thứ tự, squash hoặc bỏ commit chưa chia sẻ.|Tùy chọn nào mở danh sách thao tác rebase?| -i|squashHistory
+interactive-rebase|Rebase tương tác|Rebase tương tác cho phép sửa, đổi thứ tự, squash hoặc bỏ commit chưa chia sẻ.|Tùy chọn nào mở danh sách thao tác rebase?| -i|editHistory
 worktrees|Nhiều worktree|Một repository có thể checkout nhiều nhánh trong các thư mục khác nhau.|Lệnh nào thêm worktree mới?|git worktree add|worktree
 submodules|Repository con dạng submodule|Superproject lưu gitlink tới commit cụ thể của repository con; cần cập nhật con riêng.|Lệnh nào thêm một repository local làm submodule?|git submodule add|submodule
 hooks-automation|Hook và tự động hóa|Hook chạy trong các thời điểm Git xác định; chỉ chạy mã đáng tin cậy từ sandbox.|Hook nào chạy trước khi tạo commit?|pre-commit|
 reordering-commits|Đổi thứ tự commit|Đổi thứ tự bằng rebase tạo lại commit và có thể phát sinh xung đột.|Tác vụ nào trong rebase tương tác giữ commit nhưng đổi thứ tự dòng?|pick|reorder
 squashing-autosquash|Squash và autosquash|Commit fixup có thể tự được đưa sát commit đích khi rebase --autosquash.|Tiền tố message nào đánh dấu commit sửa cho autosquash?|fixup!|squashHistory
-splitting-commit|Tách một commit|Tách commit giúp mỗi thay đổi độc lập; thường dừng rebase, reset và commit từng phần.|Lệnh reset nào bỏ commit nhưng giữ nội dung staged?|git reset --soft|split
+splitting-commit|Tách một commit|Tách commit giúp mỗi thay đổi độc lập; thường dừng rebase, reset và commit từng phần.|Kiểu reset nào bỏ commit nhưng giữ thay đổi trong working tree và bỏ staging?|--mixed|split
 cherry-pick-series|Chép chuỗi commit|Có thể cherry-pick một dải commit, giữ thứ tự phụ thuộc.|Lệnh nào sao chép một commit sang nhánh hiện tại?|git cherry-pick|cherrySeries
 git-notes|Ghi chú trên commit|Notes thêm metadata vào commit mà không đổi object ID của commit.|Lệnh nào xem ghi chú của HEAD?|git notes show|notes
 sparse-checkout|Checkout thưa|Sparse checkout chỉ hiện một phần working tree, trong khi lịch sử vẫn đầy đủ.|Lệnh nào đặt tập đường dẫn cần hiện trong cone mode?|git sparse-checkout set|sparse
@@ -112,24 +112,24 @@ custom-refs|Ref tùy chỉnh|Ref ngoài heads và tags vẫn là tên trỏ đ�
 octopus-merge|Merge nhiều nhánh|Octopus merge gộp nhiều nhánh trong một commit có hơn hai parent.|Merge main với ba nhánh khác tạo bao nhiêu parent?|4|octopus
 `),
   track('daily-workflows', 'Quy trình hằng ngày', `
-perfect-commit|Commit tập trung|Một commit nên phục vụ một mục đích rõ ràng, dễ review và dễ đảo ngược.|Lệnh nào stage từng phần thay đổi thay vì cả tệp?|git add -p|commit
+perfect-commit|Commit tập trung|Một commit nên phục vụ một mục đích rõ ràng, dễ review và dễ đảo ngược.|Lệnh nào stage từng phần thay đổi thay vì cả tệp?|git add -p|partialStage
 trunk-based|Phát triển trên trunk|Nhánh ngắn được hợp nhất sớm để giảm phân kỳ dài ngày.|Nhánh trung tâm thường có tên gì trong bài tập?|main|branch
 aliases|Alias tiết kiệm thao tác|Alias local giúp rút ngắn lệnh lặp lại mà không sửa cấu hình toàn máy.|Khóa cấu hình nào tạo alias st?|alias.st|alias
 maintenance|Bảo trì repository|Git có lệnh kiểm tra tính toàn vẹn và tối ưu object, nên dùng sau khi hiểu phạm vi tác động.|Lệnh nào kiểm tra tính toàn vẹn object?|git fsck|
 conventional-commits|Thông điệp commit có cấu trúc|Tiền tố type và dấu hai chấm giúp công cụ phân nhóm thay đổi.|Subject nào đúng dạng cho tính năng mới: feat: them hay update?|feat: them|message
 pre-commit-hooks|Hook trước commit|Pre-commit hook có thể chặn commit lỗi; hook local không tự được chia sẻ khi clone.|Hook nào chạy trước khi Git ghi commit mới?|pre-commit|
 husky-lint-staged|Husky và lint-staged mô phỏng|Husky quản lý hook trong dự án Node; lint-staged chỉ chạy công cụ trên tệp đã stage.|Công cụ nào chọn tệp staged cho linter?|lint-staged|
-reviewing-pr-locally|Xem PR ở máy local|Fetch nhánh đề xuất rồi so sánh với main trước khi chạy kiểm thử.|Lệnh nào xem diff giữa main và nhánh feature?|git diff main...feature|fetch
+reviewing-pr-locally|Xem PR ở máy local|Fetch nhánh đề xuất rồi so sánh với main trước khi chạy kiểm thử.|Lệnh nào xem diff của nhánh review/pr so với main theo merge base?|git diff main...review/pr|reviewBranch
 backporting|Đưa sửa lỗi về bản cũ|Backport thường cherry-pick commit sửa lỗi sang nhánh release cũ rồi kiểm tra lại.|Lệnh nào chép riêng commit sửa lỗi?|git cherry-pick|cherry
 long-running-features|Tính năng dài với cờ bật tắt|Feature flag cho phép merge phần chưa bật vào trunk mà không cần nhánh sống quá lâu.|Cơ chế nào giữ tính năng mới tắt ở production?|feature flag|flag
 rebasing-long-lived|Cập nhật nhánh sống lâu|Rebase lên main mới giúp nhánh tính năng sớm giải quyết phân kỳ, nhưng viết lại commit local.|Lệnh nào đưa nhánh hiện tại lên main mới?|git rebase main|rebase
-sync-forks|Đồng bộ fork|Fork nhận thay đổi từ upstream rồi tích hợp vào nhánh local trước khi push origin.|Lệnh nào tải thay đổi từ upstream mà chưa merge?|git fetch upstream|fetch
+sync-forks|Đồng bộ fork|Fork nhận thay đổi từ upstream rồi tích hợp vào nhánh local trước khi push origin.|Lệnh nào tải thay đổi từ upstream mà chưa merge?|git fetch upstream|syncFork
 `),
   track('internals', 'Cấu trúc bên trong Git', `
 git-directory|Thư mục .git|.git chứa object, ref, index và cấu hình; không nên chỉnh thủ công khi lệnh Git đủ dùng.|Tệp nào trong .git lưu staging index?|index|
 object-database|Kho lưu trữ object|Git định danh object theo nội dung; cùng nội dung tạo cùng object ID trong cùng định dạng.|Thư mục nào dưới .git chứa object?|objects|
 blobs-trees-commits|Đồ thị blob, tree, commit|Commit trỏ tree và parent; tree trỏ blob hoặc tree con tạo thành đồ thị có hướng.|Object nào ghi cây thư mục của snapshot?|tree|
-refs-and-symbolic-refs|Ref và symbolic ref|Ref thông thường trỏ object ID; symbolic ref trỏ tên ref khác như HEAD.|Symbolic ref nào cho biết nhánh đang checkout?|HEAD|ref
+refs-and-symbolic-refs|Ref và symbolic ref|Ref thông thường trỏ object ID; symbolic ref trỏ tên ref khác như HEAD.|Symbolic ref nào cho biết nhánh đang checkout?|HEAD|symbolicRef
 index-format|Cấu trúc index|Index ghi đường dẫn, mode và object ID đã stage; Git cập nhật nó qua các lệnh add và restore.|Lệnh plumbing nào liệt kê bản ghi index?|git ls-files --stage|
 packfiles|Tệp đóng gói packfile|Git nén nhiều object vào packfile để tiết kiệm chỗ, không đổi nghĩa object.|Phần mở rộng tệp chứa dữ liệu pack là gì?|.pack|
 gc-internals|Dọn rác Git|git gc gom object và chỉ dọn object không còn được tham chiếu khi đủ điều kiện.|Lệnh nào chạy bảo trì gom object?|git gc|
@@ -140,13 +140,13 @@ three-way-merge|Cơ chế merge ba phía|Git so sánh base, ours và theirs đ�
 `),
   track('teamwork', 'Làm việc nhóm và review', `
 reviewing-with-diff|Review bằng diff|Review tốt đối chiếu thay đổi với mục tiêu và kiểm tra cả dòng bị xóa.|Lệnh nào xem diff giữa main và feature theo merge base?|git diff main...feature|
-pr-lifecycle|Vòng đời PR mô phỏng|PR đi từ đề xuất, review, sửa phản hồi đến merge; bài offline dùng nhánh local.|Bước nào cần trước merge khi nhóm yêu cầu người khác xem mã?|review|remote
-reviewing-branches-locally|Xem nhánh người khác ở local|Fetch nhánh review rồi chạy thử trong sandbox thay vì chỉ đọc giao diện web.|Lệnh nào tải ref từ origin trước khi checkout?|git fetch origin|fetch
+pr-lifecycle|Vòng đời PR mô phỏng|PR đi từ đề xuất, review, sửa phản hồi đến merge; bài offline dùng nhánh local.|Bước nào cần trước merge khi nhóm yêu cầu người khác xem mã?|review|prFlow
+reviewing-branches-locally|Xem nhánh người khác ở local|Fetch nhánh review rồi chạy thử trong sandbox thay vì chỉ đọc giao diện web.|Lệnh nào tải ref từ origin trước khi checkout?|git fetch origin|reviewBranch
 resolving-conflicts-team|Cùng giải quyết xung đột|Khi giải quyết xung đột, cần xác nhận ý định cả hai phía trước khi commit.|Sau khi sửa tệp xung đột, bước Git tiếp theo là gì?|git add|conflict
 co-authoring|Ghi công đồng tác giả|Trailer Co-authored-by ghi người cùng viết trong phần thân commit, không thay author chính.|Trailer chuẩn để ghi đồng tác giả bắt đầu bằng gì?|Co-authored-by:|coauthor
-pair-workflows|Làm việc cặp|Một người gõ, một người review; commit nên có thông điệp rõ và ghi nhận đóng góp phù hợp.|Trailer nào ghi nhận người cùng lập trình?|Co-authored-by:|coauthor
+pair-workflows|Làm việc cặp|Một người gõ, một người review; commit nên có thông điệp rõ và ghi nhận đóng góp phù hợp.|Trailer nào ghi nhận người cùng lập trình?|Co-authored-by:|pairReview
 repo-onboarding|Giúp thành viên mới bắt đầu|README cần chỉ rõ cách cài, chạy test và quy ước nhánh để người mới tự làm được.|Tệp nào nên chứa hướng dẫn bắt đầu dự án?|README.md|docs
-documentation-conventions|Quy ước tài liệu|Tài liệu nằm cùng mã và được review trong commit để không lệch hành vi.|Tệp nào thường giới thiệu mục tiêu và cách chạy dự án?|README.md|docs
+documentation-conventions|Quy ước tài liệu|Tài liệu nằm cùng mã và được review trong commit để không lệch hành vi.|Tệp nào mô tả quy ước đóng góp cho repository?|CONTRIBUTING.md|conventions
 `),
   track('forensics', 'Điều tra lịch sử', `
 bisect-basics|Bisect cơ bản|Đánh dấu mốc tốt và xấu để Git đề xuất commit giữa khoảng cần kiểm tra.|Subject commit gây lỗi trong app.txt là gì?|Thêm lỗi|

@@ -16,7 +16,7 @@ npx git-training courses
 npx git-training start foundations
 ```
 
-Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi dùng `node dist/cli.js` thay cho `npx git-training`. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
+Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh; `npx git-training` chưa dùng được trước khi gói được phát hành. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
 
 ```sh
 git status
@@ -27,6 +27,8 @@ git-training next
 ```
 
 Bài chỉ đạt khi cả điều kiện Git và câu trả lời đều đúng. Một số bài chỉ có câu hỏi. `solution` hiển thị lời giải nhưng không tự đánh dấu hoàn thành.
+
+Sau `next`, dùng `git-training path` để lấy riêng đường dẫn repository mới. Trong Bash có thể chạy `cd "$(git-training path)"`; trong PowerShell dùng `Set-Location (git-training path)`. Khi lệnh Git mở editor, cách lưu và thoát phụ thuộc editor bạn đã cấu hình bằng `git config core.editor`.
 
 ## 11 track
 
@@ -52,9 +54,11 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | --- | --- |
 | `courses` | Liệt kê track. |
 | `start <track> [--dir <thư-mục>]` | Tạo phiên mới; mặc định trong `~/git-training`. |
+| `--version` | Xem phiên bản CLI. |
 | `roadmap` | Xem tiến độ cả 11 track. |
 | `list` | Xem bài đã đạt, sẵn sàng và chưa mở trong track hiện tại. |
 | `status` | Xem khái niệm, nhiệm vụ, kết quả cần đạt và đường dẫn repository. |
+| `path` | Chỉ in đường dẫn repository hiện tại. |
 | `hint` | Mở gợi ý tiếp theo. |
 | `solution` | Xem lời giải. |
 | `answer [đáp-án]` | Gửi đáp án; bỏ đối số để nhập trong terminal tương tác. |
@@ -63,7 +67,7 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | `open <mã-bài>` | Mở lại bài đã mở khóa từ checkpoint. |
 | `migrate <thư-mục-phiên-cũ>` | Nhập tiến độ từ phiên bản hai track cũ. |
 
-`open` tạo lại repository của chính bài đó từ checkpoint và giữ dấu hoàn thành. Dữ liệu phiên nằm ngoài repository bài tập. Từ thư mục phiên, CLI tự tìm phiên; ở nơi khác, CLI dùng phiên hoạt động gần nhất. Biến `GIT_TRAINING_HOME` đổi vị trí lưu chỉ mục và hồ sơ tiến độ.
+`open` tạo lại repository của chính bài đó từ checkpoint và giữ dấu hoàn thành. Dữ liệu phiên nằm ngoài repository bài tập. Từ thư mục phiên, CLI tự tìm phiên; ở nơi khác, CLI dùng phiên hoạt động gần nhất. Biến `GIT_TRAINING_HOME` đổi vị trí lưu chỉ mục và hồ sơ tiến độ. Nếu thư mục phiên bị xóa, `start <track>` tạo phiên mới; nếu chỉ repository bài bị xóa, dùng `open <mã-bài>` để khôi phục.
 
 Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-repo` được ghi rõ là **mô phỏng offline**. Chúng không đăng nhập dịch vụ, ký bằng khóa thật hay viết lại lịch sử thật. Bài remote dùng bare repository cục bộ.
 
@@ -86,8 +90,8 @@ const session = await createSession('foundations');
 const info = await getExerciseInfo({ sessionDir: session.dir });
 console.log(info.concept, info.instructions, info.repo);
 
-// Sau khi người học thao tác trong repository:
-await submitAnswer('git init', { sessionDir: session.dir });
+// Sau khi người học chạy git init -b main trong repository:
+await submitAnswer('main', { sessionDir: session.dir });
 const result = await checkExercise({ sessionDir: session.dir });
 console.log(result.passed, result.findings);
 ```

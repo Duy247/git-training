@@ -25,7 +25,54 @@ export interface Exercise {
 export interface Course { id: string; title: string; exercises: readonly Exercise[] }
 
 function normalize(value: string): string {
-  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim().replace(/\s+/g, ' ');
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd')
+    .trim().replace(/(^|\s)(--?[A-Za-z][A-Za-z0-9-]*)/g, (_match, space: string, flag: string) =>
+      `${space}${flag.replace(/[A-Z]/g, letter => `~${letter.toLowerCase()}`)}`)
+    .toLocaleLowerCase().replace(/\s+/g, ' ');
+}
+
+function answerMatches(expected: string, submitted: string): boolean {
+  const candidate = normalize(expected);
+  const actual = normalize(submitted);
+  if (actual === candidate) return true;
+  if (candidate === 'feat:' && /^feat(?:\([^)]+\))?!?:?$/.test(actual)) return true;
+  if (candidate.startsWith('git ') && actual.startsWith(candidate + ' ')) return true;
+  if (candidate.startsWith('-') && actual.split(/\s+/).some(token => token === candidate || token.startsWith(candidate + '='))) return true;
+  return false;
+}
+
+const answerVariants: Record<string, readonly string[]> = {
+  'foundations/stage-and-commit': ['git add bai.txt', 'git add .', 'git add -A', 'git add --all'],
+  'foundations/head-and-refs': ['git symbolic-ref HEAD'],
+  'foundations/commit-message-anatomy': ['feat'],
+  'branching/create-and-switch': ['git checkout -b'],
+  'branching/renaming-branches': ['-m', 'git branch -m', 'git branch --move'],
+  'branching/upstream-tracking': ['-u', 'git push -u', 'git push --set-upstream'],
+  'undo/stash-as-undo': ['git stash'],
+  'remote/prune-stale-branches': ['git remote prune origin', 'git fetch --prune origin', 'git fetch --prune'],
+  'remote/pushing-tags': ['git push --tags', 'git push origin --tags'],
+  'release-ops/semver': ['v1.3.0'],
+  'release-ops/release-branches': ['release/2.0'],
+  'release-ops/hotfix-branches': ['hotfix/1.0.1'],
+  'advanced/interactive-rebase': ['--interactive', 'git rebase -i', 'git rebase --interactive'],
+  'advanced/partial-clones': ['--filter=blob:none'],
+  'daily-workflows/reviewing-pr-locally': ['git diff main..review/pr', 'git diff main review/pr'],
+  'internals/git-directory': ['.git/index'],
+  'internals/object-database': ['.git/objects'],
+  'internals/reachability': ['branch', 'nhánh'],
+  'internals/three-way-merge': ['common ancestor', 'tổ tiên chung'],
+  'teamwork/co-authoring': ['Co-authored-by'],
+  'teamwork/pair-workflows': ['Co-authored-by'],
+  'teamwork/repo-onboarding': ['README'],
+  'teamwork/documentation-conventions': ['README'],
+};
+
+function answerHint(question: string, answer: string): string {
+  if (question.includes('Subject')) return 'Hãy dùng git log, git blame hoặc git show để tìm subject commit trong fixture.';
+  if (question.startsWith('Ai ')) return 'Hãy xem tác giả bằng git blame hoặc git log --format=%an.';
+  if (answer.startsWith('git ')) return 'Trả lời bằng lệnh Git; có thể thêm đối số phù hợp với câu hỏi.';
+  if (answer.startsWith('-')) return 'Trả lời bằng tên tùy chọn Git; dạng viết tắt tương đương cũng được nhận.';
+  return 'Trả lời bằng tên hoặc giá trị ngắn gọn đúng với câu hỏi.';
 }
 
 async function scenario(repo: string, track: string, lesson: string): Promise<void> {
@@ -56,6 +103,7 @@ const simulated = new Set([
   'remote/pull-request-workflow', 'remote/fork-upstream', 'remote/ssh-keys', 'remote/personal-access-tokens',
   'remote/github-cli', 'remote/branch-protection', 'release-ops/tag-signing', 'release-ops/commit-signing',
   'daily-workflows/husky-lint-staged', 'daily-workflows/pre-commit-hooks', 'forensics/filter-repo-surgery',
+  'teamwork/pr-lifecycle',
 ]);
 
 export const courses: readonly Course[] = roadmap.map(track => ({
@@ -75,13 +123,15 @@ export const courses: readonly Course[] = roadmap.map(track => ({
       needsGit: lab?.needsGit ?? true,
       simulated: simulated.has(`${track.id}/${spec.slug}`),
       instructions: lab ? `${lab.task} Sau đó trả lời: ${spec.question}` : `Khảo sát repository bài tập nếu cần, rồi trả lời: ${spec.question}`,
-      hints: [spec.concept, lab?.hint ?? `Đáp án bắt đầu bằng “${answer.trim().charAt(0)}”.`],
-      solution: lab ? `${lab.solution}\nĐáp án câu hỏi: ${answer.trim()}.` : `Đáp án: ${answer.trim()}. ${spec.concept}`,
+      hints: lab
+        ? ['Quan sát trạng thái ban đầu bằng git status và so với kết quả cần đạt.', lab.hint]
+        : [spec.concept, answerHint(spec.question, answer)],
+      solution: lab ? `${lab.solution.replaceAll('; ', '\n').replaceAll(' && ', '\n')}\nĐáp án câu hỏi: ${answer.trim()}.` : `Đáp án: ${answer.trim()}. ${spec.concept}`,
       setup: lab ? lab.setup : async (repo: string) => scenario(repo, track.id, spec.slug),
       validate: lab ? lab.validate : async () => [],
       evaluateAnswer: async (_repo: string, submitted: string) => [{
-        pass: answer.split('~').some(candidate => normalize(candidate) === normalize(submitted)),
-        message: 'Hãy trả lời chính xác câu hỏi của bài học; dùng git-training hint nếu cần.',
+        pass: [...answer.split('~'), ...(answerVariants[`${track.id}/${spec.slug}`] ?? [])].some(candidate => answerMatches(candidate, submitted)),
+        message: 'Đáp án chưa phù hợp. Hãy xem lại câu hỏi; cú pháp lệnh đầy đủ và dạng viết tắt tương đương đều được chấp nhận.',
       }],
     } satisfies Exercise;
   }),
