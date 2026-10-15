@@ -212,7 +212,18 @@ export const labs: Record<string, Lab> = {
     task: 'Tạo worktree ở thư mục song song them-nhanh cho nhánh feature.', expected: 'git worktree list có đường dẫn them-nhanh.',
     hint: 'Tạo worktree bằng git worktree add ../them-nhanh feature.', solution: 'git worktree add ../them-nhanh feature',
     setup: async repo => { await base(repo); await git(repo, 'branch', 'feature'); },
-    validate: async repo => { const entries = (await git(repo, 'worktree', 'list', '--porcelain')).split('\n').filter(line => line.startsWith('worktree ')).map(line => path.resolve(line.slice(9)).toLowerCase()); return result(entries.includes(path.resolve(path.dirname(repo), 'them-nhanh').toLowerCase()), 'Hãy tạo worktree them-nhanh trong sandbox.'); },
+    validate: async repo => {
+      const expected = await realpath(path.dirname(repo));
+      const target = path.join(expected, 'them-nhanh');
+      const entries = (await git(repo, 'worktree', 'list', '--porcelain')).split('\n').filter(line => line.startsWith('worktree '));
+      for (const entry of entries) {
+        try {
+          const actual = await realpath(entry.slice(9));
+          if ((process.platform === 'win32' ? actual.toLowerCase() === target.toLowerCase() : actual === target)) return result(true, 'Worktree them-nhanh đã được tạo.');
+        } catch { /* worktree cũ không còn trên đĩa */ }
+      }
+      return result(false, 'Hãy tạo worktree them-nhanh trong sandbox.');
+    },
     solve: async repo => { await git(repo, 'worktree', 'add', path.join(path.dirname(repo), 'them-nhanh'), 'feature'); },
   },
   octopus: {
