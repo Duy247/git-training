@@ -12,11 +12,11 @@
 Sau khi gói được phát hành:
 
 ```sh
-npx git-training courses
-npx git-training start foundations
+npx @duy247/git-training courses
+npx @duy247/git-training start foundations
 ```
 
-Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh; `npx git-training` chưa dùng được trước khi gói được phát hành. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
+Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh; `npx @duy247/git-training` chưa dùng được trước khi gói được phát hành. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
 
 Chạy `git-training` không đối số để mở bảng học tiếng Việt. Trên Windows, bảng học mở trong cửa sổ Windows Terminal riêng khi có sẵn; nếu không, nó dùng terminal hiện tại. `git-training ui` luôn mở tại terminal hiện tại, còn `git-training ui --window` yêu cầu cửa sổ riêng trên Windows. Trong bảng học, chọn track bằng phím mũi tên và Enter. Mở một terminal khác để chạy Git trong repository bài tập. Bảng học cập nhật phản hồi khoảng mỗi hai giây; nhấn **C** để ghi nhận bài đạt. Nhấn **A** để nhập đáp án, **H** để xem gợi ý, **S** để xem lời giải, **N** để sang bài tiếp, **L** để chọn bài đã mở khóa, **O** để mở bài theo mã, **T** để đổi track, **R** để xem tiến độ và **Q** để thoát.
 
@@ -101,7 +101,7 @@ import {
   createSession, getExerciseInfo, getProgress, getRoadmapProgress,
   submitAnswer, checkExercise, openExercise, nextExercise,
   migrateLegacySession, registerCourse
-} from 'git-training';
+} from '@duy247/git-training';
 
 const session = await createSession('foundations');
 const info = await getExerciseInfo({ sessionDir: session.dir });
@@ -123,4 +123,4 @@ npm test
 npm run pack:check
 ```
 
-Bộ kiểm thử chạy Git thật cho 116 bài. CI chạy trên Windows, macOS và Linux. Phát hành npm là bước riêng sau khi gói được duyệt và kiểm tra lại tên `git-training` trên registry.
+Bộ kiểm thử chạy Git thật cho 116 bài. CI chạy trên Windows, macOS và Linux. Phát hành npm là bước riêng sau khi gói được duyệt và kiểm tra lại tên `@duy247/git-training` trên registry.
