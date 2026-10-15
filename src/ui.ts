@@ -54,6 +54,14 @@ export async function runUI(): Promise<void> {
     const controls: string[] = [];
     const add = (value = '') => body.push(...wrap(value, width - 2));
     const control = (value: string) => controls.push(...wrap(value, width - 2));
+    const section = (label: string, value: string) => {
+      add(); add(label.toLocaleUpperCase('vi'));
+      for (const line of wrap(value, width - 4)) body.push(`  ${line}`);
+    };
+    const controlPair = (left: string, right: string) => {
+      if (width < 52) control(`${left}   ${right}`);
+      else controls.push(left.padEnd(27) + right);
+    };
     add('GIT TRAINING  •  Luyện Git trên máy');
     add('─'.repeat(Math.min(width - 2, 72)));
     try {
@@ -81,23 +89,27 @@ export async function runUI(): Promise<void> {
         const done = progress.filter(item => item.state === 'complete').length;
         const current = progress.find(item => item.id === info.id);
         add(`${info.session.courseId}  •  ${done}/${progress.length} bài  •  ${info.title}`);
-        add(info.simulated ? 'Mô phỏng offline' : 'Thực hành Git'); add();
-        add(`Repository: ${info.repo}`);
-        add(process.platform === 'win32' ? 'PowerShell: Set-Location ~; Set-Location (git-training path)' : 'Shell: cd ~ && cd "$(git-training path)"');
-        add(); add(`Phản hồi trực tiếp  •  số lần Check: ${current?.attempts ?? 0}`);
+        add(info.simulated ? 'Mô phỏng offline' : 'Thực hành Git');
+        section('Nhiệm vụ', info.instructions);
+        section('Kết quả cần đạt', info.expected);
+        if (info.question) section('Câu hỏi', info.question);
+        add(); add(`PHẢN HỒI  •  số lần Check: ${current?.attempts ?? 0}`);
         if (inspection) {
-          for (const finding of inspection.findings) add(`${finding.pass ? '✓' : '·'} ${finding.message}`);
-          if (inspection.ready) add('Sẵn sàng đạt — nhấn C để ghi nhận kết quả.');
-        } else add('Đang đọc trạng thái bài học…');
-        add(); add(`Nhiệm vụ: ${info.instructions}`);
-        add(`Kết quả cần đạt: ${info.expected}`);
-        if (info.question) add(`Câu hỏi: ${info.question}`);
-        add(`Kiến thức: ${info.concept}`);
-        control('C: Check   A: trả lời   H: gợi ý   S: lời giải   N: bài sau');
-        control('L: danh sách bài   O: mở bài   T: track   R: roadmap   PgUp/PgDn: cuộn   Q: thoát');
+          for (const finding of inspection.findings) add(`  ${finding.pass ? '✓' : '·'} ${finding.message.startsWith('Chưa có câu trả lời.') ? 'Chưa có câu trả lời. Nhấn A để nhập đáp án.' : finding.message}`);
+          if (inspection.ready) add('  Sẵn sàng đạt — nhấn C để ghi nhận kết quả.');
+        } else add('  Đang đọc trạng thái bài học…');
+        section('Repository', info.repo);
+        add(process.platform === 'win32' ? '  PowerShell: Set-Location ~; Set-Location (git-training path)' : '  Shell: cd ~ && cd "$(git-training path)"');
+        section('Kiến thức', info.concept);
+        controlPair('[C] Check', '[A] Trả lời');
+        controlPair('[H] Gợi ý', '[S] Lời giải');
+        controlPair('[N] Bài sau', '[L] Danh sách bài');
+        controlPair('[O] Mở bài', '[T] Chọn track');
+        controlPair('[R] Roadmap', '[Q] Thoát');
+        control('PgUp / PgDn: cuộn nội dung');
       }
     } catch (error) { add(`Lỗi: ${(error as Error).message}`); control('T: chọn track   Q: thoát'); }
-    const tail = [...controls, ...(notice ? wrap(`Thông báo: ${notice}`, width - 2) : []), ...(prompt ? wrap(prompt === 'answer' ? `Nhập đáp án: ${input}_` : `Nhập mã bài: ${input}_`, width - 2) : [])];
+    const tail = ['─'.repeat(Math.min(width - 2, 72)), ...controls, ...(notice ? wrap(`Thông báo: ${notice}`, width - 2) : []), ...(prompt ? wrap(prompt === 'answer' ? `Nhập đáp án: ${input}_` : `Nhập mã bài: ${input}_`, width - 2) : [])];
     const room = Math.max(0, height - tail.length - 1);
     scroll = Math.min(scroll, Math.max(0, body.length - room));
     const visibleBody = body.slice(scroll, scroll + room);
