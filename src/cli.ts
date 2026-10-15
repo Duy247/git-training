@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { getCourse } from './courses.js';
+import { runUI } from './ui.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
 
 const usage = `git-training — luyện Git bằng repository riêng trên máy của bạn
 
 Cách dùng:
   git-training courses                    Liệt kê 11 track
+  git-training                             Mở bảng học (Windows Terminal nếu có)
+  git-training ui [--window]               Mở bảng học tại đây hoặc cửa sổ mới
   git-training --version                  Xem phiên bản
   git-training roadmap                    Xem tiến độ toàn bộ roadmap
   git-training start <track> [--dir <nơi-lưu>]
@@ -60,9 +64,32 @@ async function main(): Promise<void> {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   if (nodeMajor < 22) throw new Error('Cần Node.js 22 trở lên. Hãy cập nhật Node.js rồi chạy lại.');
   const [command, argument, ...rest] = process.argv.slice(2);
+  const launchWindow = async (): Promise<boolean> => {
+    if (process.platform !== 'win32') return false;
+    return new Promise(resolve => {
+      const child = spawn('wt.exe', ['-w', 'new', 'nt', '--title', 'Git Training', process.execPath, process.argv[1]!, 'ui'], { detached: true, stdio: 'ignore', windowsHide: false });
+      let settled = false;
+      const finish = (opened: boolean) => { if (!settled) { settled = true; resolve(opened); } };
+      child.once('error', () => finish(false));
+      child.once('exit', code => finish(code === 0));
+      child.once('spawn', () => { child.unref(); setTimeout(() => finish(true), 800).unref(); });
+    });
+  };
   const noExtra = () => { if (argument !== undefined) throw new Error(`Lệnh ${command} không nhận đối số. Xem git-training help.`); };
   switch (command) {
-    case undefined: case 'help': case '--help': case '-h': console.log(usage); break;
+    case undefined: {
+      if (!process.stdin.isTTY || !process.stdout.isTTY) { console.log(usage); break; }
+      if (await launchWindow()) console.log('Đã mở Git Training trong Windows Terminal.');
+      else await runUI();
+      break;
+    }
+    case 'ui': {
+      if (argument !== undefined && argument !== '--window' || rest.length) throw new Error('Dùng git-training ui hoặc git-training ui --window.');
+      if (argument === '--window' && await launchWindow()) console.log('Đã mở Git Training trong Windows Terminal.');
+      else { if (argument === '--window') console.log('Không thể mở cửa sổ mới; dùng terminal hiện tại.'); await runUI(); }
+      break;
+    }
+    case 'help': case '--help': case '-h': console.log(usage); break;
     case '--version': case 'version': {
       noExtra();
       const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };

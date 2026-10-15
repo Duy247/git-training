@@ -18,6 +18,10 @@ npx git-training start foundations
 
 Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh; `npx git-training` chưa dùng được trước khi gói được phát hành. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
 
+Chạy `git-training` không đối số để mở bảng học tiếng Việt. Trên Windows, bảng học mở trong cửa sổ Windows Terminal riêng khi có sẵn; nếu không, nó dùng terminal hiện tại. `git-training ui` luôn mở tại terminal hiện tại, còn `git-training ui --window` yêu cầu cửa sổ riêng trên Windows. Trong bảng học, chọn track bằng phím mũi tên và Enter. Mở một terminal khác để chạy Git trong repository bài tập. Bảng học cập nhật phản hồi khoảng mỗi hai giây; nhấn **C** để ghi nhận bài đạt. Nhấn **A** để nhập đáp án, **H** để xem gợi ý, **S** để xem lời giải, **N** để sang bài tiếp, **L** để chọn bài đã mở khóa, **O** để mở bài theo mã, **T** để đổi track, **R** để xem tiến độ và **Q** để thoát.
+
+Các lệnh thường vẫn hoạt động độc lập với bảng học:
+
 ```sh
 git status
 git-training hint
@@ -53,6 +57,8 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | Lệnh | Chức năng |
 | --- | --- |
 | `courses` | Liệt kê track. |
+| Không đối số | Mở bảng học; trên Windows thử mở cửa sổ riêng. |
+| `ui [--window]` | Mở bảng học tại terminal hiện tại hoặc cửa sổ mới trên Windows. |
 | `start <track> [--dir <thư-mục>]` | Tạo phiên mới; mặc định trong `~/git-training`. |
 | `--version` | Xem phiên bản CLI. |
 | `roadmap` | Xem tiến độ cả 11 track. |

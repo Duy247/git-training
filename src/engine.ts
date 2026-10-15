@@ -33,6 +33,7 @@ export interface CreateSessionOptions { workspaceDir?: string }
 export interface ExerciseProgress { id: string; title: string; state: 'locked' | 'available' | 'complete'; attempts: number }
 export interface TrackProgress { id: string; title: string; completed: number; total: number }
 export interface CheckResult { passed: boolean; findings: Finding[]; nextExerciseId?: string; session: Session }
+export interface InspectionResult { ready: boolean; findings: Finding[]; session: Session }
 export interface MigrationResult { alreadyMigrated: boolean; credited: Record<string, string[]>; legacyCompleted: string[] }
 
 const stateHome = () => path.resolve(process.env.GIT_TRAINING_HOME ?? path.join(homedir(), '.git-training'));
@@ -258,6 +259,28 @@ export async function checkExercise(options: SessionOptions = {}): Promise<Check
   return withSessionLock(session.dir, async () => checkExerciseUnlocked(await getSession({ sessionDir: session.dir })));
 }
 async function checkExerciseUnlocked(session: Session): Promise<CheckResult> {
+  const { findings, ready: passed } = await inspectExerciseForSession(session);
+  const course = getCourse(session.courseId);
+  const exercise = getExercise(course, session.currentExerciseId);
+  session.attempts[exercise.id] = (session.attempts[exercise.id] ?? 0) + 1;
+  if (passed && !session.completed.includes(exercise.id)) session.completed.push(exercise.id);
+  await save(session);
+  if (passed) {
+    const profile = await loadProfile();
+    const complete = new Set(profile.completed[session.courseId] ?? []);
+    complete.add(exercise.id);
+    profile.completed[session.courseId] = [...complete];
+    await saveProfile(profile);
+  }
+  const nextExerciseId = course.exercises[course.exercises.findIndex(item => item.id === exercise.id) + 1]?.id;
+  return { passed, findings, nextExerciseId: passed ? nextExerciseId : undefined, session };
+}
+
+/** Chấm thử trạng thái hiện tại mà không ghi lần thử hoặc đánh dấu hoàn thành. */
+export async function inspectExercise(options: SessionOptions = {}): Promise<InspectionResult> {
+  return inspectExerciseForSession(await getSession(options));
+}
+async function inspectExerciseForSession(session: Session): Promise<InspectionResult> {
   const course = getCourse(session.courseId);
   const exercise = getExercise(course, session.currentExerciseId);
   const repo = repoDir(session, exercise.id);
@@ -284,19 +307,20 @@ async function checkExerciseUnlocked(session: Session): Promise<CheckResult> {
     const answer = session.answers[exercise.id];
     findings.push(...(answer === undefined ? [{ pass: false, message: 'Chưa có câu trả lời. Hãy chạy git-training answer <đáp-án>.' }] : await exercise.evaluateAnswer(repo, answer)));
   }
-  const passed = findings.length > 0 && findings.every(finding => finding.pass);
-  session.attempts[exercise.id] = (session.attempts[exercise.id] ?? 0) + 1;
-  if (passed && !session.completed.includes(exercise.id)) session.completed.push(exercise.id);
-  await save(session);
-  if (passed) {
-    const profile = await loadProfile();
-    const complete = new Set(profile.completed[session.courseId] ?? []);
-    complete.add(exercise.id);
-    profile.completed[session.courseId] = [...complete];
-    await saveProfile(profile);
-  }
-  const nextExerciseId = course.exercises[course.exercises.findIndex(item => item.id === exercise.id) + 1]?.id;
-  return { passed, findings, nextExerciseId: passed ? nextExerciseId : undefined, session };
+  return { ready: findings.length > 0 && findings.every(finding => finding.pass), findings, session };
+}
+
+/** Lưu đáp án để bảng điều khiển chấm thử; không tạo lần thử. */
+export async function saveAnswer(answer: string, options: SessionOptions = {}): Promise<void> {
+  if (!answer.trim()) throw new Error('Câu trả lời không được để trống.');
+  const current = await getSession(options);
+  await withSessionLock(current.dir, async () => {
+    const session = await getSession({ sessionDir: current.dir });
+    const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
+    if (!exercise.evaluateAnswer) throw new Error('Bài này không yêu cầu câu trả lời.');
+    session.answers[exercise.id] = answer;
+    await save(session);
+  });
 }
 
 /** Lưu đáp án rồi chấm toàn bộ bài, kể cả phần thực hành nếu có. */
