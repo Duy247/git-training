@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đổi tên nhánh - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 6/10</span></p>
+<h1>Đổi tên nhánh</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>renaming-branches</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đổi tên nhánh hiện tại hoặc một nhánh khác mà không đụng tới commit.</li>
+<li>Hiểu vì sao đổi tên nhánh không viết lại lịch sử.</li>
+<li>Phân biệt <code>-m</code> và <code>-M</code>, và rủi ro khi ghi đè nhánh có sẵn.</li>
+<li>Biết cần làm thêm gì khi nhánh đó đã có trên remote.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Nhánh chỉ là một tên trỏ tới commit. Vì vậy đổi tên nhánh chỉ là đổi tên ref: <code>refs/heads/feature/sai</code> biến mất, <code>refs/heads/feature/dung</code> xuất hiện, cùng trỏ vào đúng commit cũ. Không commit nào bị tạo lại, không object ID nào thay đổi. Đây là khác biệt quan trọng so với rebase hay amend.</p>
+<p>Git còn chuyển theo những thứ đi kèm tên nhánh:</p>
+<ul>
+<li><strong>Reflog</strong> của nhánh được đổi tên theo, và thêm một dòng ghi nhận việc đổi tên.</li>
+<li><strong>Cấu hình nhánh</strong> trong <code>.git/config</code> (như <code>branch.&lt;tên&gt;.remote</code>, <code>branch.&lt;tên&gt;.merge</code>) được chuyển sang khóa mang tên mới. Lưu ý giá trị upstream vẫn là nhánh remote cũ.</li>
+<li>Nếu bạn đang đứng trên nhánh đó, <strong>HEAD</strong> được cập nhật để trỏ tên mới.</li>
+</ul>
+<p>Cú pháp có hai dạng. Khi đứng trên nhánh cần đổi, chỉ cần tên mới: <code>git branch -m &lt;tên-mới&gt;</code>. Khi đổi một nhánh khác: <code>git branch -m &lt;tên-cũ&gt; &lt;tên-mới&gt;</code>. Dạng dài của <code>-m</code> là <code>--move</code>.</p>
+<p>Nếu tên mới đã thuộc về một nhánh khác, <code>-m</code> từ chối. <code>-M</code> (tương đương <code>--move --force</code>) thì ghi đè: nhánh có tên đó trước đây sẽ bị thay thế, và commit chỉ có trên nhánh bị thay có thể mất dấu. Chỉ dùng <code>-M</code> khi bạn chắc chắn, ví dụ đổi chữ hoa thường trên hệ thống tệp không phân biệt chữ hoa thường.</p>
+<p>Đổi tên local <strong>không</strong> đổi tên nhánh trên remote. Nhánh remote là một ref nằm ở repository khác. Nếu nhánh cũ đã được push, bạn cần push tên mới, đặt lại upstream, và (khi nhóm đồng ý) xóa tên cũ trên remote. Trên các dịch vụ hosting, đổi tên nhánh mặc định thường làm trên giao diện web để cập nhật luôn các pull request và quy tắc bảo vệ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph S1[&quot;Trước&quot;]
+    A[&quot;refs/heads/feature/sai&quot;] --&gt; C1[&quot;commit 296a4c4&quot;]
+  end
+  subgraph S2[&quot;Sau git branch -m&quot;]
+    B[&quot;refs/heads/feature/dung&quot;] --&gt; C2[&quot;commit 296a4c4&quot;]
+  end
+  S1 --&gt;|&quot;chỉ đổi tên ref&quot;| S2</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -m &lt;tên-mới&gt;              # đổi tên nhánh hiện tại
+git branch -m &lt;tên-cũ&gt; &lt;tên-mới&gt;     # đổi tên nhánh khác
+git branch --move &lt;tên-cũ&gt; &lt;tên-mới&gt; # dạng dài
+git branch -M &lt;tên-cũ&gt; &lt;tên-mới&gt;     # ép đổi, ghi đè nhánh trùng tên
+git reflog show &lt;nhánh&gt;              # xem dòng ghi nhận đổi tên
+# Khi nhánh đã có trên remote:
+git push -u origin &lt;tên-mới&gt;         # đẩy tên mới và đặt upstream
+git push origin --delete &lt;tên-cũ&gt;    # xóa tên cũ trên remote (khi nhóm đồng ý)</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-m</code>, <code>--move</code></td>
+<td>Đổi tên, từ chối nếu tên mới đã tồn tại</td>
+</tr>
+<tr>
+<td><code>-M</code></td>
+<td>Đổi tên kể cả khi phải ghi đè</td>
+</tr>
+<tr>
+<td><code>-c</code>, <code>-C</code></td>
+<td>Sao chép nhánh sang tên mới (giữ tên cũ)</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Bạn tạo nhánh với tên sai và đang đứng trên đó. Đổi tên tại chỗ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -m feature/dung
+git branch --show-current</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">feature/dung</code></pre></div>
+<p>Không có output từ lệnh đổi tên: thành công thì Git im lặng. Đổi tên một nhánh khác, không cần chuyển sang nó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -m fix/typo fix/chinh-ta
+git branch</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* feature/dung
+  feature/otp
+  fix/chinh-ta
+  main
+  test/smoke</code></pre></div>
+<p>Reflog ghi lại câu chuyện của nhánh, và commit vẫn là commit cũ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog show feature/dung</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">296a4c4 feature/dung@{0}: Branch: renamed refs/heads/feature/sai to refs/heads/feature/dung
+296a4c4 feature/dung@{1}: branch: Created from HEAD</code></pre></div>
+<p>Cả hai dòng cùng <code>296a4c4</code>: không có commit mới. Thử đổi sang tên đã tồn tại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -m main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: a branch named &#39;main&#39; already exists</code></pre></div>
+<p><code>-m</code> bảo vệ bạn. Nếu dùng <code>-M</code> ở đây, nhánh <code>main</code> cũ sẽ bị thay thế mà không có cảnh báo nào.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>-M</code> cho nhanh.</strong> Nó ghi đè nhánh trùng tên một cách im lặng. Nếu lỡ tay, tìm vị trí cũ của nhánh bị ghi đè qua <code>git reflog</code> và tạo lại.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Trong lúc thử nghiệm, mình đã chạy <code>git branch -M test/smoke main</code> và lệnh thoát với mã 0, không in gì: nhánh <code>main</code> cũ bị thay bằng <code>test/smoke</code> ngay lập tức.</p>
+</aside>
+<p><strong>Quên remote.</strong> Sau khi đổi tên local, upstream vẫn trỏ tên cũ (ví dụ <code>[origin/feature]</code> trong <code>git branch -vv</code>). Với cấu hình mặc định <code>push.default=simple</code>, <code>git push</code> sẽ từ chối với thông báo &quot;The upstream branch of your current branch does not match the name of your current branch&quot;. Push tên mới với <code>-u</code>, rồi dọn tên cũ.</p>
+<p><strong>Đồng nghiệp vẫn dùng tên cũ.</strong> Họ cần fetch, đổi tên local của họ, và đặt lại upstream. Báo trước cho nhóm khi đổi tên nhánh chung.</p>
+<p><strong>Chỉ đổi chữ hoa thường trên Windows hay macOS.</strong> Hệ thống tệp không phân biệt hoa thường có thể khiến <code>-m</code> báo nhánh đã tồn tại. Đây là trường hợp hiếm mà <code>-M</code> hợp lý.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn tạo nhánh <code>feature/chuyen-khoan</code> nhưng quy ước nhóm yêu cầu nhánh test bắt đầu bằng <code>test/</code> và kèm mã ticket. Chưa push, nên bạn chỉ cần <code>git branch -m test/QA-412-chuyen-khoan</code>. Lịch sử giữ nguyên, các commit vẫn mang đúng ID mà bạn đã ghi chú trong báo cáo test.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đổi tên càng sớm càng rẻ: trước khi push, việc đổi tên chỉ ảnh hưởng máy bạn.</p>
+</aside>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành để bạn đứng trên một nhánh có tên sai và có một commit riêng. Yêu cầu là kết thúc với nhánh mang tên đúng như đề, tên cũ không còn, và commit vẫn còn nguyên. Câu hỏi hỏi về tùy chọn của <code>git branch</code> dùng để đổi tên. Hãy:</p>
+<ul>
+<li>Kiểm tra bạn đang ở nhánh nào trước khi đổi.</li>
+<li>Chọn dạng cú pháp một đối số hay hai đối số cho phù hợp.</li>
+<li>Sau khi đổi, xem <code>git branch</code> và <code>git log --oneline -1</code> để chắc commit vẫn đó.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Đổi tên nhánh chỉ đổi tên ref; commit và object ID giữ nguyên.</li>
+<li>Reflog, upstream và HEAD được Git chuyển sang tên mới.</li>
+<li><code>-m</code> từ chối khi tên mới đã có; <code>-M</code> ghi đè im lặng.</li>
+<li>Nhánh trên remote phải được xử lý riêng: push tên mới, đặt upstream, xóa tên cũ.</li>
+<li>Đổi tên trước khi push là rẻ nhất.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open renaming-branches
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/listing-branches.html" rel="prev"><small>Bài trước</small>Liệt kê và lọc nhánh</a><a class="next" href="../branching/branch-naming.html" rel="next"><small>Bài sau</small>Quy ước tên nhánh</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 6/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Phát triển trên trunk - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 2/12</span></p>
+<h1>Phát triển trên trunk</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>trunk-based</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu mô hình trunk-based: một nhánh trung tâm, nhánh phụ sống ngắn.</li>
+<li>Tạo nhánh ngắn từ trunk và đưa về sớm.</li>
+<li>Nhận ra chi phí của nhánh sống lâu: phân kỳ, xung đột, review khó.</li>
+<li>Biết các kỹ thuật đi kèm như feature flag và CI chạy liên tục.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Trong trunk-based development, cả nhóm tích hợp vào một nhánh trung tâm duy nhất, gọi là trunk. Trong Git hiện đại, trunk thường mang tên <code>main</code>. Mọi thay đổi đi vào trunk thường xuyên, lý tưởng là ít nhất mỗi ngày, qua các nhánh rất ngắn hoặc commit trực tiếp nếu nhóm nhỏ và có kiểm thử tự động tốt.</p>
+<p>Ý tưởng cốt lõi: càng để nhánh tách xa trunk lâu, càng khó gộp lại. Mỗi ngày nhánh sống thêm, trunk lại nhận thêm thay đổi của người khác. Khi cuối cùng gộp, bạn phải giải quyết xung đột của cả tuần, review một diff khổng lồ, và lỗi tích hợp chỉ lộ ra muộn. Trunk-based đảo ngược điều đó: tích hợp nhỏ và sớm, xung đột nhỏ và dễ hiểu.</p>
+<p>Một nhánh ngắn trong mô hình này thường:</p>
+<ul>
+<li>Tách từ trunk mới nhất.</li>
+<li>Mang một thay đổi nhỏ, hoàn chỉnh về mặt kiểm thử.</li>
+<li>Được review và merge trong vòng một hoặc hai ngày.</li>
+<li>Bị xóa ngay sau khi merge.</li>
+</ul>
+<p>Nếu tính năng quá lớn để xong trong một hai ngày, nhóm không giữ nhánh lâu mà chia nhỏ tính năng, merge từng phần vào trunk và giấu phần chưa xong sau feature flag (bài 10 của track này).</p>
+<p>Trunk-based cần hai điều kiện: kiểm thử tự động đủ tin cậy để mỗi lần merge không làm trunk đỏ, và văn hóa giữ trunk luôn ở trạng thái có thể phát hành. Với QA, điều này có nghĩa test phải chạy nhanh và ổn định, vì chúng là cửa kiểm soát chính.</p>
+<p>So với mô hình nhiều nhánh dài hạn (như có <code>develop</code>, <code>release</code>, <code>hotfix</code> song song), trunk-based ít nghi thức hơn nhưng đòi hỏi kỷ luật cao hơn. Nhiều nhóm kết hợp: trunk-based cho phát triển hằng ngày, nhánh release ngắn hạn khi cần đóng băng một phiên bản.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch feature-a
+  commit id: &quot;Việc nhỏ A&quot;
+  checkout main
+  merge feature-a
+  branch feature-b
+  commit id: &quot;Việc nhỏ B&quot;
+  checkout main
+  merge feature-b
+  commit id: &quot;Sửa nhỏ&quot;
+  branch feature-c
+  commit id: &quot;Việc nhỏ C&quot;
+  checkout main
+  merge feature-c</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;Tách nhánh từ main mới&quot;] --&gt; B[&quot;Thay đổi nhỏ kèm test&quot;]
+  B --&gt; C[&quot;CI chạy test&quot;]
+  C --&gt; D[&quot;Review nhanh&quot;]
+  D --&gt; E[&quot;Merge vào main&quot;]
+  E --&gt; F[&quot;Xóa nhánh&quot;]
+  F --&gt; A</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Cập nhật trunk trước khi tách nhánh
+git switch main
+git pull
+
+# Tạo và chuyển sang nhánh ngắn trong một lệnh
+git switch -c feature/bai-hoc
+
+# Xem nhánh hiện tại
+git branch --show-current
+
+# Đo độ lệch của nhánh so với trunk (số commit mỗi bên)
+git rev-list --left-right --count main...feature/bai-hoc
+
+# Sau khi merge, xóa nhánh local
+git branch -d feature/bai-hoc</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Đặc điểm</th>
+<th>Trunk-based</th>
+<th>Nhánh sống lâu</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Thời gian sống nhánh</td>
+<td>Giờ hoặc vài ngày</td>
+<td>Tuần hoặc tháng</td>
+</tr>
+<tr>
+<td>Kích thước merge</td>
+<td>Nhỏ</td>
+<td>Lớn</td>
+</tr>
+<tr>
+<td>Xung đột</td>
+<td>Ít, dễ hiểu</td>
+<td>Nhiều, khó</td>
+</tr>
+<tr>
+<td>Phần chưa xong</td>
+<td>Giấu sau feature flag</td>
+<td>Nằm trên nhánh</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Bắt đầu từ main, tạo một nhánh ngắn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c feature/bai-hoc
+git branch --show-current</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;feature/bai-hoc&#39;
+feature/bai-hoc</code></pre></div>
+<p>Làm một thay đổi nhỏ, commit. Trong lúc đó, giả sử main nhận một commit từ đồng nghiệp. Lệnh đếm hai chiều cho biết mỗi bên có bao nhiêu commit riêng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-list --left-right --count main...feature/bai-hoc</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1	1</code></pre></div>
+<p>Số bên trái là commit chỉ có ở main, bên phải là commit chỉ có ở nhánh. Con số này còn nhỏ thì gộp rất dễ. Để nó lớn dần qua nhiều ngày là dấu hiệu nhánh đang sống quá lâu. Sau khi merge, xóa nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git merge feature/bai-hoc
+git branch -d feature/bai-hoc</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Tên nhánh ngắn vẫn nên rõ mục đích, ví dụ <code>feature/otp-retry</code> hay <code>test/login-timeout</code>. Nhánh sống ngắn không có nghĩa là đặt tên tùy tiện.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tách nhánh từ main cũ.</strong> Bạn bắt đầu đã lệch. Luôn cập nhật main trước khi <code>git switch -c</code>.</p>
+<p><strong>Gom quá nhiều việc vào một nhánh.</strong> Nhánh phình to, review chậm, merge muộn. Chia nhỏ thành nhiều nhánh nối tiếp, mỗi nhánh merge được độc lập.</p>
+<p><strong>Merge khi CI còn đỏ.</strong> Trunk-based dựa vào việc trunk luôn xanh. Một lần merge đỏ làm cả nhóm bị chặn. Sửa trên nhánh trước, merge sau.</p>
+<p><strong>Quên xóa nhánh đã merge.</strong> Danh sách nhánh đầy rác khiến khó biết việc nào đang dở. <code>git branch --merged main</code> giúp tìm nhánh có thể xóa.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trunk-based là quy ước của nhóm, không phải tính năng của Git. Git chỉ cung cấp nhánh và merge; kỷ luật tích hợp sớm là việc của con người.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm phát triển app ngân hàng chuyển sang trunk-based. Thay vì một nhánh <code>test/regression-q4</code> sống cả quý, mỗi QA tạo nhánh ngắn cho từng nhóm test (ví dụ <code>test/transfer-limit</code>), merge trong ngày khi pipeline xanh. Các test cho tính năng chưa bật được đánh dấu bỏ qua theo cùng feature flag với mã ứng dụng. Kết quả là ít xung đột ở thư mục test chung và lỗi tích hợp lộ ra trong ngày thay vì cuối quý.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành bắt đầu ở nhánh trung tâm của repository. Bạn cần tạo một nhánh tính năng có tên cho trước và chuyển sang nó, sao cho HEAD trỏ tới nhánh mới. Câu hỏi kiến thức hỏi tên nhánh trung tâm trong bài tập.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Chạy <code>git branch</code> để thấy nhánh hiện có và nhánh bạn đang đứng.</li>
+<li>Ôn lệnh vừa tạo vừa chuyển nhánh.</li>
+<li>Gõ đúng tên nhánh, kể cả dấu gạch chéo.</li>
+<li>Kiểm tra lại bằng <code>git branch --show-current</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Trunk-based: một nhánh trung tâm, nhánh phụ sống rất ngắn.</li>
+<li>Tích hợp sớm giữ xung đột nhỏ và review nhẹ.</li>
+<li>Tính năng lớn được chia nhỏ và giấu sau feature flag.</li>
+<li>Cần CI tin cậy để trunk luôn ở trạng thái phát hành được.</li>
+<li>Xóa nhánh ngay sau khi merge.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open trunk-based
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/perfect-commit.html" rel="prev"><small>Bài trước</small>Commit tập trung</a><a class="next" href="../daily-workflows/aliases.html" rel="next"><small>Bài sau</small>Alias tiết kiệm thao tác</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 2/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

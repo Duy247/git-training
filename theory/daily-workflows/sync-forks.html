@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đồng bộ fork - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 12/12</span></p>
+<h1>Đồng bộ fork</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>sync-forks</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu mô hình fork: hai remote <code>origin</code> (bản của bạn) và <code>upstream</code> (bản gốc).</li>
+<li>Tải thay đổi từ upstream mà chưa gộp, rồi xem trước.</li>
+<li>Tích hợp upstream vào nhánh local và đẩy lên fork của bạn.</li>
+<li>Tránh các lỗi thường gặp như push nhầm remote hay làm việc trực tiếp trên main của fork.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi đóng góp cho một dự án mà bạn không có quyền ghi, bạn tạo fork: một bản sao repository dưới tài khoản của bạn trên dịch vụ hosting. Bạn clone fork về máy, nên remote mặc định <code>origin</code> trỏ tới fork. Bạn push nhánh lên fork, rồi mở pull request vào repository gốc.</p>
+<p>Vấn đề: repository gốc vẫn tiếp tục nhận thay đổi từ người khác, còn fork của bạn đứng yên tại thời điểm tạo. Để không làm việc trên mã cũ, bạn cần đồng bộ fork định kỳ. Cách làm chuẩn là thêm một remote thứ hai, thường đặt tên <code>upstream</code>, trỏ tới repository gốc.</p>
+<p>Luồng dữ liệu khi đồng bộ:</p>
+<ol>
+<li><code>git fetch upstream</code>: tải commit mới của repository gốc về máy, cập nhật <code>upstream/main</code>. Không đổi nhánh nào của bạn.</li>
+<li>Xem trước: <code>git log --oneline main..upstream/main</code> cho biết có gì mới.</li>
+<li>Tích hợp vào main local: <code>git merge upstream/main</code> (thường là fast-forward nếu bạn không commit trực tiếp lên main) hoặc <code>git rebase upstream/main</code>.</li>
+<li><code>git push origin main</code>: đưa main đã đồng bộ lên fork.</li>
+</ol>
+<p>Thói quen quan trọng nhất: đừng commit công việc của bạn trực tiếp lên main của fork. Giữ main giống hệt upstream, làm việc trên nhánh riêng. Khi đó bước 3 luôn là fast-forward, không bao giờ xung đột, và nhánh tính năng của bạn có thể rebase lên main mới bất cứ lúc nào.</p>
+<p>Tách fetch khỏi merge cho bạn cơ hội xem trước. Lệnh <code>git pull upstream main</code> làm cả hai bước một lúc, tiện nhưng không cho bạn dừng lại kiểm tra.</p>
+<p>Nhiều dịch vụ hosting có nút đồng bộ fork ngay trên web. Nó làm được bước 1 đến 4 cho nhánh mặc định trên server, nhưng bản clone trên máy bạn vẫn cần fetch lại. Trong ứng dụng luyện tập, mọi remote đều là bare repository local, nên không có giao diện web; bạn làm toàn bộ bằng dòng lệnh.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  U[&quot;upstream: repository gốc&quot;] --&gt;|&quot;git fetch upstream&quot;| L[&quot;Bản clone local&quot;]
+  L --&gt;|&quot;git merge upstream/main&quot;| L
+  L --&gt;|&quot;git push origin main&quot;| F[&quot;origin: fork của bạn&quot;]
+  F --&gt;|&quot;pull request&quot;| U</pre>
+<pre class="mermaid">sequenceDiagram
+  participant Up as upstream
+  participant Loc as Máy bạn
+  participant Fork as origin
+  Up-&gt;&gt;Loc: fetch, cập nhật upstream/main
+  Loc-&gt;&gt;Loc: xem log main..upstream/main
+  Loc-&gt;&gt;Loc: merge upstream/main vào main
+  Loc-&gt;&gt;Fork: push main</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Thêm remote trỏ tới repository gốc (một lần)
+git remote add upstream &lt;url-gốc&gt;
+
+# Xem các remote
+git remote -v
+
+# Tải thay đổi từ upstream, chưa gộp
+git fetch upstream
+
+# Xem có gì mới
+git log --oneline main..upstream/main
+
+# Tích hợp vào main local
+git switch main
+git merge upstream/main
+
+# Đẩy lên fork
+git push origin main
+
+# Đưa nhánh tính năng lên main mới
+git switch feature/x
+git rebase main</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Remote</th>
+<th>Trỏ tới</th>
+<th>Bạn làm gì với nó</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>origin</code></td>
+<td>Fork của bạn</td>
+<td>Push nhánh, mở PR</td>
+</tr>
+<tr>
+<td><code>upstream</code></td>
+<td>Repository gốc</td>
+<td>Chỉ fetch</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository local có hai remote đều là bare repository trong thư mục thử nghiệm:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	../fork.git (fetch)
+origin	../fork.git (push)
+upstream	../up.git (fetch)
+upstream	../up.git (push)</code></pre></div>
+<p>Upstream vừa có commit mới. Tải về và xem trước (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch upstream
+git log --oneline main..upstream/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">From ../up
+   125497d..88c1a62  main       -&gt; upstream/main
+88c1a62 Cập nhật upstream</code></pre></div>
+<p>Gộp vào main local. Vì main không có commit riêng, đây là fast-forward:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge upstream/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updating 125497d..88c1a62
+Fast-forward
+ upstream.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 upstream.txt</code></pre></div>
+<p>Đẩy lên fork và xác nhận ba nơi trùng nhau:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push origin main
+git rev-parse main origin/main upstream/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../fork.git
+   125497d..88c1a62  main -&gt; main
+88c1a628740607b5cf26f744ffd66493d4aa2447
+88c1a628740607b5cf26f744ffd66493d4aa2447
+88c1a628740607b5cf26f744ffd66493d4aa2447</code></pre></div>
+<p>Chỉ fetch mà chưa merge thì sao? Ở một repository khác, sau <code>git fetch origin</code>, trạng thái cho thấy main local đứng sau:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">On branch main
+Your branch is behind &#39;origin/main&#39; by 1 commit, and can be fast-forwarded.
+  (use &quot;git pull&quot; to update your local branch)
+
+nothing to commit, working tree clean</code></pre></div>
+<p>Main vẫn ở commit cũ, working tree không đổi. Bạn quyết định khi nào gộp.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Một số người đặt push URL của upstream thành một giá trị cố tình không hợp lệ, ví dụ <code>git config remote.upstream.pushurl no-push</code>. Sau đó <code>git remote -v</code> hiện dòng <code>upstream	no-push (push)</code>, nghĩa là Git không có địa chỉ thật nào để đẩy lên upstream. Hãy chắc cả nhóm hiểu mẹo này trước khi dùng.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Commit thẳng lên main của fork.</strong> Mỗi lần đồng bộ thành merge thật, có thể xung đột, và PR sau này lẫn commit không liên quan. Đưa công việc sang nhánh riêng và đặt lại main theo upstream.</p>
+<p><strong>Push nhầm lên upstream.</strong> Nếu bạn có quyền ghi ở upstream, việc này có thể gây rắc rối thật. Kiểm tra <code>git remote -v</code> và luôn ghi rõ tên remote khi push.</p>
+<p><strong>Quên fetch, merge <code>upstream/main</code> cũ.</strong> Remote-tracking ref chỉ cập nhật khi fetch. Luôn fetch trước khi merge.</p>
+<p><strong>Dùng <code>git pull</code> mà không ghi remote.</strong> <code>git pull</code> kéo từ upstream của nhánh hiện tại, thường là origin, chứ không phải repository gốc. Ghi rõ <code>git fetch upstream</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Tên <code>upstream</code> chỉ là quy ước. Git không có ý nghĩa đặc biệt cho tên này; bạn có thể đặt khác, miễn cả nhóm hiểu như nhau.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA của bạn fork một framework test mã nguồn mở để thêm vài tiện ích riêng cho dự án ngân hàng. Mỗi khi framework gốc phát hành bản vá bảo mật, bạn fetch upstream, xem log thay đổi, merge vào main của fork, chạy lại bộ test nội bộ, rồi push lên fork. Các tiện ích riêng nằm trên nhánh riêng được rebase lên main mới sau mỗi lần đồng bộ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có origin local, và origin đã nhận commit mới mà main local chưa có. Bạn cần tải commit đó về để <code>origin/main</code> được cập nhật nhưng main local vẫn ở commit cũ, tức là chỉ tải, chưa gộp. Câu hỏi kiến thức hỏi lệnh tải thay đổi từ upstream mà chưa merge.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Phân biệt <code>fetch</code> với <code>pull</code>.</li>
+<li>Để ý tên remote trong đề bài và trong câu hỏi có thể khác nhau; trả lời đúng tên remote mà câu hỏi nhắc tới.</li>
+<li>Sau khi tải, kiểm tra bằng <code>git status</code> (sẽ báo main đứng sau origin/main) và <code>git log --oneline main..origin/main</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Fork có hai remote: <code>origin</code> là bản của bạn, <code>upstream</code> là bản gốc.</li>
+<li><code>git fetch upstream</code> tải mà chưa gộp, cho bạn xem trước.</li>
+<li>Merge <code>upstream/main</code> vào main local rồi push lên origin.</li>
+<li>Giữ main của fork sạch, làm việc trên nhánh riêng.</li>
+<li>Luôn ghi rõ tên remote khi fetch và push.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open sync-forks
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/rebasing-long-lived.html" rel="prev"><small>Bài trước</small>Cập nhật nhánh sống lâu</a><a class="next" href="../internals/git-directory.html" rel="next"><small>Bài sau</small>Thư mục .git (Cấu trúc bên trong Git)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 12/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

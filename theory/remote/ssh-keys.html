@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Xác thực bằng khóa SSH - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 4/12</span></p>
+<h1>Xác thực bằng khóa SSH</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>ssh-keys</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu cặp khóa SSH gồm những gì và phần nào được phép chia sẻ.</li>
+<li>Biết các bước chuẩn để dùng SSH với một dịch vụ hosting Git.</li>
+<li>Đổi remote từ HTTPS sang SSH và chọn khóa cụ thể cho một repository.</li>
+<li>Tránh lỗi nghiêm trọng nhất: để lộ khóa riêng.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi push lên một dịch vụ như GitHub, server cần biết bạn là ai. Với địa chỉ HTTPS, bạn chứng minh bằng token (bài sau). Với địa chỉ SSH, bạn chứng minh bằng <strong>cặp khóa</strong>.</p>
+<p>Cặp khóa SSH gồm hai tệp sinh ra cùng lúc:</p>
+<ul>
+<li><strong>Khóa riêng (private key)</strong>, ví dụ <code>~/.ssh/id_ed25519</code>. Đây là bí mật. Ai có tệp này có thể đóng vai bạn. Nó chỉ nằm trên máy bạn, được bảo vệ thêm bằng passphrase nếu có thể.</li>
+<li><strong>Khóa công khai (public key)</strong>, ví dụ <code>~/.ssh/id_ed25519.pub</code>. Đây là phần bạn <strong>được phép chia sẻ</strong>: dán vào trang cài đặt của dịch vụ để đăng ký. Biết khóa công khai không cho phép ai giả mạo bạn.</li>
+</ul>
+<p>Cơ chế, nói gọn: khi kết nối, server gửi một thử thách; máy bạn dùng khóa riêng để ký; server dùng khóa công khai đã đăng ký để kiểm tra chữ ký. Khóa riêng không bao giờ rời khỏi máy.</p>
+<p>Các bước thường gặp:</p>
+<ol>
+<li>Sinh cặp khóa bằng <code>ssh-keygen</code>. Thuật toán <code>ed25519</code> được khuyến nghị rộng rãi hiện nay vì khóa ngắn và an toàn.</li>
+<li>Nạp khóa riêng vào <code>ssh-agent</code> để không phải gõ passphrase mỗi lần.</li>
+<li>Chép <strong>nội dung tệp <code>.pub</code></strong> vào phần SSH keys trong cài đặt tài khoản trên dịch vụ.</li>
+<li>Thử kết nối, rồi dùng địa chỉ SSH dạng <code>git@&lt;host&gt;:&lt;chủ&gt;/&lt;repo&gt;.git</code> cho remote.</li>
+</ol>
+<p>Phần liên quan trực tiếp tới Git chỉ là <strong>địa chỉ remote</strong> và (khi cần) <strong>lệnh ssh mà Git gọi</strong>. Git không tự quản lý khóa; nó gọi chương trình <code>ssh</code> của hệ điều hành. Nếu bạn có nhiều khóa (ví dụ một cho công việc, một cho cá nhân), có thể chỉ định khóa cho từng repository bằng cấu hình <code>core.sshCommand</code>, hoặc dùng tệp <code>~/.ssh/config</code> với alias host.</p>
+<p><strong>Phần mô phỏng trong ứng dụng.</strong> Bài tập chạy offline, không có server SSH và không yêu cầu bạn tạo hay tải lên khóa thật. Môi trường dựng bài viết này cũng không có <code>ssh-keygen</code>, nên các lệnh <code>ssh-keygen</code>, <code>ssh-add</code>, <code>ssh -T</code> bên dưới chỉ được liệt kê để tham khảo, <strong>không kèm output</strong>. Các lệnh <code>git remote</code> và <code>git config</code> thì đã được chạy thật.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant M as Máy bạn
+  participant S as Dịch vụ Git
+  M-&gt;&gt;S: Đăng ký khóa công khai, một lần
+  M-&gt;&gt;S: git push qua SSH
+  S--&gt;&gt;M: Thử thách ngẫu nhiên
+  M-&gt;&gt;S: Chữ ký bằng khóa riêng
+  S-&gt;&gt;S: Kiểm tra bằng khóa công khai
+  S--&gt;&gt;M: Chấp nhận push</pre>
+<pre class="mermaid">flowchart LR
+  subgraph K[&quot;Cặp khóa&quot;]
+    P[&quot;Khóa riêng: giữ bí mật&quot;]
+    U[&quot;Khóa công khai: được chia sẻ&quot;]
+  end
+  P -- &quot;chỉ ở trên máy bạn&quot; --&gt; M[&quot;ssh-agent&quot;]
+  U -- &quot;dán vào cài đặt tài khoản&quot; --&gt; S[&quot;Dịch vụ Git&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Ngoài Git, chỉ tham khảo:
+ssh-keygen -t ed25519 -C &quot;email-cong-viec@example.invalid&quot;   # sinh cặp khóa
+ssh-add ~/.ssh/id_ed25519        # nạp khóa riêng vào agent
+ssh -T git@github.com            # thử xác thực, không mở shell
+
+# Phía Git:
+git remote set-url origin git@github.com:&lt;chủ&gt;/&lt;repo&gt;.git   # chuyển remote sang SSH
+git remote -v
+git config core.sshCommand &quot;ssh -i ~/.ssh/&lt;khóa&gt; -o IdentitiesOnly=yes&quot;</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tệp</th>
+<th>Chia sẻ được</th>
+<th>Ghi chú</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id_ed25519</code></td>
+<td>Không bao giờ</td>
+<td>Khóa riêng, quyền đọc chỉ cho bạn</td>
+</tr>
+<tr>
+<td><code>id_ed25519.pub</code></td>
+<td>Có</td>
+<td>Dán vào trang cài đặt của dịch vụ</td>
+</tr>
+<tr>
+<td><code>~/.ssh/config</code></td>
+<td>Tùy</td>
+<td>Chứa alias host, không chứa bí mật</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository đang dùng địa chỉ HTTPS. Mình chuyển sang SSH (địa chỉ minh họa, không kết nối thật):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote -v
+git remote set-url origin git@github.com:vi-du/kiem-thu.git
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	https://github.com/vi-du/kiem-thu.git (fetch)
+origin	https://github.com/vi-du/kiem-thu.git (push)
+origin	git@github.com:vi-du/kiem-thu.git (fetch)
+origin	git@github.com:vi-du/kiem-thu.git (push)</code></pre></div>
+<p>Chỉ định khóa công việc cho riêng repository này:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config core.sshCommand &quot;ssh -i ~/.ssh/id_ed25519_congviec -o IdentitiesOnly=yes&quot;
+git config --get core.sshCommand</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ssh -i ~/.ssh/id_ed25519_congviec -o IdentitiesOnly=yes</code></pre></div>
+<p>Một lớp bảo vệ: nếu vì lý do nào đó tệp khóa nằm trong thư mục dự án, <code>.gitignore</code> nên chặn khóa riêng nhưng không cần chặn khóa công khai. Kiểm tra bằng <code>check-ignore</code> (hai tệp rỗng tạo ra để thử):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git check-ignore -v k/id_ed25519 k/id_ed25519.pub</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.gitignore:3:id_*	k/id_ed25519
+.gitignore:4:!id_*.pub	k/id_ed25519.pub</code></pre></div>
+<p>Dòng đầu: khóa riêng bị ignore bởi mẫu <code>id_*</code>. Dòng hai có dấu <code>!</code>: mẫu phủ định khớp, nghĩa là tệp <code>.pub</code> <strong>không</strong> bị ignore.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dán nhầm khóa riêng vào trang cài đặt.</strong> Nội dung khóa riêng bắt đầu bằng dòng <code>-----BEGIN OPENSSH PRIVATE KEY-----</code>. Thấy dòng đó là dừng lại.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Không bao giờ commit khóa riêng, kể cả vào repository private. Nếu đã lỡ commit hay push, coi như khóa đã lộ: xóa khóa đó khỏi tài khoản và sinh khóa mới. Xóa commit thôi là không đủ.</p>
+</aside>
+<p><strong>Vẫn bị hỏi mật khẩu sau khi thêm khóa.</strong> Thường là remote vẫn dùng địa chỉ HTTPS. Kiểm tra <code>git remote -v</code>.</p>
+<p><strong>Sai khóa khi có nhiều tài khoản.</strong> SSH thử lần lượt các khóa trong agent; dịch vụ nhận khóa đầu tiên hợp lệ và coi bạn là tài khoản đó. <code>IdentitiesOnly=yes</code> kèm <code>-i</code> buộc dùng đúng khóa.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt passphrase cho khóa riêng và dùng <code>ssh-agent</code>. Bạn chỉ gõ passphrase một lần mỗi phiên, còn tệp khóa bị lấy cắp cũng khó dùng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Công ty yêu cầu máy làm việc của nhóm QA ngân hàng dùng SSH với khóa riêng cho tài khoản công việc, tách khỏi tài khoản cá nhân. Bạn sinh một khóa ed25519 có passphrase, đăng ký khóa công khai vào tài khoản công việc, rồi cấu hình <code>core.sshCommand</code> trong các repository công việc. Khi nghỉ việc hay đổi máy, quản trị chỉ cần gỡ khóa công khai đó khỏi tài khoản.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi và được mô phỏng, không cần tạo khóa thật. Câu hỏi xoay quanh việc phần nào của cặp khóa được phép đưa lên dịch vụ. Hãy ôn lại vai trò của từng tệp trong cặp khóa và điều gì xảy ra nếu tệp còn lại bị lộ.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Cặp khóa SSH gồm khóa riêng (bí mật) và khóa công khai (chia sẻ được).</li>
+<li>Server kiểm tra chữ ký bằng khóa công khai; khóa riêng không rời máy.</li>
+<li>Git chỉ cần địa chỉ remote dạng SSH; việc xác thực do chương trình <code>ssh</code> lo.</li>
+<li><code>core.sshCommand</code> chọn khóa cụ thể cho từng repository.</li>
+<li>Khóa riêng lỡ lộ thì thu hồi và sinh khóa mới; xóa commit không đủ.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open ssh-keys
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/fork-upstream.html" rel="prev"><small>Bài trước</small>Fork và upstream</a><a class="next" href="../remote/personal-access-tokens.html" rel="next"><small>Bài sau</small>Token truy cập cá nhân</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 4/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

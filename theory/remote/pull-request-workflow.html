@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Quy trình pull request - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 2/12</span></p>
+<h1>Quy trình pull request</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>pull-request-workflow</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu pull request (PR) là gì và nó nằm ở đâu: trong Git hay trên nền tảng hosting.</li>
+<li>Nắm vòng đời của một PR: nhánh, push, mở PR, review, merge, dọn dẹp.</li>
+<li>Thấy được những phần Git làm thật bên dưới một PR.</li>
+<li>Biết phần nào của bài này được mô phỏng offline trong ứng dụng.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><strong>Pull request</strong> (GitLab gọi là merge request) là một yêu cầu: &quot;hãy xem xét và tích hợp các commit trên nhánh này vào nhánh kia&quot;. Điều quan trọng cần biết ngay: <strong>PR không phải khái niệm của Git</strong>. Git không có lệnh tạo PR, không lưu bình luận hay phê duyệt. Đó là tính năng của nền tảng như GitHub, GitLab, Bitbucket, xây trên các thao tác Git thông thường.</p>
+<p>Những gì Git thật sự làm trong một PR:</p>
+<ol>
+<li><strong>Nhánh tính năng</strong> được tạo từ nhánh chính, chứa các commit đề xuất.</li>
+<li><strong>Push</strong> nhánh đó lên remote. Không push thì nền tảng không có gì để so sánh. Đây là bước bắt buộc trước khi mở PR.</li>
+<li>Nền tảng hiển thị <strong>diff</strong> giữa nhánh tính năng và nhánh đích, tương tự <code>git diff main...feature</code> (ba chấm: so với merge base, tức chỉ những gì nhánh tính năng thêm vào).</li>
+<li>Người review bình luận; bạn sửa bằng cách <strong>commit thêm và push tiếp</strong> lên cùng nhánh. PR tự cập nhật.</li>
+<li>Khi được duyệt và CI đạt, PR được <strong>merge</strong>. Nền tảng thường cho chọn: merge commit (<code>--no-ff</code>), squash, hoặc rebase.</li>
+<li>Nhánh tính năng được <strong>xóa</strong> trên remote, và bạn dọn bản local.</li>
+</ol>
+<p>Phần do nền tảng quản lý: tiêu đề và mô tả PR, danh sách reviewer, bình luận, trạng thái phê duyệt, kết quả CI, quy tắc bảo vệ nhánh. Trên GitHub, mỗi PR còn có ref ẩn <code>refs/pull/&lt;số&gt;/head</code> trên remote để bạn fetch về thử.</p>
+<p><strong>Phần mô phỏng trong ứng dụng.</strong> Bài tập không kết nối GitHub. Remote là một bare repository trong thư mục bài tập, và &quot;phê duyệt&quot; được mô phỏng bằng một <strong>ref tùy chỉnh</strong> do bạn ghi, trỏ tới commit được duyệt. Push, merge và push lại là thao tác Git thật; chỉ phần review và phê duyệt là giả lập.</p>
+<p>Ref tùy chỉnh là ref nằm ngoài <code>refs/heads</code> và <code>refs/tags</code>, ví dụ <code>refs/demo/da-duyet</code>. Git cho phép tạo bằng <code>git update-ref</code>; nó không phải nhánh, không hiện trong <code>git branch</code>, nhưng giữ một hash giống mọi ref khác.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant D as Bạn
+  participant R as Remote
+  participant P as Nền tảng PR
+  participant V as Reviewer
+  D-&gt;&gt;R: push nhánh tính năng
+  D-&gt;&gt;P: mở PR vào main
+  P-&gt;&gt;V: yêu cầu review
+  V--&gt;&gt;P: góp ý
+  D-&gt;&gt;R: push commit sửa
+  V--&gt;&gt;P: phê duyệt
+  P-&gt;&gt;R: merge vào main
+  D-&gt;&gt;R: xóa nhánh tính năng</pre>
+<pre class="mermaid">gitGraph
+  commit id: &quot;321a168 Khởi tạo&quot;
+  branch test/QA-12-han-muc
+  commit id: &quot;f6a7564 QA-12 hạn mức&quot;
+  checkout main
+  merge test/QA-12-han-muc id: &quot;f81a60c Merge PR QA-12&quot;</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c &lt;nhánh-tính-năng&gt;          # bắt đầu từ main mới nhất
+git push -u origin &lt;nhánh-tính-năng&gt;     # đưa nhánh lên để mở PR
+git log --oneline main..&lt;nhánh&gt;          # các commit sẽ vào PR
+git diff --stat main...&lt;nhánh&gt;           # diff mà PR sẽ hiển thị
+git update-ref refs/&lt;khu&gt;/&lt;tên&gt; &lt;commit&gt; # tạo ref tùy chỉnh (dùng để mô phỏng)
+git show-ref refs/&lt;khu&gt;/&lt;tên&gt;            # đọc ref tùy chỉnh
+git merge --no-ff &lt;nhánh&gt;                # merge kiểu &quot;merge commit&quot;
+git push origin --delete &lt;nhánh&gt;         # xóa nhánh trên remote sau khi merge</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Bước PR</th>
+<th>Thật hay mô phỏng trong bài</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Push nhánh, merge, push main</td>
+<td>Git thật, remote là bare repository local</td>
+</tr>
+<tr>
+<td>Mở PR, bình luận</td>
+<td>Không có trong bài</td>
+</tr>
+<tr>
+<td>Phê duyệt</td>
+<td>Mô phỏng bằng một ref tùy chỉnh</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình tạo nhánh cho ticket QA-12, commit và push lên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c test/QA-12-han-muc
+git push -u origin test/QA-12-han-muc</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;test/QA-12-han-muc&#39;
+To /tmp/gt/r2/server.git
+ * [new branch]      test/QA-12-han-muc -&gt; test/QA-12-han-muc
+branch &#39;test/QA-12-han-muc&#39; set up to track &#39;origin/test/QA-12-han-muc&#39;.</code></pre></div>
+<p>Xem trước nội dung mà PR sẽ hiển thị:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline main..test/QA-12-han-muc
+git diff --stat main...test/QA-12-han-muc</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">f6a7564 QA-12: Kiểm thử hạn mức chuyển khoản
+ han-muc.txt | 1 +
+ 1 file changed, 1 insertion(+)</code></pre></div>
+<p>Ghi lại &quot;phê duyệt&quot; bằng một ref tùy chỉnh, theo cách bài tập mô phỏng (tên ref ở đây chỉ là ví dụ):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git update-ref refs/demo/da-duyet test/QA-12-han-muc
+git show-ref refs/demo/da-duyet</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">f6a7564ae543c25db2bf0fd3fe3cdcf094e82572 refs/demo/da-duyet</code></pre></div>
+<p>Merge bằng merge commit và push nhánh chính:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git merge --no-ff -m &quot;Merge PR QA-12&quot; test/QA-12-han-muc
+git push</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Merge made by the &#39;ort&#39; strategy.
+ han-muc.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 han-muc.txt
+To /tmp/gt/r2/server.git
+   321a168..f81a60c  main -&gt; main</code></pre></div>
+<p>Cuối cùng xóa nhánh trên remote:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To /tmp/gt/r2/server.git
+ - [deleted]         test/QA-12-han-muc</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Mở PR mà quên push commit mới nhất.</strong> PR chỉ thấy những gì có trên remote. <code>git status -sb</code> báo <code>ahead</code> nghĩa là còn commit chưa lên.</p>
+<p><strong>PR quá lớn.</strong> Gộp nhiều việc vào một nhánh làm review chậm và dễ sót lỗi. Một PR một mục đích.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Ref tùy chỉnh như <code>refs/demo/...</code> không được push theo mặc định và không có nghĩa gì với GitHub. Nó chỉ là công cụ của bài mô phỏng.</p>
+</aside>
+<p><strong>Merge nhánh local chưa cập nhật.</strong> Nếu tự merge (như trong bài), hãy fetch và đảm bảo <code>main</code> local khớp với remote trước, nếu không push sẽ bị từ chối.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt mã ticket vào tên nhánh và subject commit. Nhiều nền tảng tự liên kết PR với ticket nhờ đó.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Đội QA của một ngân hàng giả định quy định mọi thay đổi kịch bản kiểm thử tự động phải qua PR có ít nhất một người duyệt. Bạn tạo nhánh theo ticket, push, mở PR mô tả các ca kiểm thử thêm mới và cách chạy. Reviewer góp ý đặt lại tên ca; bạn sửa, push thêm commit. Khi được duyệt và pipeline xanh, PR được merge và nhánh bị xóa.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài mô phỏng: remote là bare repository trong thư mục bài tập, còn phê duyệt được thể hiện bằng một ref có tên đề bài chỉ định. Bạn cần đưa nhánh tính năng lên remote, ghi dấu phê duyệt đúng commit đó, tích hợp vào nhánh chính bằng một merge commit thật, rồi đưa nhánh chính lên. Kiểm tra bằng <code>git ls-remote</code> và <code>git log --graph</code> khi xong.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>PR là tính năng của nền tảng hosting, xây trên nhánh, push và merge của Git.</li>
+<li>Phải push nhánh tính năng trước khi mở PR.</li>
+<li>Review được xử lý bằng cách commit thêm và push tiếp trên cùng nhánh.</li>
+<li>Trong ứng dụng, phê duyệt được mô phỏng bằng ref tùy chỉnh; phần Git là thật.</li>
+<li>Sau khi merge, xóa nhánh trên remote và dọn bản local.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open pull-request-workflow
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/remotes-push-pull.html" rel="prev"><small>Bài trước</small>Remote, push và pull</a><a class="next" href="../remote/fork-upstream.html" rel="next"><small>Bài sau</small>Fork và upstream</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 2/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

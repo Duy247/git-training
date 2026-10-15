@@ -138,7 +138,7 @@ test('CLI giải thích Git bị thiếu và --dir không thay đổi phiên đa
   const launch = (args, env = {}) => spawnSync(process.execPath, [executable, ...args], {
     cwd: path.resolve('.'),
     encoding: 'utf8',
-    env: { ...process.env, GIT_TRAINING_HOME: state, ...env },
+    env: { ...process.env, GIT_TRAINING_HOME: state, GIT_TRAINING_NO_BROWSER: '1', ...env },
   });
   try {
     const missing = launch(['start', 'foundations', '--dir', path.join(home, 'missing-git')], { PATH: '' });

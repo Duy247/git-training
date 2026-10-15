@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Husky và lint-staged mô phỏng - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 7/12</span></p>
+<h1>Husky và lint-staged mô phỏng</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>husky-lint-staged</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu Husky giải quyết vấn đề chia sẻ hook trong dự án Node như thế nào.</li>
+<li>Hiểu lint-staged chọn đúng tệp đã stage để đưa cho linter.</li>
+<li>Đọc cấu hình tối thiểu của hai công cụ trong <code>package.json</code> và thư mục <code>.husky</code>.</li>
+<li>Biết phần nào của bài là mô phỏng trong ứng dụng luyện tập.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Ở bài trước, bạn thấy hook Git nằm trong <code>.git/hooks</code> và không đi theo khi clone. Với dự án Node, Husky là cách phổ biến để biến hook thành một phần của repository. Ý tưởng của Husky (phiên bản 9, bản mình thử là 9.1.7) khá đơn giản:</p>
+<ul>
+<li>Script hook nằm trong thư mục <code>.husky/</code> ở gốc dự án và được commit như mã thường. Ví dụ <code>.husky/pre-commit</code> chứa lệnh cần chạy.</li>
+<li>Khi chạy lệnh <code>husky</code> (thường qua script <code>prepare</code> trong <code>package.json</code>, tự chạy sau <code>npm install</code>), Husky đặt <code>core.hooksPath</code> của repository trỏ tới <code>.husky/_</code>, nơi nó tạo các hook trung gian. Các hook trung gian này gọi tới script bạn viết trong <code>.husky/</code>.</li>
+</ul>
+<p>Nhờ vậy, người mới clone dự án và chạy <code>npm install</code> là có hook, không cần nhớ thao tác thủ công. Bản chất vẫn là cơ chế <code>core.hooksPath</code> của Git.</p>
+<p>Vấn đề tiếp theo: nếu hook chạy linter trên toàn bộ dự án, mỗi lần commit sẽ chậm, và có thể chặn bạn vì lỗi ở tệp người khác viết. lint-staged giải quyết điều đó. Nó hỏi Git danh sách tệp đã stage, lọc theo mẫu glob trong cấu hình (ví dụ <code>src/*.js</code>), rồi chạy lệnh tương ứng chỉ với các tệp đó. Nếu lệnh thất bại, lint-staged thoát với mã khác 0 và hook chặn commit.</p>
+<p>lint-staged còn làm một việc tinh tế: khi một tệp vừa có phần staged vừa có phần chưa stage, nó tạm cất phần chưa stage, chạy công cụ trên đúng nội dung sẽ commit, rồi trả lại phần dở dang cho bạn. Nếu công cụ sửa tệp (như formatter), nó stage lại kết quả.</p>
+<p>Ứng dụng luyện tập không cài Node package vào repository bài tập. Bài này được đánh dấu mô phỏng: bạn chỉ cần trả lời câu hỏi kiến thức. Ví dụ dưới đây mình chạy thật trong một thư mục tạm với Husky 9.1.7 và lint-staged 17.6.0.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  I[&quot;npm install&quot;] --&gt;|&quot;script prepare chạy husky&quot;| H[&quot;core.hooksPath bằng .husky/_&quot;]
+  C[&quot;git commit&quot;] --&gt; P[&quot;Hook trung gian trong .husky/_&quot;]
+  P --&gt; S[&quot;.husky/pre-commit: npx lint-staged&quot;]
+  S --&gt; L[&quot;lint-staged hỏi Git tệp đã stage&quot;]
+  L --&gt;|&quot;lọc theo glob&quot;| T[&quot;Chạy linter trên các tệp khớp&quot;]
+  T --&gt;|&quot;lỗi&quot;| X[&quot;Chặn commit&quot;]
+  T --&gt;|&quot;đạt&quot;| OK[&quot;Commit tiếp tục&quot;]</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;src/good.js đã stage&quot;] --&gt; LS[&quot;lint-staged&quot;]
+  B[&quot;src/bad.js đã stage&quot;] --&gt; LS
+  D[&quot;src/draft.js chưa stage&quot;] -.-&gt;|&quot;không được kiểm tra&quot;| LS</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Cài hai công cụ làm devDependency (trong dự án Node thật)
+npm install --save-dev husky lint-staged
+
+# Khởi tạo Husky: tạo .husky/pre-commit và thêm script prepare
+npx husky init
+
+# Kiểm tra Husky đã trỏ hook về đâu
+git config --get core.hooksPath
+
+# Chạy lint-staged thủ công để thử
+npx lint-staged</code></pre></div>
+<p>Cấu hình lint-staged trong <code>package.json</code> (trích):</p>
+<div class="code-block" data-lang="json"><pre><code class="language-json">{
+  &quot;scripts&quot;: {
+    &quot;prepare&quot;: &quot;husky&quot;
+  },
+  &quot;lint-staged&quot;: {
+    &quot;src/*.js&quot;: &quot;node check.js&quot;
+  }
+}</code></pre></div>
+<p>Nội dung <code>.husky/pre-commit</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">npx lint-staged</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.husky/pre-commit</code></td>
+<td>Script hook do bạn viết, được commit</td>
+</tr>
+<tr>
+<td><code>.husky/_/</code></td>
+<td>Hook trung gian do Husky sinh, không cần commit</td>
+</tr>
+<tr>
+<td><code>prepare</code> trong <code>package.json</code></td>
+<td>Tự chạy <code>husky</code> sau <code>npm install</code></td>
+</tr>
+<tr>
+<td>Khóa <code>lint-staged</code></td>
+<td>Ánh xạ glob tới lệnh cần chạy</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Trong thư mục tạm, sau khi cài và chạy <code>npx husky init</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat .husky/pre-commit
+git config --get core.hooksPath</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">npm test
+.husky/_</code></pre></div>
+<p>Mình thay nội dung <code>.husky/pre-commit</code> bằng <code>npx lint-staged</code>, và viết một &quot;linter&quot; mẫu <code>check.js</code> báo lỗi nếu tệp còn <code>console.log</code>. Có ba tệp: <code>src/good.js</code> sạch, <code>src/draft.js</code> có <code>console.log</code> nhưng chưa stage. Commit tệp sạch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add src/good.js
+git commit -m &quot;feat: thêm good&quot;
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 8b05856] feat: thêm good
+ 1 file changed, 1 insertion(+)
+ create mode 100644 src/good.js
+?? src/draft.js</code></pre></div>
+<p>Commit qua dù <code>draft.js</code> có lỗi, vì nó không được stage. Giờ stage một tệp có lỗi:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add src/bad.js
+git commit -m &quot;feat: thêm bad&quot;</code></pre></div>
+<p>Phần cuối output (mình đã bỏ các ký hiệu trạng thái trang trí mà lint-staged in ra ở đầu dòng):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">node check.js:
+/tmp/pb/hu2/src/bad.js: còn console.log
+husky - pre-commit script failed (code 1)</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">A  src/bad.js
+?? src/draft.js</code></pre></div>
+<p>Commit bị chặn, <code>bad.js</code> vẫn nằm trong index chờ sửa.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Như mọi hook cục bộ, <code>git commit --no-verify</code> vẫn bỏ qua được Husky. Kiểm tra bắt buộc phải chạy lại ở CI.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Clone xong commit không thấy hook chạy.</strong> Chưa chạy <code>npm install</code> nên script <code>prepare</code> chưa đặt <code>core.hooksPath</code>. Chạy <code>npm install</code> hoặc <code>npx husky</code>.</p>
+<p><strong>Glob không khớp.</strong> lint-staged báo không tìm thấy tệp đã stage khớp cấu hình, và không chạy gì. Kiểm tra đường dẫn trong glob, ví dụ <code>src/*.js</code> không khớp tệp trong thư mục con <code>src/a/b.js</code> (cần <code>src/**/*.js</code>).</p>
+<p><strong>Linter chạy trên cả dự án trong hook.</strong> Lệnh như <code>eslint .</code> trong <code>.husky/pre-commit</code> bỏ qua lợi ích của lint-staged. Đưa linter vào cấu hình lint-staged.</p>
+<p><strong>Ghi đè <code>core.hooksPath</code> bằng tay.</strong> Nếu bạn hoặc công cụ khác đổi giá trị này, hook của Husky ngừng chạy. <code>git config --get core.hooksPath</code> để kiểm tra.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Script trong <code>.husky/</code> chạy trên máy mọi người với quyền của họ. Review thay đổi trong thư mục này kỹ như review mã ứng dụng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Dự án test end-to-end viết bằng TypeScript của nhóm bạn dùng Husky với lint-staged chạy ESLint và Prettier trên các tệp <code>.ts</code> đã stage. Một QA mới clone repository, chạy <code>npm install</code>, và ngay lần commit đầu đã bị chặn vì để sót <code>test.only</code> trong một spec, nhờ một quy tắc lint. Lỗi đó nếu lọt lên CI sẽ khiến cả bộ regression chỉ chạy một test.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này là mô phỏng trong app: không có nhiệm vụ trạng thái Git và app không cài Husky hay lint-staged. Câu hỏi kiến thức hỏi công cụ nào chọn tệp đã stage để đưa cho linter. Hãy phân biệt rõ vai trò của hai công cụ: một bên quản lý hook, một bên chọn tệp.</p>
+<p>Nếu bạn có sẵn môi trường Node và muốn thử, hãy làm trong một thư mục tạm riêng, không làm trên repository công việc.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Husky giữ script hook trong <code>.husky/</code> và đặt <code>core.hooksPath</code> khi cài.</li>
+<li>Script <code>prepare</code> giúp hook tự có sau <code>npm install</code>.</li>
+<li>lint-staged chỉ chạy công cụ trên tệp đã stage khớp glob.</li>
+<li>Tệp chưa stage không bị kiểm tra và không chặn commit.</li>
+<li>Hook cục bộ vẫn bỏ qua được, CI là lớp kiểm tra cuối.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open husky-lint-staged
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/pre-commit-hooks.html" rel="prev"><small>Bài trước</small>Hook trước commit</a><a class="next" href="../daily-workflows/reviewing-pr-locally.html" rel="next"><small>Bài sau</small>Xem PR ở máy local</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 7/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

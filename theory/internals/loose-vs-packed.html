@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Object rời và đã đóng gói - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 9/11</span></p>
+<h1>Object rời và đã đóng gói</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>loose-vs-packed</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Phân biệt loose object (mỗi object một tệp) và packed object (nằm trong packfile).</li>
+<li>Thấy tận mắt object chuyển từ dạng loose sang packed mà ID và nội dung không đổi.</li>
+<li>Biết khi nào Git tạo loose object và khi nào gom vào pack.</li>
+<li>Đo kích thước trên đĩa của một object bằng <code>git cat-file --batch-check</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Một object trong Git có thể được lưu theo hai cách:</p>
+<ul>
+<li><strong>Loose object</strong>: một tệp riêng ở <code>.git/objects/xx/yyyy...</code>, trong đó <code>xx</code> là hai ký tự đầu của object ID và <code>yyyy...</code> là 38 ký tự còn lại. Nội dung tệp là header <code>&lt;kiểu&gt; &lt;kích thước&gt;</code>, một byte null, rồi dữ liệu, tất cả được nén zlib.</li>
+<li><strong>Packed object</strong>: nằm bên trong một tệp <code>.pack</code>, có thể lưu nguyên hoặc dạng delta dựa trên object khác, được tìm qua tệp <code>.idx</code>.</li>
+</ul>
+<p>Điều quan trọng nhất: đây chỉ là hai cách cất giữ cùng một dữ liệu. Object ID được tính từ kiểu và nội dung, không phụ thuộc cách lưu. Mọi lệnh đọc object (<code>git cat-file</code>, <code>git show</code>, <code>git log</code>) hoạt động như nhau với cả hai.</p>
+<p>Vòng đời thông thường:</p>
+<ol>
+<li><code>git add</code>, <code>git commit</code>, <code>git hash-object -w</code> tạo loose object: ghi nhanh, đơn giản.</li>
+<li>Khi số loose object vượt ngưỡng <code>gc.auto</code>, hoặc khi bạn chạy <code>git gc</code>, <code>git repack</code>, hay maintenance chạy định kỳ, các object được gom vào pack và tệp loose bị xóa.</li>
+<li>Khi fetch hoặc clone, dữ liệu đến dưới dạng pack và thường được giữ nguyên là pack. Khi fetch lượng nhỏ object, Git có thể bung chúng thành loose (ngưỡng <code>fetch.unpackLimit</code>).</li>
+</ol>
+<p>So sánh nhanh:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Đặc điểm</th>
+<th>Loose</th>
+<th>Packed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Vị trí</td>
+<td><code>.git/objects/xx/</code></td>
+<td><code>.git/objects/pack/*.pack</code></td>
+</tr>
+<tr>
+<td>Số tệp</td>
+<td>Một tệp mỗi object</td>
+<td>Một tệp cho nhiều object</td>
+</tr>
+<tr>
+<td>Nén</td>
+<td>zlib từng object</td>
+<td>zlib và delta giữa các object</td>
+</tr>
+<tr>
+<td>Tốc độ ghi</td>
+<td>Nhanh, đơn giản</td>
+<td>Cần tính toán khi gom</td>
+</tr>
+<tr>
+<td>Phù hợp</td>
+<td>Object mới tạo</td>
+<td>Lưu trữ lâu dài, truyền qua mạng</td>
+</tr>
+</tbody></table></div>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;git add, git commit&quot;] --&gt; L[&quot;Loose object trong .git/objects/58/&quot;]
+  L --&gt;|&quot;git gc hoặc git repack&quot;| P[&quot;Packed object trong .pack&quot;]
+  F[&quot;git fetch, git clone&quot;] --&gt; P
+  L --&gt; R[&quot;git cat-file: cùng ID, cùng nội dung&quot;]
+  P --&gt; R</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Đếm loose object (count, size) và pack (in-pack, packs)
+git count-objects -v
+
+# Liệt kê tệp trong thư mục object
+find .git/objects -type f
+
+# Kích thước gốc và kích thước trên đĩa
+git cat-file --batch-check=&#39;%(objectname) %(objecttype) %(objectsize) %(objectsize:disk)&#39;
+
+# Gom loose object vào pack
+git gc
+git repack -d
+
+# Xóa loose object đã có trong pack
+git prune-packed</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mới với một commit &quot;Khởi tạo&quot; và một commit &quot;Thêm x&quot; (thêm <code>x.txt</code> chứa <code>x</code>). Blob của <code>x.txt</code> có ID <code>587be6b...</code>; vì ID tính từ nội dung, máy bạn cũng sẽ ra đúng ID này nếu nội dung giống hệt, còn ID commit thì khác:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">find .git/objects -type f | sort
+git count-objects -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.git/objects/3f/01b4f03f3a2193f92a57add2627ce240056f0f
+.git/objects/57/9fb46504b4c00dd58b62100c6708d76140b565
+.git/objects/58/7be6b4c3f93f93c489c0111bba5596147a26cb
+.git/objects/73/42a4fd430ae6771c1357794c79f89d35a2b2c2
+.git/objects/b4/932ed006f0d7c65b4736233607d907dffa032f
+.git/objects/c8/4aa38e60aec99583588637e9aeed74defb6508
+count: 6
+size: 24
+in-pack: 0
+packs: 0
+...</code></pre></div>
+<p>Sáu loose object: hai commit, hai tree, hai blob. Giải nén tệp loose bằng một dòng Python để thấy header:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">python3 -c &quot;import zlib;print(zlib.decompress(open(&#39;.git/objects/58/7be6b4c3f93f93c489c0111bba5596147a26cb&#39;,&#39;rb&#39;).read()))&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b&#39;blob 2\x00x\n&#39;</code></pre></div>
+<p>Kích thước trên đĩa khi đang là loose:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file --batch-check=&#39;%(objectname) %(objecttype) %(objectsize) %(objectsize:disk)&#39; &lt;&lt;&lt; 587be6b4c3f93f93c489c0111bba5596147a26cb</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">587be6b4c3f93f93c489c0111bba5596147a26cb blob 2 17</code></pre></div>
+<p>Gom vào pack:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git gc -q
+find .git/objects -type f | sort
+ls .git/objects/58/</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">.git/objects/info/commit-graph
+.git/objects/info/packs
+.git/objects/pack/pack-eb195434496c025e50606ec9a3ca2560caa37638.idx
+.git/objects/pack/pack-eb195434496c025e50606ec9a3ca2560caa37638.pack
+.git/objects/pack/pack-eb195434496c025e50606ec9a3ca2560caa37638.rev
+ls: cannot access &#39;.git/objects/58/&#39;: No such file or directory</code></pre></div>
+<p>Thư mục <code>58</code> biến mất, nhưng object vẫn đọc được với cùng ID:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p 587be6b4c3f93f93c489c0111bba5596147a26cb
+git rev-parse HEAD:x.txt
+git cat-file --batch-check=&#39;%(objectname) %(objecttype) %(objectsize) %(objectsize:disk)&#39; &lt;&lt;&lt; 587be6b4c3f93f93c489c0111bba5596147a26cb</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">x
+587be6b4c3f93f93c489c0111bba5596147a26cb
+587be6b4c3f93f93c489c0111bba5596147a26cb blob 2 11</code></pre></div>
+<p>Kích thước gốc vẫn là 2 byte; kích thước trên đĩa đổi từ 17 xuống 11 vì cách lưu khác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Cú pháp <code>&lt;&lt;&lt;</code> (here-string) có trong bash và zsh. Với shell khác, dùng <code>echo &lt;ID&gt; | git cat-file --batch-check=...</code>.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tìm object bằng <code>ls .git/objects/xx/</code> rồi kết luận nó đã mất.</strong> Object có thể nằm trong pack. Luôn kiểm tra bằng <code>git cat-file -t</code>.</p>
+<p><strong>Nghĩ gom pack làm đổi ID.</strong> ID chỉ phụ thuộc kiểu và nội dung.</p>
+<p><strong>Tự tay xóa thư mục loose để &quot;dọn&quot;.</strong> Nếu object chưa vào pack, bạn mất dữ liệu. Dùng <code>git gc</code> hoặc <code>git prune-packed</code>.</p>
+<p><strong>Lo lắng vì <code>count</code> trong <code>git count-objects</code> lớn.</strong> Đó chỉ là dấu hiệu nên gom; <code>git gc --auto</code> sẽ xử lý.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn biết một object đang loose hay packed, thử <code>git cat-file -t &lt;ID&gt;</code> (luôn chạy được) rồi xem có tệp <code>.git/objects/xx/yyyy...</code> hay không.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Script kiểm tra tính toàn vẹn dữ liệu test của nhóm từng đọc trực tiếp <code>.git/objects/xx/...</code> để lấy nội dung tệp mẫu, và thỉnh thoảng báo &quot;thiếu tệp&quot;. Nguyên nhân là sau khi gc chạy, object đã vào pack. Bạn đổi script sang dùng <code>git cat-file -p &lt;commit&gt;:&lt;đường dẫn&gt;</code>, chạy đúng bất kể object được lưu thế nào.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi tên định dạng gom nhiều object vào một tệp. Ôn lại bảng so sánh ở phần Khái niệm.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Loose object là một tệp nén zlib riêng; packed object nằm trong <code>.pack</code>.</li>
+<li>Hai cách lưu chứa cùng dữ liệu, cùng object ID.</li>
+<li>Object mới thường là loose; gc, repack, maintenance gom chúng vào pack.</li>
+<li>Fetch và clone nhận dữ liệu ở dạng pack.</li>
+<li>Đọc object bằng lệnh Git, đừng dựa vào đường dẫn tệp trong <code>.git/objects</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open loose-vs-packed
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/reachability.html" rel="prev"><small>Bài trước</small>Khả năng truy cập object</a><a class="next" href="../internals/plumbing-vs-porcelain.html" rel="next"><small>Bài sau</small>Lệnh thấp và cao</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 9/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

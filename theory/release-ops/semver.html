@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Quy tắc phiên bản ngữ nghĩa - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 4/10</span></p>
+<h1>Quy tắc phiên bản ngữ nghĩa</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>semver</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đọc được một số phiên bản dạng <code>MAJOR.MINOR.PATCH</code> và biết mỗi phần hứa hẹn điều gì.</li>
+<li>Quyết định nên tăng phần nào khi phát hành, và phần nào phải đặt lại về 0.</li>
+<li>Hiểu nhãn pre-release như <code>-rc.1</code> và metadata build dạng <code>+...</code>.</li>
+<li>Sắp xếp tag phiên bản đúng thứ tự trong Git thay vì theo chữ cái.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Số phiên bản không chỉ để đếm. Với một thư viện, một API hay một ứng dụng mà người khác phụ thuộc vào, số phiên bản là <strong>lời hứa</strong> về mức độ an toàn khi nâng cấp. Semantic Versioning (gọi tắt semver) chuẩn hóa lời hứa đó bằng ba con số <code>MAJOR.MINOR.PATCH</code>:</p>
+<ul>
+<li><strong>PATCH</strong> tăng khi bạn chỉ sửa lỗi, không đổi cách dùng. Người dùng nâng cấp mà không phải sửa gì.</li>
+<li><strong>MINOR</strong> tăng khi bạn thêm tính năng mới nhưng vẫn tương thích ngược: mọi cách dùng cũ vẫn chạy.</li>
+<li><strong>MAJOR</strong> tăng khi có thay đổi phá tương thích: xóa hay đổi tên API, đổi định dạng dữ liệu, đổi hành vi mà người dùng cũ dựa vào.</li>
+</ul>
+<p>Có một quy tắc đi kèm hay bị quên: khi tăng một phần, <strong>mọi phần bên phải đặt lại về 0</strong>. Từ <code>2.4.1</code>, sửa lỗi cho ra <code>2.4.2</code>; thêm tính năng tương thích cho ra <code>2.5.0</code> (PATCH về 0); phá tương thích cho ra <code>3.0.0</code> (MINOR và PATCH về 0). Một bản phát hành gộp cả sửa lỗi lẫn tính năng mới thì tính theo thay đổi &quot;nặng&quot; nhất: có tính năng tương thích thì tăng MINOR; có thay đổi phá tương thích thì tăng MAJOR.</p>
+<p>Mỗi phần là số nguyên, so sánh theo giá trị số chứ không phải chữ. <code>1.10.0</code> mới hơn <code>1.9.1</code>, dù khi sắp xếp như chuỗi ký tự thì <code>1.10</code> đứng trước <code>1.9</code>. Đây là chỗ Git cần được nhắc, như phần lệnh bên dưới.</p>
+<p>Thêm hai phần mở rộng:</p>
+<ul>
+<li><strong>Pre-release</strong>: hậu tố sau dấu gạch ngang, ví dụ <code>3.0.0-beta.2</code> hay <code>3.0.0-rc.1</code>. Bản pre-release luôn đứng <strong>trước</strong> bản chính thức cùng số, và không hứa hẹn ổn định. Đội QA thường test trên các bản <code>rc</code> (release candidate).</li>
+<li><strong>Build metadata</strong>: hậu tố sau dấu cộng, ví dụ <code>3.0.0+build.57</code>. Phần này chỉ để thông tin và không ảnh hưởng thứ tự.</li>
+</ul>
+<p>Giai đoạn <code>0.y.z</code> là đặc biệt: theo semver, khi MAJOR còn là 0 thì dự án đang phát triển ban đầu và API có thể đổi bất kỳ lúc nào. Phiên bản <code>1.0.0</code> là lúc bạn tuyên bố API công khai đã ổn định.</p>
+<p>Còn Git liên quan gì? Git không hiểu semver; nó chỉ lưu tag. Quy ước phổ biến là đặt tag <code>v</code> cộng số phiên bản, ví dụ <code>v2.5.0</code>. Chữ <code>v</code> là quy ước đặt tên tag, không phải một phần của số semver. Git có chế độ sắp xếp theo phiên bản giúp danh sách tag hiện đúng thứ tự, và commit message có cấu trúc (như Conventional Commits với <code>feat:</code>, <code>fix:</code>, dấu <code>!</code> cho thay đổi phá tương thích) giúp công cụ tự đề xuất bước tăng tiếp theo.</p>
+<p>Điều quan trọng nhất: semver chỉ có giá trị khi nhóm thật sự giữ lời hứa. Đổi hành vi API trong một bản PATCH là phá vỡ lòng tin của người dùng, dù về kỹ thuật chỉ là &quot;sửa lỗi&quot;.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  S[&quot;Phiên bản hiện tại 2.4.1&quot;] --&gt; Q1{&quot;Có thay đổi phá tương thích?&quot;}
+  Q1 --&gt;|&quot;có&quot;| M[&quot;3.0.0&quot;]
+  Q1 --&gt;|&quot;không&quot;| Q2{&quot;Có tính năng mới tương thích?&quot;}
+  Q2 --&gt;|&quot;có&quot;| N[&quot;2.5.0&quot;]
+  Q2 --&gt;|&quot;không, chỉ sửa lỗi&quot;| P[&quot;2.4.2&quot;]</pre>
+<p>Thứ tự trước sau của một chuỗi phát hành, kể cả pre-release:</p>
+<pre class="mermaid">flowchart LR
+  A[&quot;1.9.1&quot;] --&gt; B[&quot;1.10.0&quot;]
+  B --&gt; C[&quot;2.0.0-beta.2&quot;]
+  C --&gt; D[&quot;2.0.0-rc.1&quot;]
+  D --&gt; E[&quot;2.0.0&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -l                                  # sắp theo chữ cái, dễ sai thứ tự
+git tag --sort=v:refname                    # sắp theo phiên bản
+git tag --sort=-v:refname                   # mới nhất lên đầu
+git -c versionsort.suffix=- tag --sort=v:refname   # coi hậu tố sau dấu gạch là pre-release
+git describe --tags --abbrev=0              # tag gần nhất của HEAD
+git log --oneline &lt;tag&gt;..HEAD               # các commit kể từ bản trước</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Loại thay đổi</th>
+<th>Phần tăng</th>
+<th>Phần đặt về 0</th>
+<th>Ví dụ từ 2.4.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sửa lỗi tương thích</td>
+<td>PATCH</td>
+<td>Không có</td>
+<td>2.4.2</td>
+</tr>
+<tr>
+<td>Tính năng mới tương thích</td>
+<td>MINOR</td>
+<td>PATCH</td>
+<td>2.5.0</td>
+</tr>
+<tr>
+<td>Phá tương thích</td>
+<td>MAJOR</td>
+<td>MINOR, PATCH</td>
+<td>3.0.0</td>
+</tr>
+<tr>
+<td>Bản thử trước khi phát hành</td>
+<td>Thêm hậu tố</td>
+<td>Không có</td>
+<td>3.0.0-rc.1</td>
+</tr>
+</tbody></table></div>
+<p>Thay vì gõ <code>-c</code> mỗi lần, bạn có thể đặt <code>versionsort.suffix</code> và <code>tag.sort</code> trong config của repository.</p>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Một repository có các tag sau. Liệt kê mặc định sắp theo chữ cái:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -l</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v1.10.0
+v1.2.0
+v1.9.1
+v2.0.0
+v2.0.0-beta.2
+v2.0.0-rc.1</code></pre></div>
+<p><code>v1.10.0</code> đứng trước <code>v1.2.0</code> và bản chính thức đứng trước bản beta: sai với semver. Sắp theo phiên bản:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag --sort=v:refname</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v1.2.0
+v1.9.1
+v1.10.0
+v2.0.0
+v2.0.0-beta.2
+v2.0.0-rc.1</code></pre></div>
+<p>Phần số đã đúng, nhưng Git vẫn coi <code>-beta.2</code> là &quot;đuôi thêm&quot; nên đặt sau <code>v2.0.0</code>. Báo cho Git biết hậu tố sau dấu gạch là pre-release:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -c versionsort.suffix=- tag --sort=v:refname
+git -c versionsort.suffix=- tag --sort=-v:refname | head -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v1.2.0
+v1.9.1
+v1.10.0
+v2.0.0-beta.2
+v2.0.0-rc.1
+v2.0.0
+v2.0.0</code></pre></div>
+<p>Dòng cuối là bản mới nhất khi sắp giảm dần. Giờ thứ tự khớp semver. Từ đây, quyết định số tiếp theo là việc của bạn: xem các commit kể từ tag cuối, xếp loại từng thay đổi, rồi áp quy tắc tăng và đặt về 0.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên đặt lại phần bên phải.</strong> Từ <code>2.4.1</code> thêm tính năng mà ghi <code>2.5.1</code> là sai; PATCH phải về 0. Tương tự, lên MAJOR thì MINOR và PATCH đều về 0.</p>
+<p><strong>Giấu thay đổi phá tương thích trong bản MINOR hay PATCH.</strong> Ví dụ đổi tên một trường JSON trong response API rồi gọi là &quot;sửa lỗi&quot;. Hệ thống đối tác tự nâng cấp và gãy. Nếu người dùng phải sửa code để chạy tiếp, đó là MAJOR.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Một khi đã phát hành và gắn tag một số phiên bản, đừng phát hành lại nội dung khác dưới cùng số đó. Có lỗi thì ra số mới.</p>
+</aside>
+<p><strong>Sắp xếp tag như chuỗi ký tự.</strong> Script lấy &quot;tag mới nhất&quot; bằng <code>git tag | tail -1</code> sẽ sai khi có <code>v1.10.0</code> và <code>v1.9.1</code>. Dùng <code>--sort=-v:refname</code> hoặc <code>git describe</code>.</p>
+<p><strong>Coi <code>0.y.z</code> như bản ổn định.</strong> Ở giai đoạn này semver cho phép thay đổi bất kỳ; nếu đã có người dùng thật phụ thuộc vào API, hãy cân nhắc lên <code>1.0.0</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu nhóm dùng Conventional Commits, <code>feat:</code> gợi ý tăng MINOR, <code>fix:</code> gợi ý tăng PATCH, còn <code>!</code> sau type hoặc footer <code>BREAKING CHANGE:</code> gợi ý tăng MAJOR.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Đội bạn duy trì một thư viện client gọi API tài khoản, dùng chung cho ba ứng dụng. Bản sắp phát hành có một bản sửa timeout và một hàm mới để lấy lịch sử giao dịch theo trang, không đổi hàm nào cũ. Khi review release, bạn đối chiếu danh sách commit từ tag trước: không có thay đổi phá tương thích, có tính năng mới, nên tăng MINOR và đặt PATCH về 0. Các ứng dụng khác nâng cấp yên tâm vì lời hứa của semver được giữ. Trước bản chính thức, QA chạy regression trên bản <code>-rc.1</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi, không có thao tác bắt buộc trên repository. Câu hỏi cho một phiên bản hiện tại và mô tả loại thay đổi, bạn cần đưa ra số phiên bản tiếp theo. Hãy:</p>
+<ul>
+<li>Xác định thay đổi thuộc loại nào: sửa lỗi, tính năng tương thích hay phá tương thích.</li>
+<li>Tăng đúng phần tương ứng và nhớ đặt các phần bên phải về 0.</li>
+<li>Trả lời bằng số phiên bản; tiền tố <code>v</code> theo quy ước tag cũng được chấp nhận.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Semver dùng <code>MAJOR.MINOR.PATCH</code> như lời hứa về độ an toàn khi nâng cấp.</li>
+<li>PATCH cho sửa lỗi, MINOR cho tính năng tương thích, MAJOR cho thay đổi phá tương thích.</li>
+<li>Tăng một phần thì đặt mọi phần bên phải về 0.</li>
+<li>Pre-release như <code>-rc.1</code> đứng trước bản chính thức; metadata <code>+...</code> không ảnh hưởng thứ tự.</li>
+<li>Trong Git, dùng <code>--sort=v:refname</code> và <code>versionsort.suffix</code> để sắp tag đúng thứ tự phiên bản.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open semver
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/stash-cherry-pick.html" rel="prev"><small>Bài trước</small>Stash và cherry-pick</a><a class="next" href="../release-ops/annotated-vs-lightweight-tags.html" rel="next"><small>Bài sau</small>Hai kiểu tag</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 4/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

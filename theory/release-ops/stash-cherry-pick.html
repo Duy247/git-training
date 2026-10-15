@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stash và cherry-pick - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 3/10</span></p>
+<h1>Stash và cherry-pick</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>stash-cherry-pick</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Dùng stash để cất tạm việc đang dở và lấy lại sau, không cần commit nháp.</li>
+<li>Hiểu cherry-pick làm gì: chép thay đổi của một commit thành commit mới trên branch hiện tại.</li>
+<li>Kết hợp hai lệnh khi cần nhặt một bản sửa giữa lúc working tree đang bẩn.</li>
+<li>Xử lý khi cherry-pick dừng vì conflict và khi stash không cất tệp mới.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Hai lệnh trong bài này hay đi cùng nhau trong ngày phát hành, dù chúng giải quyết hai việc khác nhau.</p>
+<p><strong>Stash</strong> là một cái kệ tạm. Bạn đang sửa dở vài tệp, chưa đến lúc commit, nhưng cần working tree sạch để làm việc khác. <code>git stash push</code> lấy các thay đổi của tệp đang được theo dõi (cả phần đã stage lẫn chưa stage), cất vào một ngăn xếp riêng, rồi đưa working tree và index về đúng như HEAD. Khi xong việc kia, <code>git stash pop</code> áp thay đổi trở lại và bỏ mục đó khỏi ngăn xếp. Nếu muốn áp mà vẫn giữ mục trong ngăn xếp, dùng <code>git stash apply</code>.</p>
+<p>Bên trong, mỗi mục stash thực chất là vài commit đặc biệt mà ref <code>refs/stash</code> trỏ tới, không nằm trên branch nào. Vì vậy stash là của riêng repository bạn, không được push, và danh sách xem bằng <code>git stash list</code> với tên dạng <code>stash@{0}</code>, <code>stash@{1}</code>, số nhỏ nhất là mới nhất.</p>
+<p>Hai điều cần nhớ về stash. Thứ nhất, mặc định nó <strong>không cất tệp untracked</strong> (tệp mới chưa từng add); muốn cất cả chúng, thêm <code>-u</code>. Thứ hai, stash không gắn với branch: bạn cất ở <code>main</code> rồi pop ở branch khác cũng được, miễn không đụng nhau.</p>
+<p><strong>Cherry-pick</strong> trả lời câu hỏi &quot;tôi chỉ muốn đúng một bản sửa đó, không muốn cả branch&quot;. Khi bạn đứng trên một branch và chạy <code>git cherry-pick &lt;commit&gt;</code>, Git tính thay đổi mà commit đó mang so với parent của nó, áp thay đổi ấy lên HEAD hiện tại, rồi tạo một <strong>commit mới</strong> với cùng thông điệp và tác giả. Commit mới có parent khác nên object ID khác commit gốc. Branch nguồn không bị ảnh hưởng gì.</p>
+<p>Tùy chọn <code>-x</code> thêm dòng <code>(cherry picked from commit ...)</code> vào thông điệp, giúp sau này lần ra nguồn gốc. Nhiều nhóm bắt buộc <code>-x</code> khi chép bản sửa sang branch phát hành.</p>
+<p>Vì sao hai lệnh hay đi chung? Cherry-pick cần working tree đủ sạch để áp thay đổi an toàn. Nếu bạn đang dở tay, Git có thể từ chối hoặc conflict sẽ lẫn với việc dở của bạn. Quy trình gọn là: cất việc dở, nhặt commit, lấy việc dở ra lại.</p>
+<p>Khi thay đổi được chép đụng vào chỗ mà branch hiện tại cũng đã sửa khác đi, cherry-pick dừng với conflict, giống merge. Bạn sửa tệp, <code>git add</code>, rồi <code>git cherry-pick --continue</code>; hoặc <code>git cherry-pick --abort</code> để trở về như trước.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<p>Cherry-pick chép commit &quot;Tăng timeout&quot; sang <code>main</code> dưới dạng commit mới, bỏ lại commit thử nghiệm:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch fix-timeout
+  checkout fix-timeout
+  commit id: &quot;Tăng timeout 1b02897&quot;
+  commit id: &quot;Thử nghiệm chưa xong&quot;
+  checkout main
+  commit id: &quot;Thêm smoke test&quot;
+  cherry-pick id: &quot;Tăng timeout 1b02897&quot;</pre>
+<p>Trình tự cất, nhặt, lấy lại:</p>
+<pre class="mermaid">sequenceDiagram
+  participant W as Working tree
+  participant S as Stash
+  participant M as Branch main
+  W-&gt;&gt;S: git stash push
+  Note over W: sạch như HEAD
+  M-&gt;&gt;M: git cherry-pick commit
+  S-&gt;&gt;W: git stash pop
+  Note over W: việc dở trở lại</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash push -m &quot;mô tả&quot;     # cất thay đổi của tệp đã theo dõi
+git stash push -u             # cất cả tệp untracked
+git stash list                # xem các mục đã cất
+git stash show -p stash@{0}   # xem nội dung một mục
+git stash pop                 # áp mục mới nhất và bỏ khỏi danh sách
+git stash apply stash@{1}     # áp nhưng giữ lại mục
+git stash drop stash@{0}      # bỏ một mục
+git cherry-pick &lt;commit&gt;      # chép một commit lên HEAD
+git cherry-pick -x &lt;commit&gt;   # chép và ghi nguồn vào thông điệp
+git cherry-pick --continue    # tiếp tục sau khi sửa conflict
+git cherry-pick --abort       # hủy, về trạng thái trước</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Giữ mục trong stash</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git stash pop</code></td>
+<td>Không</td>
+<td>Lấy lại việc dở, xong là xong</td>
+</tr>
+<tr>
+<td><code>git stash apply</code></td>
+<td>Có</td>
+<td>Muốn áp thử ở nhiều nơi hoặc còn phân vân</td>
+</tr>
+<tr>
+<td><code>git stash drop</code></td>
+<td>Không áp, chỉ bỏ</td>
+<td>Mục không còn cần</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Branch <code>fix-timeout</code> có một commit sửa cần phát hành và một commit thử nghiệm chưa xong. Bạn đang ở <code>main</code>, sửa dở <code>README.md</code> (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status --short
+git log --oneline fix-timeout</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M README.md
+dfff375 Thử nghiệm chưa xong
+1b02897 Tăng timeout API lên 30 giây
+95ee437 Khởi tạo</code></pre></div>
+<p>Cất việc dở:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash push -m &quot;README dở&quot;
+git status --short
+git stash list</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Saved working directory and index state On main: README dở
+stash@{0}: On main: README dở</code></pre></div>
+<p><code>git status --short</code> không in gì: working tree đã sạch. Nhặt đúng commit sửa timeout (commit thứ hai từ đầu branch, tức <code>fix-timeout~1</code>), có ghi nguồn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cherry-pick -x fix-timeout~1
+git log --oneline
+git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 9866e1e] Tăng timeout API lên 30 giây
+ Date: Fri Oct 16 00:33:57 2026 +0700
+ 1 file changed, 1 insertion(+)
+ create mode 100644 config.ini
+9866e1e Tăng timeout API lên 30 giây
+94be5c8 Thêm smoke test
+95ee437 Khởi tạo
+Tăng timeout API lên 30 giây
+
+(cherry picked from commit 1b02897cf76464023f8f89643e8a2f6da7170f50)</code></pre></div>
+<p>Commit mới <code>9866e1e</code> khác <code>1b02897</code> vì parent khác. Lấy việc dở trở lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git stash pop
+git status --short
+git stash list</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Dropped refs/stash@{0} (a1c8194b601b3d6e37610e0ab4972b7bedbc2b4e)
+ M README.md</code></pre></div>
+<p>(Đầu ra của <code>git stash pop</code> còn có phần <code>git status</code> dài, mình đã lược.) <code>git stash list</code> trống: mục đã được dùng và bỏ đi.</p>
+<p>Khi thay đổi cần chép đụng vào chỗ branch hiện tại cũng đã sửa khác, Git dừng lại (đã lược phần hint):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Auto-merging config.ini
+CONFLICT (add/add): Merge conflict in config.ini
+error: could not apply 9866e1e... Tăng timeout API lên 30 giây</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tưởng stash cất cả tệp mới.</strong> Nếu chỉ có tệp untracked, <code>git stash push</code> báo <code>No local changes to save</code> và không làm gì. Dùng <code>git stash push -u</code> để cất cả chúng.</p>
+<p><strong><code>git stash pop</code> bị conflict.</strong> Khi thay đổi cất đụng với thay đổi mới trên HEAD, pop dừng với conflict và <strong>giữ lại</strong> mục trong danh sách. Sửa conflict, <code>git add</code>, rồi <code>git stash drop</code> khi chắc đã ổn.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đổi branch khi đang dở tay đôi khi vẫn thành công: Git mang thay đổi chưa commit sang branch mới nếu không đụng nhau. Bạn có thể vô tình commit việc dở lên nhầm branch. Cất vào stash trước khi đổi branch là thói quen an toàn.</p>
+</aside>
+<p><strong>Cherry-pick nhầm commit hoặc chép cả commit thử nghiệm.</strong> Xem kỹ <code>git log --oneline &lt;branch&gt;</code> và dùng đúng object ID hay biểu thức như <code>&lt;branch&gt;~1</code>. Nếu đã chép nhầm và chưa push, <code>git reset --hard HEAD~1</code> bỏ commit vừa tạo (chỉ khi working tree không có gì cần giữ).</p>
+<p><strong>Cherry-pick bừa bãi giữa hai branch còn sẽ merge.</strong> Cùng một thay đổi xuất hiện hai lần dưới hai object ID khác nhau, dễ sinh conflict khó hiểu về sau. Dùng cherry-pick cho bản sửa nhỏ, có chủ đích, và ghi <code>-x</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt tên cho stash bằng <code>-m</code>. Một tuần sau nhìn <code>stash@{3}: WIP on main</code> bạn sẽ không nhớ nó là gì.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn đang viết dở bộ test cho màn hình sao kê thì trưởng nhóm báo: bản sửa timeout trên <code>fix-timeout</code> phải vào build tối nay, nhưng commit thử nghiệm phía sau chưa được duyệt. Bạn cất bộ test dở, cherry-pick đúng commit sửa với <code>-x</code>, chạy smoke test, rồi lấy bộ test dở ra làm tiếp. Không có commit nháp nào lọt vào lịch sử, và bản sửa có dấu vết về commit gốc.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Trong bài thực hành, bạn đứng ở <code>main</code> với một tệp đang sửa dở, và có một branch khác chứa commit cần lấy. Bạn phải đưa thay đổi của commit đó vào HEAD hiện tại, đồng thời giữ nguyên việc dở: cuối bài, tệp đang sửa vẫn ở trạng thái modified chưa stage và danh sách stash phải trống. Câu hỏi kiến thức hỏi về lệnh chép commit từ branch khác. Hãy:</p>
+<ul>
+<li>Xem <code>git status --short</code> và <code>git log --oneline --all</code> trước khi bắt đầu.</li>
+<li>Nghĩ xem lệnh nào lấy lại việc dở <strong>và</strong> dọn mục khỏi danh sách stash.</li>
+<li>Kết thúc bằng <code>git stash list</code> và <code>git status --short</code> để tự kiểm tra.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Stash cất thay đổi chưa commit vào ngăn xếp riêng và làm sạch working tree.</li>
+<li><code>pop</code> áp và bỏ mục; <code>apply</code> áp nhưng giữ; <code>-u</code> cất cả tệp untracked.</li>
+<li>Cherry-pick chép thay đổi của một commit thành commit mới trên branch hiện tại.</li>
+<li><code>-x</code> ghi nguồn gốc vào thông điệp, hữu ích khi chép bản sửa sang branch phát hành.</li>
+<li>Conflict khi cherry-pick xử lý bằng sửa, <code>git add</code>, <code>--continue</code> hoặc <code>--abort</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open stash-cherry-pick
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/file-operations.html" rel="prev"><small>Bài trước</small>Thao tác tệp bằng Git</a><a class="next" href="../release-ops/semver.html" rel="next"><small>Bài sau</small>Quy tắc phiên bản ngữ nghĩa</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 3/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

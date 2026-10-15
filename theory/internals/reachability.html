@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Khả năng truy cập object - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 8/11</span></p>
+<h1>Khả năng truy cập object</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>reachability</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu &quot;reachable&quot; nghĩa là gì: đi được từ một ref theo các mũi tên của đồ thị object.</li>
+<li>Biết những gì giữ object còn sống: nhánh, tag, remote-tracking ref, reflog, index, HEAD.</li>
+<li>Dùng <code>git fsck</code>, <code>git branch --contains</code>, <code>git merge-base --is-ancestor</code> để kiểm tra reachability.</li>
+<li>Cứu một commit không còn reachable bằng cách tạo ref mới trỏ tới nó.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Đồ thị object của Git có các mũi tên: commit trỏ tới parent và tree, tree trỏ tới blob và tree con, tag object trỏ tới object đích. Một object được gọi là <strong>reachable</strong> nếu bắt đầu từ một điểm xuất phát nào đó, đi theo các mũi tên, bạn tới được nó.</p>
+<p>Điểm xuất phát (gọi là root) gồm:</p>
+<ul>
+<li>Mọi ref: <code>refs/heads/*</code>, <code>refs/tags/*</code>, <code>refs/remotes/*</code>, <code>refs/notes/*</code>, ref tùy chỉnh.</li>
+<li><code>HEAD</code>, kể cả khi detached, và HEAD của các worktree khác.</li>
+<li>Các mục trong reflog.</li>
+<li>Index (blob đã <code>git add</code> nhưng chưa commit).</li>
+</ul>
+<p>Mọi thứ không reachable từ các root đó là ứng viên cho bộ dọn rác. Đây là nguyên tắc nền tảng: Git không đánh dấu từng object là &quot;giữ&quot; hay &quot;xóa&quot;; nó tính ra tập reachable rồi xem phần còn lại.</p>
+<p>Một số hệ quả thực tế:</p>
+<ul>
+<li>Commit nằm trên nhánh main thì mọi tổ tiên của nó đều reachable, dù không có ref nào trỏ thẳng vào.</li>
+<li>Xóa nhánh chưa merge làm các commit riêng của nhánh đó chỉ còn reachable qua reflog. Khi reflog hết hạn, chúng trở thành rác.</li>
+<li>Sau rebase hoặc amend, commit cũ cũng chỉ còn qua reflog và <code>ORIG_HEAD</code>.</li>
+<li>Push chỉ gửi object reachable từ ref được push. Commit không reachable trên máy bạn không bao giờ rời máy.</li>
+</ul>
+<p>Câu hỏi liên quan thường gặp: &quot;commit X có nằm trong nhánh Y không?&quot; thực chất là &quot;X có reachable từ Y không?&quot;, hay &quot;X có phải tổ tiên của Y không?&quot;.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  M[&quot;refs/heads/main&quot;] --&gt; C3[&quot;Commit C3&quot;]
+  C3 --&gt; C2[&quot;Commit C2&quot;]
+  C2 --&gt; C1[&quot;Commit C1&quot;]
+  RL[&quot;Reflog HEAD&quot;] --&gt; X[&quot;Commit Thử nghiệm&quot;]
+  X --&gt; C1
+  O[&quot;Commit mồ côi&quot;] --&gt; C1
+  subgraph &quot;Reachable từ ref&quot;
+    C3
+    C2
+    C1
+  end</pre>
+<p><code>Commit Thử nghiệm</code> chỉ còn reflog giữ. <code>Commit mồ côi</code> không có gì trỏ tới, nên là rác dù nó trỏ tới C1: mũi tên chỉ có tác dụng theo chiều từ root đi xuống.</p>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Object không reachable (kể cả qua reflog)
+git fsck --unreachable
+
+# Không tính reflog là root
+git fsck --unreachable --no-reflogs
+
+# Nhánh nào chứa commit này
+git branch --contains &lt;commit&gt;
+
+# A có phải tổ tiên của B (mã thoát 0 là có)
+git merge-base --is-ancestor A B
+
+# Mọi commit reachable từ mọi ref
+git rev-list --all
+
+# Cứu commit bằng một ref mới
+git branch cuu-ho &lt;commit&gt;</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tạo nhánh <code>thu</code> với commit &quot;Thử nghiệm&quot;, quay về main và xóa nhánh (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -D thu
+git log --oneline --all
+git fsck --unreachable --no-reflogs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Deleted branch thu (was f021d40).
+997444f Khởi tạo
+unreachable tree 499c3600f8d127a5a79aa0a59f6c1627d95e82fd
+unreachable blob 4d17ce38c5110199fd18d8a8d2f05fa60d17538c
+unreachable commit f021d4086575a4ceb732c9c32d056a8b8d53965d</code></pre></div>
+<p><code>git log --all</code> không còn thấy commit &quot;Thử nghiệm&quot; vì nó chỉ đi theo ref. Nếu không tính reflog, commit cùng tree và blob riêng của nó đều unreachable. Reflog vẫn nhớ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog | head -3</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">997444f HEAD@{0}: checkout: moving from thu to main
+f021d40 HEAD@{1}: commit: Thử nghiệm
+997444f HEAD@{2}: checkout: moving from main to thu</code></pre></div>
+<p>Cứu bằng cách tạo ref mới:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch cuu-ho HEAD@{1}
+git log --oneline --all
+git fsck --unreachable --no-reflogs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">f021d40 Thử nghiệm
+997444f Khởi tạo</code></pre></div>
+<p><code>fsck</code> không còn báo gì: mọi object đã reachable trở lại. Kiểm tra quan hệ tổ tiên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge-base --is-ancestor main cuu-ho; echo $?
+git branch --contains main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">0
+  cuu-ho
+* main</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>HEAD@{1}</code> chỉ đúng ngay lúc đó; sau vài thao tác nữa, số thứ tự trong reflog sẽ dịch đi. Khi cứu dữ liệu, hãy chép object ID thay vì dựa vào <code>HEAD@{n}</code>.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ <code>git log --all</code> thấy mọi commit.</strong> Nó chỉ thấy commit reachable từ ref. Commit chỉ còn trong reflog phải tìm bằng <code>git reflog</code>.</p>
+<p><strong>Nghĩ commit trỏ tới main thì được main giữ.</strong> Mũi tên đi từ con xuống cha. Main không biết gì về commit con mồ côi.</p>
+<p><strong>Tưởng xóa nhánh trên remote là commit biến mất khỏi máy mọi người.</strong> Clone nào đã fetch vẫn còn object, ít nhất qua remote-tracking ref hoặc reflog.</p>
+<p><strong>Dùng <code>HEAD@{n}</code> sau nhiều thao tác.</strong> Số thứ tự đã đổi; dễ cứu nhầm commit.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Stash cũng là ref (<code>refs/stash</code>) và có reflog riêng. Đó là lý do một stash bị <code>drop</code> vẫn có thể cứu lại một thời gian ngắn nếu bạn còn biết ID của nó.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Một đồng nghiệp QA lỡ <code>git reset --hard</code> trên nhánh chứa bộ test case tự động mới viết trong ngày, chưa push. Bạn ngồi cùng, chạy <code>git reflog</code>, tìm dòng commit trước khi reset, tạo nhánh <code>cuu-ho</code> tại đó và kiểm tra bằng <code>git log --stat</code>. Công việc trở lại nguyên vẹn, vì commit vẫn reachable qua reflog.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi tên gọi chung của thứ giữ cho một commit có thể truy cập qua nhánh. Hãy nghĩ tới khái niệm tổng quát hơn &quot;nhánh&quot; mà bạn đã gặp trong các bài internals trước.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Object reachable nếu đi được từ một root theo mũi tên của đồ thị.</li>
+<li>Root gồm ref, HEAD, reflog và index.</li>
+<li>Object không reachable là ứng viên cho gc, nhưng reflog và thời gian ân hạn bảo vệ thêm.</li>
+<li><code>git fsck --unreachable</code>, <code>git branch --contains</code>, <code>git merge-base --is-ancestor</code> giúp kiểm tra.</li>
+<li>Cứu commit bằng cách tạo một ref mới trỏ tới object ID của nó.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reachability
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/gc-internals.html" rel="prev"><small>Bài trước</small>Dọn rác Git</a><a class="next" href="../internals/loose-vs-packed.html" rel="next"><small>Bài sau</small>Object rời và đã đóng gói</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 8/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import readline from 'node:readline';
+import { openTheory } from './theory.js';
 import { createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, inspectExercise, listCourses, nextExercise, openExercise, saveAnswer, checkExercise, type InspectionResult, type ExerciseProgress } from './engine.js';
 
 type Page = 'tracks' | 'lesson' | 'lessons' | 'roadmap';
@@ -37,6 +38,16 @@ export async function runUI(): Promise<void> {
   let busy = false;
   let closed = false;
   try { sessionDir = (await getSession()).dir; page = 'lesson'; } catch { /* chưa có phiên */ }
+
+  /** Mở trang lý thuyết của bài hiện tại; trả về đoạn thông báo ngắn (đường dẫn luôn có để tự mở). */
+  const theory = async (courseId: string, exerciseId: string, reopen: boolean): Promise<string> => {
+    const result = await openTheory(courseId, exerciseId, { reopen });
+    if (!result.path) return '';
+    return result.opened ? ` Đã mở bài lý thuyết trong trình duyệt: ${result.path}` : ` Bài lý thuyết: ${result.path}`;
+  };
+  const theoryOfCurrent = async (reopen: boolean): Promise<string> => {
+    try { const info = await getExerciseInfo({ sessionDir }); return await theory(info.session.courseId, info.id, reopen); } catch { return ''; }
+  };
 
   const refresh = async () => {
     if (!sessionDir || busy || closed || page !== 'lesson' || prompt) return;
@@ -126,7 +137,7 @@ export async function runUI(): Promise<void> {
     if (page === 'tracks') {
       if (key === 'up' || key === 'k') selected = (selected - 1 + listCourses().length) % listCourses().length;
       if (key === 'down' || key === 'j') selected = (selected + 1) % listCourses().length;
-      if (key === 'return') { const course = listCourses()[selected]; if (course) { const session = await createSession(course.id); sessionDir = session.dir; inspection = undefined; page = 'lesson'; await refresh(); } }
+      if (key === 'return') { const course = listCourses()[selected]; if (course) { const session = await createSession(course.id); sessionDir = session.dir; inspection = undefined; page = 'lesson'; notice = (await theoryOfCurrent(false)).trim(); await refresh(); } }
       if (key === 'r') page = 'roadmap';
     } else if (page === 'roadmap') {
       if (key === 't') { selected = 0; page = 'tracks'; }
@@ -138,7 +149,7 @@ export async function runUI(): Promise<void> {
       if (key === 'return') {
         const item: ExerciseProgress | undefined = lessons[selected];
         if (item?.state === 'locked') notice = 'Bài này chưa mở khóa.';
-        else if (item) { await openExercise(item.id, options); inspection = undefined; page = 'lesson'; notice = `Đã khôi phục checkpoint của ${item.id}.`; await refresh(); }
+        else if (item) { await openExercise(item.id, options); inspection = undefined; page = 'lesson'; notice = `Đã khôi phục checkpoint của ${item.id}.${await theoryOfCurrent(true)}`; await refresh(); }
       }
       if (key === 'b') page = 'lesson';
     } else if (sessionDir) {
@@ -146,7 +157,7 @@ export async function runUI(): Promise<void> {
       if (key === 'a') { prompt = 'answer'; input = ''; }
       if (key === 'h') { const hint = await getHint(options); notice = `Gợi ý ${hint.level}/${hint.total}: ${hint.text}`; }
       if (key === 's') notice = `Lời giải: ${await getSolution(options)}`;
-      if (key === 'n') { const next = await nextExercise(options); notice = next ? `Đã mở ${next.session.currentExerciseId}.` : 'Đã hoàn thành track!'; inspection = undefined; scroll = 0; await refresh(); }
+      if (key === 'n') { const next = await nextExercise(options); notice = next ? `Đã mở ${next.session.currentExerciseId}.${await theoryOfCurrent(false)}` : 'Đã hoàn thành track!'; inspection = undefined; scroll = 0; await refresh(); }
       if (key === 'l') { selected = 0; page = 'lessons'; }
       if (key === 'o') { prompt = 'open'; input = ''; }
       if (key === 't') { selected = 0; page = 'tracks'; }
@@ -176,7 +187,7 @@ export async function runUI(): Promise<void> {
             else if (key.name === 'return') {
               const value = input.trim(); const kind = prompt; prompt = undefined; input = '';
               if (value && kind === 'answer') { await saveAnswer(value, { sessionDir }); notice = 'Đã lưu đáp án. Nhấn C khi sẵn sàng ghi nhận kết quả.'; await refresh(); }
-              if (value && kind === 'open') { await openExercise(value, { sessionDir }); inspection = undefined; page = 'lesson'; await refresh(); }
+              if (value && kind === 'open') { await openExercise(value, { sessionDir }); inspection = undefined; page = 'lesson'; notice = (await theoryOfCurrent(true)).trim(); await refresh(); }
             } else if (character && !key.ctrl && !key.meta && !/\p{C}/u.test(character)) input += character;
           } else await act(key.name ?? character.toLowerCase());
           await draw();

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Chiến lược tìm bằng log - Điều tra lịch sử - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Điều tra lịch sử</span><span class="badge" title="Vị trí bài trong track">Bài 6/8</span></p>
+<h1>Chiến lược tìm bằng log</h1>
+<p class="meta">Track: Điều tra lịch sử &middot; Mã bài: <code>log-search-strategies</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Kết hợp các bộ lọc của <code>git log</code>: tác giả, message, đường dẫn, thời gian, nội dung.</li>
+<li>Hiểu cách các bộ lọc kết hợp với nhau (AND hay OR) để không bị bất ngờ.</li>
+<li>Áp dụng chiến lược &quot;thu hẹp ứng viên rồi xác minh bằng <code>git show</code>&quot;.</li>
+<li>Tránh các bẫy hay gặp: so khớp email, mốc thời gian không kèm giờ.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi điều tra, bạn hiếm khi biết chính xác commit mình cần. Bạn chỉ có vài manh mối: &quot;hình như Chi sửa&quot;, &quot;khoảng đầu tháng&quot;, &quot;liên quan tới biểu phí&quot;. Mỗi manh mối là một bộ lọc của <code>git log</code>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Manh mối</th>
+<th>Bộ lọc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ai viết</td>
+<td><code>--author=&lt;mẫu&gt;</code> (khớp cả tên lẫn email)</td>
+</tr>
+<tr>
+<td>Message nói gì</td>
+<td><code>--grep=&lt;mẫu&gt;</code>, <code>-i</code> để bỏ qua hoa thường</td>
+</tr>
+<tr>
+<td>Tệp, thư mục nào</td>
+<td><code>-- &lt;đường dẫn&gt;</code> ở cuối lệnh</td>
+</tr>
+<tr>
+<td>Khi nào</td>
+<td><code>--since</code>, <code>--until</code> (hoặc <code>--after</code>, <code>--before</code>)</td>
+</tr>
+<tr>
+<td>Nội dung thay đổi</td>
+<td><code>-S &lt;chuỗi&gt;</code>, <code>-G &lt;regex&gt;</code></td>
+</tr>
+<tr>
+<td>Loại commit</td>
+<td><code>--no-merges</code>, <code>--merges</code></td>
+</tr>
+</tbody></table></div>
+<p>Cách kết hợp:</p>
+<ul>
+<li>Các <strong>loại</strong> bộ lọc khác nhau kết hợp theo kiểu AND: <code>--author=Chi -- bieu-phi.txt</code> là commit của Chi <strong>và</strong> chạm vào <code>bieu-phi.txt</code>.</li>
+<li>Nhiều <code>--grep</code> (hoặc nhiều <code>--author</code>) mặc định là OR: khớp một trong các mẫu là được. Thêm <code>--all-match</code> để yêu cầu message khớp <strong>tất cả</strong> các <code>--grep</code>.</li>
+<li><code>--invert-grep</code> đảo điều kiện <code>--grep</code>: lấy commit có message <strong>không</strong> khớp.</li>
+</ul>
+<p>Chiến lược hiệu quả là đi từ rộng đến hẹp: bắt đầu bằng một bộ lọc chắc chắn nhất (thường là đường dẫn), xem số kết quả, rồi thêm bộ lọc kế tiếp cho tới khi còn vài ứng viên. Sau đó <strong>xác minh</strong> từng ứng viên bằng <code>git show --stat</code> hoặc <code>git show</code>: message có thể mô tả sai, tên tác giả có thể trùng. Kết luận dựa trên diff, không dựa trên message.</p>
+<p><code>--format</code> giúp hiển thị đúng thông tin cần: <code>%h</code> (ID ngắn), <code>%an</code> (tác giả), <code>%ad</code> (ngày tác giả), <code>%s</code> (subject). Kết hợp <code>--date=short</code> hoặc <code>--date=iso</code> cho dễ đọc. <code>git shortlog -sn</code> đếm số commit theo tác giả, hữu ích để biết ai hay sửa một tệp.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  A[&quot;Toàn bộ lịch sử: 10 commit&quot;] --&gt;|&quot;-- bieu-phi.txt&quot;| B[&quot;4 commit&quot;]
+  B --&gt;|&quot;--author=Chi&quot;| C[&quot;1 commit&quot;]
+  C --&gt;|&quot;git show --stat&quot;| D[&quot;Xác minh diff&quot;]
+  D --&gt; E[&quot;Kết luận&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --author=Chi
+git log --oneline -- bieu-phi.txt
+git log --oneline --author=Chi -- bieu-phi.txt
+git log --oneline --grep=phí
+git log --oneline --grep=phí --grep=biểu --all-match
+git log --oneline --invert-grep --grep=phí
+git log --oneline --since=&quot;2026-09-05 00:00&quot; --until=&quot;2026-09-07 23:59&quot;
+git log --format=&#39;%h %an %ad %s&#39; --date=short --author=Chi -- bieu-phi.txt
+git shortlog -sn HEAD -- bieu-phi.txt
+git show --stat &lt;commit&gt;</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository dịch vụ tính phí; manh mối: &quot;Chi đã sửa gì đó trong biểu phí&quot; (ID trên máy bạn sẽ khác). Từng bộ lọc riêng lẻ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --author=Chi
+git log --oneline -- bieu-phi.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7144980 Bỏ khóa khỏi cấu hình
+ab0765b Làm gọn biểu phí
+a29f00a Thêm cấu hình môi trường
+9bb7d50 Thêm phí quốc tế
+eecc97a Chuẩn hóa khoảng trắng
+ab0765b Làm gọn biểu phí
+dd02f86 Thêm biểu phí</code></pre></div>
+<p>Kết hợp (AND) chỉ còn một ứng viên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --format=&#39;%h %an %ad %s&#39; --date=short --author=Chi -- bieu-phi.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ab0765b Chi 2026-09-06 Làm gọn biểu phí</code></pre></div>
+<p>Xác minh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --stat --format=&quot;%h %an %s&quot; ab0765b</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ab0765b Chi Làm gọn biểu phí
+
+ bieu-phi.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</code></pre></div>
+<p>Nhiều <code>--grep</code> là OR; <code>--all-match</code> biến thành AND:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --grep=phí --grep=biểu --all-match</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ab0765b Làm gọn biểu phí
+dd02f86 Thêm biểu phí</code></pre></div>
+<p>Ai hay sửa biểu phí nhất?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog -sn HEAD -- bieu-phi.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">     2	An
+     1	Binh
+     1	Chi</code></pre></div>
+<p>Hai bẫy đáng nhớ. Thứ nhất, <code>--author</code> khớp cả email, và không phân biệt chữ hoa ở đây chỉ vì email viết thường:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --author=chi</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7144980 Bỏ khóa khỏi cấu hình
+ab0765b Làm gọn biểu phí
+a29f00a Thêm cấu hình môi trường</code></pre></div>
+<p>Chữ <code>chi</code> không khớp tên <code>Chi</code>, nhưng khớp email <code>chi@example.invalid</code>. Thứ hai, ngày không kèm giờ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --since=2026-09-05 --until=2026-09-07
+git log --oneline --since=&quot;2026-09-05 00:00&quot; --until=&quot;2026-09-07 23:59&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ab0765b Làm gọn biểu phí
+f044cf7 Cập nhật README
+7144980 Bỏ khóa khỏi cấu hình
+ab0765b Làm gọn biểu phí
+f044cf7 Cập nhật README</code></pre></div>
+<p>Lệnh đầu bỏ sót commit lúc 09:00 ngày 07, vì Git ghép ngày bạn ghi với giờ hiện tại trên máy (lúc thử là sau nửa đêm). Ghi rõ giờ để kết quả không phụ thuộc lúc chạy.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi chưa chắc tên tác giả được ghi thế nào, chạy <code>git shortlog -sne HEAD</code> để xem mọi cặp tên và email trong lịch sử trước khi lọc.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tin message thay vì diff.</strong> &quot;Sửa lỗi nhỏ&quot; có thể chứa thay đổi lớn. Luôn xác minh bằng <code>git show</code>.</p>
+<p><strong>Đặt đường dẫn trước tùy chọn.</strong> Đường dẫn phải ở cuối, sau <code>--</code>.</p>
+<p><strong>Nghĩ nhiều <code>--grep</code> là AND.</strong> Mặc định là OR; cần <code>--all-match</code>.</p>
+<p><strong>Quên <code>--all</code>.</strong> Commit cần tìm có thể nằm trên nhánh khác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>--since</code>, <code>--until</code> lọc theo ngày committer. Sau rebase hay cherry-pick, ngày committer có thể khác xa ngày tác giả hiển thị bằng <code>%ad</code>.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Kiểm toán hỏi: &quot;Trong tuần trước kỳ phát hành, ai đã đổi cấu hình biểu phí và vì sao?&quot;. Bạn kết hợp <code>--since</code>, <code>--until</code> có giờ rõ ràng, đường dẫn thư mục cấu hình, <code>--no-merges</code>, xuất <code>--format=&#39;%h %an %ad %s&#39;</code>, rồi <code>git show</code> từng commit để trích lý do từ message và diff. Báo cáo gọn trong nửa trang.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Repository bài tập có một tệp ứng dụng với vài commit của hai người, trong đó có một commit với subject được nêu trong câu hỏi. Bạn cần tìm tác giả của commit đó. Hãy lọc theo message, hiển thị kèm tên tác giả bằng <code>--format</code>, rồi xác minh bằng <code>git show</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Mỗi manh mối là một bộ lọc: <code>--author</code>, <code>--grep</code>, đường dẫn, <code>--since</code>, <code>-S</code>, <code>-G</code>.</li>
+<li>Các loại bộ lọc khác nhau là AND; nhiều <code>--grep</code> là OR trừ khi có <code>--all-match</code>.</li>
+<li>Đi từ rộng đến hẹp, rồi xác minh ứng viên bằng <code>git show</code>.</li>
+<li><code>--author</code> khớp cả email; ngày không kèm giờ bị ghép với giờ hiện tại.</li>
+<li><code>--format</code> và <code>git shortlog -sn</code> giúp trình bày kết quả gọn gàng.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start forensics</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open log-search-strategies
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../forensics/blame-deep.html" rel="prev"><small>Bài trước</small>Blame nâng cao</a><a class="next" href="../forensics/finding-leaked-secrets.html" rel="next"><small>Bài sau</small>Tìm lần lộ bí mật</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Điều tra lịch sử, bài 6/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

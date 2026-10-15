@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhiều remote - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 6/12</span></p>
+<h1>Nhiều remote</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>multiple-remotes</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Làm việc với một repository có nhiều remote cùng lúc.</li>
+<li>Liệt kê, kiểm tra và fetch từ mọi remote.</li>
+<li>Chọn remote đích khi push, và tách URL fetch với URL push.</li>
+<li>Đọc nhánh remote-tracking khi có nhiều remote.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bài fork đã cho thấy một repository có thể có hai remote. Thực tế con số này không giới hạn. Các tình huống hay gặp:</p>
+<ul>
+<li><code>origin</code> là fork hoặc repository chính của đội, <code>upstream</code> là dự án gốc.</li>
+<li><code>staging</code> là một server riêng nhận bản để triển khai thử.</li>
+<li>Một remote tạm trỏ tới máy đồng nghiệp hay một bản sao lưu để lấy một nhánh cụ thể.</li>
+</ul>
+<p>Mỗi remote là một mục độc lập trong <code>.git/config</code>, gồm ít nhất URL và quy tắc fetch (refspec). Quy tắc fetch mặc định <code>+refs/heads/*:refs/remotes/&lt;tên&gt;/*</code> nghĩa là: mọi nhánh trên remote đó được chép về thành <code>&lt;tên&gt;/&lt;nhánh&gt;</code> ở local. Vì vậy với ba remote, bạn có <code>origin/main</code>, <code>upstream/main</code> và <code>staging/main</code> cùng tồn tại, mỗi cái là bản chụp của một server.</p>
+<p>Một vài nguyên tắc khi có nhiều remote:</p>
+<ul>
+<li><strong>Push luôn cần đích rõ ràng</strong>. <code>git push</code> không tham số đẩy tới upstream của nhánh hiện tại (hoặc <code>remote.pushDefault</code> nếu bạn cấu hình, cho nhánh đã có upstream). Khi đẩy nơi khác, ghi tên remote: <code>git push staging main</code>.</li>
+<li><strong>Fetch có thể gom</strong>. <code>git fetch --all</code> lần lượt fetch từng remote; <code>git fetch &lt;tên&gt;</code> chỉ một.</li>
+<li><strong>URL fetch và push có thể khác nhau</strong>. <code>git remote set-url --push</code> đặt URL riêng cho push. Một mẹo phổ biến là đặt push URL của <code>upstream</code> thành một chuỗi vô nghĩa, để lỡ tay <code>git push upstream</code> sẽ thất bại thay vì đẩy vào dự án gốc.</li>
+<li><strong>Nhánh local không tự gắn với remote nào</strong>. Upstream của từng nhánh quyết định <code>git pull</code> và <code>git push</code> dùng remote nào.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph L[&quot;Repository local&quot;]
+    M[&quot;main&quot;]
+    O[&quot;origin/main&quot;]
+    U[&quot;upstream/main&quot;]
+    S[&quot;staging/main&quot;]
+  end
+  RO[&quot;fork.git&quot;] -- &quot;fetch&quot; --&gt; O
+  RU[&quot;goc.git&quot;] -- &quot;fetch&quot; --&gt; U
+  RS[&quot;staging.git&quot;] -- &quot;fetch&quot; --&gt; S
+  M -- &quot;push origin&quot; --&gt; RO
+  M -- &quot;push staging&quot; --&gt; RS</pre>
+<pre class="mermaid">flowchart TD
+  P[&quot;git push upstream main&quot;] --&gt; Q{&quot;Push URL của upstream&quot;}
+  Q -- &quot;URL thật&quot; --&gt; A[&quot;Đẩy vào dự án gốc&quot;]
+  Q -- &quot;Chuỗi vô nghĩa&quot; --&gt; B[&quot;Thất bại, không có gì bị đẩy&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote                          # chỉ tên
+git remote -v                       # tên kèm URL fetch và push
+git remote add &lt;tên&gt; &lt;địa chỉ&gt;
+git remote get-url [--push] &lt;tên&gt;   # in URL của một remote
+git remote set-url --push &lt;tên&gt; &lt;URL&gt;   # URL riêng cho push
+git remote show &lt;tên&gt;               # chi tiết nhánh, upstream, trạng thái
+git fetch --all                     # fetch mọi remote
+git push &lt;remote&gt; &lt;nhánh&gt;           # đẩy tới remote chỉ định
+git branch -r                       # nhánh remote-tracking của mọi remote
+git config remote.pushDefault &lt;tên&gt; # remote mặc định khi push</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Mục đích</th>
+<th>Lệnh</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Xem có những remote nào và URL</td>
+<td><code>git remote -v</code></td>
+</tr>
+<tr>
+<td>Lấy dữ liệu từ tất cả</td>
+<td><code>git fetch --all</code></td>
+</tr>
+<tr>
+<td>Chặn push nhầm vào một remote</td>
+<td><code>git remote set-url --push &lt;tên&gt; &lt;chuỗi vô nghĩa&gt;</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository đã có <code>origin</code>. Thêm dự án gốc và một server staging:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add upstream ../goc.git
+git remote add staging ../staging.git
+git remote
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin
+staging
+upstream
+origin	../fork.git (fetch)
+origin	../fork.git (push)
+staging	../staging.git (fetch)
+staging	../staging.git (push)
+upstream	../goc.git (fetch)
+upstream	../goc.git (push)</code></pre></div>
+<p>Fetch từ tất cả:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Fetching origin
+Fetching upstream
+From ../goc
+ * [new branch]      main       -&gt; upstream/main
+Fetching staging</code></pre></div>
+<p>Staging còn trống nên chưa có gì để tải. Đẩy <code>main</code> sang staging:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push staging main
+git branch -r</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To ../staging.git
+ * [new branch]      main -&gt; main
+  origin/main
+  staging/main
+  upstream/main</code></pre></div>
+<p><code>staging/main</code> xuất hiện ngay sau push, vì push thành công cũng cập nhật nhánh remote-tracking tương ứng.</p>
+<p>Giờ chặn push nhầm vào dự án gốc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote set-url --push upstream KHONG_PUSH
+git remote -v
+git push upstream main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	../fork.git (fetch)
+origin	../fork.git (push)
+staging	../staging.git (fetch)
+staging	../staging.git (push)
+upstream	../goc.git (fetch)
+upstream	KHONG_PUSH (push)
+fatal: &#39;KHONG_PUSH&#39; does not appear to be a git repository
+fatal: Could not read from remote repository.</code></pre></div>
+<p>Fetch từ <code>upstream</code> vẫn hoạt động bình thường, vì URL fetch không đổi.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Push lên nhầm remote.</strong> Thói quen gõ <code>git push origin</code> có thể sai khi upstream của nhánh là remote khác. Đọc dòng <code>To ...</code> trong output, hoặc kiểm tra <code>git branch -vv</code> trước.</p>
+<p><strong>Nghĩ <code>origin/main</code> và <code>upstream/main</code> là một.</strong> Chúng là bản chụp của hai server khác nhau và có thể lệch nhau nhiều commit.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>git remote</code> chỉ in tên. Muốn thấy địa chỉ để chắc remote trỏ đúng chỗ, thêm <code>-v</code>.</p>
+</aside>
+<p><strong>Nhánh mới chưa có upstream.</strong> <code>git push</code> không tham số báo <code>fatal: The current branch test/x has no upstream branch.</code> dù đã cấu hình <code>remote.pushDefault</code> là <code>origin</code>. Với <code>push.default=simple</code>, khi bạn push vào chính remote mà nhánh sẽ pull từ đó (ở đây là <code>origin</code>), Git đòi nhánh phải có upstream. Lần đầu hãy push kèm <code>-u</code> và tên remote.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt tên remote theo vai trò (<code>upstream</code>, <code>staging</code>, <code>backup</code>) thay vì theo tên người hay tên máy, để lệnh tự giải thích.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA của bạn có repository kịch bản kiểm thử là fork của repository chung của khối ngân hàng số, và có thêm một server nội bộ mà hệ thống chạy test đêm lấy mã từ đó. Bạn đặt ba remote: <code>origin</code> cho fork, <code>upstream</code> cho repository chung (đã chặn push), <code>nightly</code> cho server chạy đêm. Mỗi chiều bạn đẩy nhánh ổn định lên <code>nightly</code> để test chạy qua đêm.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập đã có một remote, và cạnh đó có một bare repository khác. Bạn cần thêm remote thứ hai với tên quy ước cho dự án gốc mà không làm mất remote cũ. Sau khi làm, xác nhận rằng cả hai remote đều có mặt và địa chỉ của remote mới đúng là thư mục được chỉ định.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Một repository có thể có bao nhiêu remote tùy ý; mỗi cái có nhánh remote-tracking riêng.</li>
+<li><code>git remote -v</code> liệt kê tên kèm URL fetch và push.</li>
+<li><code>git fetch --all</code> lấy từ mọi remote; push luôn nên ghi rõ đích.</li>
+<li><code>set-url --push</code> tách URL push, dùng để chặn push nhầm.</li>
+<li>Upstream của từng nhánh quyết định <code>git pull</code> và <code>git push</code> mặc định đi đâu.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open multiple-remotes
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/personal-access-tokens.html" rel="prev"><small>Bài trước</small>Token truy cập cá nhân</a><a class="next" href="../remote/renaming-remotes.html" rel="next"><small>Bài sau</small>Đổi tên và xóa remote</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 6/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

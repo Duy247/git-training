@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Hook trước commit - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 6/12</span></p>
+<h1>Hook trước commit</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>pre-commit-hooks</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vai trò của hook chạy ngay trước khi Git ghi commit mới.</li>
+<li>Viết một hook kiểm tra phần đã stage và chặn commit khi có vấn đề.</li>
+<li>Biết vì sao hook local không đi theo khi clone và cách chia sẻ hook trong nhóm.</li>
+<li>Phân biệt hook Git gốc với các framework quản lý hook.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Trong các hook của Git, hook chạy trước khi tạo commit là hook được dùng nhiều nhất trong công việc hằng ngày. Nó là chốt chặn sớm nhất: lỗi bị bắt ở đây không bao giờ vào lịch sử, không lên CI, không tới tay reviewer.</p>
+<p>Git gọi hook này khi bạn chạy <code>git commit</code>, trước khi hỏi message. Hook nhận bối cảnh là repository hiện tại; nó có thể đọc index để biết những gì sắp được commit. Nếu hook thoát với mã 0, commit tiếp tục. Mã khác 0, commit bị hủy và mọi thứ vẫn nằm nguyên trong index để bạn sửa.</p>
+<p>Những việc phù hợp cho hook này:</p>
+<ul>
+<li>Kiểm tra lỗi khoảng trắng thừa, dấu xung đột còn sót (<code>git diff --cached --check</code> làm sẵn việc đó).</li>
+<li>Chạy linter hoặc formatter trên các tệp đã stage.</li>
+<li>Quét chuỗi trông giống mật khẩu, khóa API trong phần thêm mới.</li>
+<li>Chặn commit tệp quá lớn hoặc tệp không nên có trong repository.</li>
+</ul>
+<p>Một nguyên tắc quan trọng: kiểm tra phần đã stage, không phải working tree. Bạn có thể đang có thay đổi dở dang không định commit; hook không nên chặn vì chúng, và cũng không được bỏ sót lỗi trong những gì thật sự đi vào commit.</p>
+<p>Về chia sẻ: thư mục <code>.git/hooks</code> không phải là một phần của lịch sử, nên khi đồng nghiệp clone repository, họ chỉ nhận các tệp mẫu <code>.sample</code> mặc định. Đây là thiết kế có chủ đích về bảo mật: clone một repository không được tự chạy mã của người khác trên máy bạn. Để dùng chung, nhóm thường:</p>
+<ul>
+<li>Commit script vào một thư mục như <code>.githooks</code> và mỗi người tự chạy <code>git config core.hooksPath .githooks</code> (ghi trong README).</li>
+<li>Dùng framework quản lý hook. Trong hệ Python có công cụ tên pre-commit, đọc cấu hình từ một tệp YAML trong repository và cài hook khi bạn chạy lệnh cài đặt. Trong hệ Node có Husky (bài sau). Dù dùng công cụ nào, mỗi người vẫn phải chủ động chạy bước cài đặt một lần.</li>
+</ul>
+<p>Trong ứng dụng luyện tập này, bài này được đánh dấu mô phỏng: app không cài framework hook nào cho bạn, và câu hỏi là câu hỏi kiến thức. Các ví dụ dưới đây dùng hook Git gốc, chạy được trong repository bài tập.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant U as Bạn
+  participant G as Git
+  participant H as Hook trước commit
+  U-&gt;&gt;G: git commit
+  G-&gt;&gt;H: chạy hook
+  H-&gt;&gt;G: đọc phần đã stage
+  alt có lỗi
+    H--&gt;&gt;G: thoát mã 1
+    G--&gt;&gt;U: hủy commit, index giữ nguyên
+  else không lỗi
+    H--&gt;&gt;G: thoát mã 0
+    G--&gt;&gt;U: hỏi message và ghi commit
+  end</pre>
+<pre class="mermaid">flowchart LR
+  R[&quot;Repository gốc có .git/hooks/pre-commit&quot;] --&gt;|&quot;git clone&quot;| C[&quot;Bản clone chỉ có tệp .sample&quot;]
+  D[&quot;Thư mục .githooks đã commit&quot;] --&gt;|&quot;git clone&quot;| C2[&quot;Bản clone có script&quot;]
+  C2 --&gt;|&quot;mỗi người tự đặt core.hooksPath&quot;| A[&quot;Hook hoạt động&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Kiểm tra lỗi khoảng trắng và dấu xung đột trong phần đã stage
+git diff --cached --check
+
+# Xem các dòng thêm mới trong phần đã stage, không kèm ngữ cảnh
+git diff --cached -U0
+
+# Bật hook: tạo tệp đúng tên và cấp quyền chạy
+chmod +x .git/hooks/pre-commit
+
+# Dùng thư mục hook chung đã commit
+git config core.hooksPath .githooks
+
+# Bỏ qua hook một lần (cân nhắc kỹ)
+git commit --no-verify -m &quot;...&quot;</code></pre></div>
+<p>Một hook mẫu, lưu ở <code>.git/hooks/pre-commit</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">#!/bin/sh
+# Chặn commit nếu phần đã stage có lỗi khoảng trắng hoặc chuỗi giống khóa bí mật
+git diff --cached --check || exit 1
+if git diff --cached -U0 | grep -E &#39;^\+.*(API_KEY|SECRET)=&#39; &gt;/dev/null; then
+  echo &quot;pre-commit: phát hiện chuỗi giống khóa bí mật trong phần đã stage&quot; &gt;&amp;2
+  exit 1
+fi</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Với hook mẫu ở trên, mình stage một tệp cấu hình có khoảng trắng thừa cuối dòng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add env.txt
+git commit -m &quot;test: thêm cấu hình&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">env.txt:1: trailing whitespace.
++BASE_URL=https://uat.example.invalid </code></pre></div>
+<p>Commit bị hủy. Sửa khoảng trắng nhưng lỡ thêm một dòng khóa:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">pre-commit: phát hiện chuỗi giống khóa bí mật trong phần đã stage</code></pre></div>
+<p>Bỏ dòng khóa, stage lại, commit thành công:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 7ee0647] test: thêm cấu hình
+ 1 file changed, 1 insertion(+)
+ create mode 100644 env.txt</code></pre></div>
+<p>Giờ clone repository này sang thư mục khác và xem thư mục hook:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone -q r r2
+ls r2/.git/hooks</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">applypatch-msg.sample
+commit-msg.sample
+fsmonitor-watchman.sample
+post-update.sample
+pre-applypatch.sample
+pre-commit.sample
+pre-merge-commit.sample
+pre-push.sample
+pre-rebase.sample
+pre-receive.sample
+prepare-commit-msg.sample
+push-to-checkout.sample
+sendemail-validate.sample
+update.sample</code></pre></div>
+<p>Không có hook mình vừa viết, chỉ có mẫu mặc định. Mẫu <code>pre-commit.sample</code> thật ra cũng dùng cơ chế kiểm tra khoảng trắng tương tự (<code>git diff-index --check --cached</code>).</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Quét chuỗi bằng regex chỉ là lưới thô. Nó không thay được công cụ quét bí mật chuyên dụng ở CI, và càng không thay được việc đừng bao giờ đặt khóa thật vào mã.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Hook kiểm tra working tree.</strong> Dùng <code>git diff</code> thay vì <code>git diff --cached</code> khiến hook chặn nhầm vì thay đổi chưa định commit, hoặc bỏ sót lỗi đã stage.</p>
+<p><strong>Hook chậm.</strong> Chạy toàn bộ test trong hook này khiến mọi người quen tay <code>--no-verify</code>. Chỉ chạy kiểm tra nhanh trên tệp đã stage.</p>
+<p><strong>Quên quyền thực thi.</strong> Git bỏ qua hook và chỉ in gợi ý. Kiểm tra bằng <code>ls -l .git/hooks/pre-commit</code>.</p>
+<p><strong>Tưởng clone mang theo hook.</strong> Không. Ghi hướng dẫn cài hook trong README cho người mới.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Hook cục bộ là công cụ hỗ trợ, ai cũng bỏ qua được. Quy tắc bắt buộc phải được kiểm tra lại ở CI hoặc phía server.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Repository test API của nhóm bạn chứa nhiều tệp cấu hình môi trường UAT. Một lần, ai đó suýt commit tệp có mật khẩu tài khoản test. Nhóm thêm hook trước commit quét các dòng mới trong phần đã stage, kết hợp kiểm tra khoảng trắng. Script nằm trong <code>.githooks</code>, README hướng dẫn đặt <code>core.hooksPath</code>. CI vẫn chạy công cụ quét bí mật riêng cho mọi pull request.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi và được đánh dấu mô phỏng trong app: không có nhiệm vụ trạng thái Git, không cài framework hook. Câu hỏi hỏi tên hook chạy trước khi Git ghi commit mới. Hãy ôn thứ tự hook khi commit (bài hook ở track nâng cao có sơ đồ đầy đủ).</p>
+<p>Nếu muốn thử, tạo hook mẫu ở trên trong repository bài tập, stage một dòng có khoảng trắng thừa và quan sát commit bị chặn.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Hook trước commit là chốt chặn sớm nhất, chạy trước khi Git hỏi message.</li>
+<li>Mã thoát khác 0 hủy commit, index giữ nguyên.</li>
+<li>Kiểm tra phần đã stage, không phải working tree.</li>
+<li><code>.git/hooks</code> không đi theo clone; chia sẻ qua <code>core.hooksPath</code> hoặc framework.</li>
+<li>Hook cục bộ bỏ qua được, nên CI vẫn phải kiểm tra lại.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open pre-commit-hooks
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/conventional-commits.html" rel="prev"><small>Bài trước</small>Thông điệp commit có cấu trúc</a><a class="next" href="../daily-workflows/husky-lint-staged.html" rel="next"><small>Bài sau</small>Husky và lint-staged mô phỏng</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 6/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

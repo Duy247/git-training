@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Clone thiếu blob - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 11/13</span></p>
+<h1>Clone thiếu blob</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>partial-clones</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu partial clone tải đủ đồ thị commit nhưng hoãn tải một số object.</li>
+<li>Dùng bộ lọc <code>--filter</code> khi clone và biết các bộ lọc phổ biến.</li>
+<li>Thấy Git tự tải object thiếu khi cần, và cách liệt kê object còn thiếu.</li>
+<li>Phân biệt partial clone, shallow clone và sparse checkout.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Clone bình thường tải mọi object: mọi commit, mọi tree, mọi phiên bản của mọi tệp từng tồn tại. Với repository có nhiều tệp nhị phân lớn hoặc lịch sử dài nhiều năm, việc này tốn thời gian và dung lượng, trong khi bạn chủ yếu chỉ cần nội dung hiện tại.</p>
+<p>Partial clone cho phép yêu cầu server bỏ bớt một số object khi clone, theo một bộ lọc. Bộ lọc hay dùng nhất là bỏ mọi blob (nội dung tệp). Git vẫn tải đầy đủ commit và tree, nên <code>git log</code>, <code>git log -- &lt;đường dẫn&gt;</code>, <code>git merge-base</code> vẫn chạy bình thường. Chỉ khi một lệnh cần nội dung tệp cụ thể, như checkout, <code>git show &lt;commit&gt;:&lt;tệp&gt;</code> hay <code>git diff</code> giữa hai phiên bản cũ, Git mới đi hỏi remote để tải đúng blob đó.</p>
+<p>Remote gốc được đánh dấu là &quot;promisor remote&quot;: nơi đã hứa sẽ cung cấp object còn thiếu khi được hỏi. Git ghi điều này vào cấu hình (<code>remote.origin.promisor</code> và <code>remote.origin.partialclonefilter</code>), và các packfile tải về kèm tệp <code>.promisor</code>.</p>
+<p>Lưu ý ngay khi clone, Git vẫn cần nội dung của commit được checkout, nên nó tải luôn các blob của snapshot hiện tại. Thứ bị hoãn là blob của các phiên bản cũ.</p>
+<p>Các bộ lọc thường gặp:</p>
+<ul>
+<li><code>blob:none</code>: bỏ mọi blob. Phổ biến nhất cho máy dev.</li>
+<li><code>blob:limit=&lt;cỡ&gt;</code>: chỉ bỏ blob lớn hơn ngưỡng, ví dụ <code>blob:limit=1m</code>.</li>
+<li><code>tree:0</code>: bỏ cả tree lẫn blob, chỉ giữ commit. Hợp với máy build chỉ cần một lần checkout.</li>
+</ul>
+<p>Server phải hỗ trợ bộ lọc. Các dịch vụ lớn như GitHub và GitLab hỗ trợ. Với repository local, có hai điểm cần biết, và đây là lý do khái niệm của bài nói &quot;một số remote local không hỗ trợ filter&quot;:</p>
+<ul>
+<li>Clone bằng đường dẫn thường (không có <code>file://</code>) dùng cơ chế sao chép local, Git bỏ qua bộ lọc và cảnh báo.</li>
+<li>Clone bằng <code>file://</code> thì đi qua giao thức thật, nhưng repository nguồn phải bật <code>uploadpack.allowFilter</code>.</li>
+</ul>
+<p>So sánh với hai khái niệm dễ nhầm: shallow clone (<code>--depth</code>) cắt bớt lịch sử commit, nên <code>git log</code> chỉ thấy vài commit gần nhất. Partial clone giữ đủ lịch sử, chỉ hoãn nội dung. Sparse checkout thì không đụng gì đến việc tải, chỉ quyết định tệp nào được ghi ra đĩa.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph S[&quot;Server: promisor remote&quot;]
+    SC[&quot;Commit&quot;]
+    ST[&quot;Tree&quot;]
+    SB[&quot;Blob mọi phiên bản&quot;]
+  end
+  subgraph L[&quot;Bản partial clone&quot;]
+    LC[&quot;Commit đầy đủ&quot;]
+    LT[&quot;Tree đầy đủ&quot;]
+    LB[&quot;Blob của HEAD&quot;]
+  end
+  SC --&gt; LC
+  ST --&gt; LT
+  SB --&gt;|&quot;chỉ blob cần cho checkout&quot;| LB
+  L --&gt;|&quot;cần blob cũ thì hỏi&quot;| S</pre>
+<pre class="mermaid">sequenceDiagram
+  participant U as Bạn
+  participant G as Git local
+  participant R as Promisor remote
+  U-&gt;&gt;G: git show HEAD~2:report.csv
+  G-&gt;&gt;G: tìm blob, không thấy
+  G-&gt;&gt;R: xin đúng blob còn thiếu
+  R--&gt;&gt;G: gửi pack nhỏ
+  G--&gt;&gt;U: in nội dung tệp</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Clone bỏ mọi blob, tải dần khi cần
+git clone --filter=blob:none &lt;url&gt;
+
+# Chỉ bỏ blob lớn hơn 1 MiB
+git clone --filter=blob:limit=1m &lt;url&gt;
+
+# Bỏ cả tree, chỉ giữ commit
+git clone --filter=tree:0 &lt;url&gt;
+
+# Với repository local: dùng file:// và cho phép filter ở nguồn
+git -C &lt;nguồn&gt; config uploadpack.allowFilter true
+git clone --filter=blob:none file:///duong/dan/nguon
+
+# Liệt kê object đang thiếu (dòng bắt đầu bằng dấu hỏi)
+git rev-list --objects --all --missing=print | grep &#39;^?&#39;
+
+# Xem cấu hình promisor
+git config --get remote.origin.promisor
+git config --get remote.origin.partialclonefilter</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Kiểu</th>
+<th>Tùy chọn</th>
+<th>Lịch sử commit</th>
+<th>Nội dung tệp</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Clone đầy đủ</td>
+<td>không</td>
+<td>Đủ</td>
+<td>Đủ</td>
+</tr>
+<tr>
+<td>Partial clone</td>
+<td><code>--filter=...</code></td>
+<td>Đủ</td>
+<td>Tải khi cần</td>
+</tr>
+<tr>
+<td>Shallow clone</td>
+<td><code>--depth N</code></td>
+<td>Chỉ N commit</td>
+<td>Của N commit đó</td>
+</tr>
+<tr>
+<td>Sparse checkout</td>
+<td>sau khi clone</td>
+<td>Đủ</td>
+<td>Đủ, chỉ ẩn trên đĩa</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository nguồn có <code>report.csv</code> được sửa qua ba commit. Thử clone bằng đường dẫn thường:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone --filter=blob:none /tmp/pb/x/w5/src local-path</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Cloning into &#39;local-path&#39;...
+warning: --filter is ignored in local clones; use file:// instead.
+done.</code></pre></div>
+<p>Dùng <code>file://</code> nhưng nguồn chưa cho phép filter:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone --filter=blob:none file:///tmp/pb/x/w5/src via-file</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Cloning into &#39;via-file&#39;...
+warning: filtering not recognized by server, ignoring</code></pre></div>
+<p>Bật <code>uploadpack.allowFilter</code> ở nguồn rồi clone lại (đường dẫn và ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -C /tmp/pb/x/w6/src config uploadpack.allowFilter true
+git clone --filter=blob:none file:///tmp/pb/x/w6/src pc
+cd pc
+git rev-list --objects --all --missing=print | grep &#39;^?&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">?4fec2dade6fd430696e586310af90eb01578ec68
+?7a6db1df5a613c034c6c709039d1e3c92db1745e</code></pre></div>
+<p>Hai blob của hai phiên bản cũ đang thiếu. Lịch sử vẫn đủ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">e613ff5 Báo cáo 3
+7c62b09 Báo cáo 2
+89e8c71 Báo cáo 1
+2fe0c46 Khởi tạo</code></pre></div>
+<p>Đọc phiên bản cũ nhất; Git tự tải blob đó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show HEAD~2:report.csv
+git rev-list --objects --all --missing=print | grep &#39;^?&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">báo cáo phiên bản 1
+?7a6db1df5a613c034c6c709039d1e3c92db1745e</code></pre></div>
+<p>Chỉ còn một blob thiếu. Thư mục pack có thêm các tệp <code>.promisor</code> đi kèm từng pack tải từ promisor remote.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Partial clone cần kết nối tới remote mỗi khi phải tải object thiếu. Nếu bạn làm việc offline, các lệnh cần blob cũ sẽ thất bại.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Bộ lọc bị bỏ qua mà không để ý.</strong> Với repository local, đọc kỹ cảnh báo: dùng <code>file://</code> và bật <code>uploadpack.allowFilter</code> ở nguồn.</p>
+<p><strong>Chạy lệnh quét toàn bộ lịch sử.</strong> <code>git log -p</code> hay <code>git blame</code> trên tệp có nhiều phiên bản sẽ tải dần từng blob, có thể chậm. Đó là đánh đổi của partial clone.</p>
+<p><strong>Nhầm với shallow clone.</strong> Shallow clone thiếu commit; partial clone thiếu nội dung. Nếu <code>git log</code> chỉ hiện một commit, bạn đang ở shallow clone.</p>
+<p><strong>Mất remote promisor.</strong> Đổi URL hoặc xóa remote origin khiến Git không biết hỏi ai. Giữ remote promisor ổn định trong suốt vòng đời bản clone.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Repository dự án app ngân hàng có thư mục ảnh chụp màn hình chuẩn cho visual test, mỗi lần cập nhật giao diện thêm hàng trăm ảnh mới. Clone đầy đủ mất vài GB. Nhóm QA dùng partial clone bỏ blob cho máy cá nhân: lịch sử đầy đủ để bisect và đọc log, ảnh chỉ tải khi một test thực sự cần so sánh. Máy CI chạy một lần rồi xóa thì dùng bộ lọc mạnh hơn để giảm thời gian chuẩn bị.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi tên bộ lọc dùng lúc clone để bỏ qua nội dung tệp. Hãy ôn lại danh sách bộ lọc ở trên và hiểu bộ lọc nào bỏ những gì. Câu trả lời ở dạng giá trị đưa sau <code>--filter=</code>; app chấp nhận cả dạng có tiền tố tùy chọn.</p>
+<p>Nếu muốn tự thử, làm theo ví dụ trong một thư mục tạm: nhớ <code>file://</code> và <code>uploadpack.allowFilter</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Partial clone giữ đủ commit và tree, hoãn tải blob tới khi cần.</li>
+<li>Remote gốc là promisor remote, nơi Git hỏi khi thiếu object.</li>
+<li>Bộ lọc phổ biến: bỏ mọi blob, bỏ blob lớn, bỏ cả tree.</li>
+<li>Clone local cần <code>file://</code> và <code>uploadpack.allowFilter</code> để bộ lọc có tác dụng.</li>
+<li>Partial clone khác shallow clone (thiếu commit) và sparse checkout (ẩn tệp).</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open partial-clones
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/sparse-checkout.html" rel="prev"><small>Bài trước</small>Checkout thưa</a><a class="next" href="../advanced/custom-refs.html" rel="next"><small>Bài sau</small>Ref tùy chỉnh</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 11/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

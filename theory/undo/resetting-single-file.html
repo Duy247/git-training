@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Hoàn tác một tệp - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 8/12</span></p>
+<h1>Hoàn tác một tệp</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>resetting-single-file</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Bỏ sửa đổi của đúng một tệp mà không đụng tới các tệp khác.</li>
+<li>Phân biệt khôi phục working tree, khôi phục index và khôi phục cả hai.</li>
+<li>Lấy một tệp từ commit cũ hơn HEAD.</li>
+<li>Nhận ra những lệnh có phạm vi quá rộng như <code>git restore .</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn đang sửa hai tệp. Một tệp đi đúng hướng, tệp kia bạn thử nghiệm và muốn bỏ. Các lệnh như <code>git reset --hard</code> hay <code>git stash</code> tác động tới <strong>mọi</strong> tệp, quá thô cho việc này. Thứ bạn cần là thao tác có <strong>pathspec</strong>: chỉ đích danh tệp cần hoàn tác.</p>
+<p><code>git restore</code> được thiết kế cho đúng việc đó. Nó chép nội dung một tệp từ một <strong>nguồn</strong> vào một hoặc hai <strong>đích</strong>:</p>
+<ul>
+<li>Đích mặc định là <strong>working tree</strong>. Nguồn mặc định khi đó là <strong>index</strong>. Vì vậy <code>git restore cau-hinh.txt</code> khi chưa stage gì sẽ đưa tệp về đúng như HEAD (vì index đang giống HEAD).</li>
+<li>Với <code>--staged</code>, đích là <strong>index</strong>, nguồn mặc định là <strong>HEAD</strong>. Đây là cách &quot;unstage&quot;: bỏ tệp khỏi phần đã stage mà giữ nguyên sửa đổi trong working tree.</li>
+<li>Với <code>--staged --worktree</code> (viết tắt <code>-SW</code>), cả index lẫn working tree đều được ghi đè từ HEAD.</li>
+<li><code>--source=&lt;commit&gt;</code> đổi nguồn sang commit bất kỳ, ví dụ lấy lại phiên bản của một tệp từ hai commit trước.</li>
+</ul>
+<p>Điểm then chốt: chỉ những đường dẫn bạn truyền vào mới bị đụng tới. Tệp khác giữ nguyên, dù chúng đang được sửa hay đã stage.</p>
+<p>Trước Git 2.23, cùng việc này được làm bằng <code>git checkout -- &lt;tệp&gt;</code> (bỏ sửa đổi) và <code>git reset HEAD &lt;tệp&gt;</code> (unstage). Các lệnh đó vẫn hoạt động và bạn sẽ gặp trong tài liệu cũ, nhưng <code>checkout</code> vừa chuyển nhánh vừa khôi phục tệp nên dễ nhầm; <code>restore</code> tách riêng việc khôi phục.</p>
+<p>Một chú ý quan trọng: khôi phục working tree là <strong>ghi đè không hỏi</strong>. Sửa đổi chưa commit của tệp đó biến mất và không có trong reflog.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  H[&quot;HEAD&quot;] -- &quot;restore --staged&quot; --&gt; I[&quot;Index&quot;]
+  I -- &quot;restore&quot; --&gt; W[&quot;Working tree&quot;]
+  H -- &quot;restore -SW&quot; --&gt; W
+  C[&quot;Commit cũ&quot;] -- &quot;restore --source&quot; --&gt; W</pre>
+<pre class="mermaid">flowchart TD
+  A[&quot;cau-hinh.txt sửa sai, ca-test.txt đang làm&quot;] --&gt; B[&quot;git restore cau-hinh.txt&quot;]
+  B --&gt; C[&quot;cau-hinh.txt như HEAD&quot;]
+  B --&gt; D[&quot;ca-test.txt giữ nguyên sửa đổi&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore &lt;tệp&gt;                       # bỏ sửa đổi chưa stage của tệp
+git restore --staged &lt;tệp&gt;              # unstage, giữ sửa đổi trong working tree
+git restore -SW &lt;tệp&gt;                   # đưa cả index và working tree về HEAD
+git restore --source=&lt;commit&gt; &lt;tệp&gt;     # lấy nội dung tệp từ commit khác
+git restore -p &lt;tệp&gt;                    # chọn từng hunk để bỏ
+git checkout -- &lt;tệp&gt;                   # cách cũ, tương đương git restore &lt;tệp&gt;</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Nguồn</th>
+<th>Đích</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git restore f</code></td>
+<td>Index</td>
+<td>Working tree</td>
+</tr>
+<tr>
+<td><code>git restore --staged f</code></td>
+<td>HEAD</td>
+<td>Index</td>
+</tr>
+<tr>
+<td><code>git restore -SW f</code></td>
+<td>HEAD</td>
+<td>Index và working tree</td>
+</tr>
+<tr>
+<td><code>git restore --source=X f</code></td>
+<td>Commit X</td>
+<td>Working tree</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Hai tệp đang sửa. <code>cau-hinh.txt</code> mình lỡ đặt <code>timeout=999</code>, còn <code>ca-test.txt</code> đang viết thêm ca kiểm thử và cần giữ.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -s
+git restore cau-hinh.txt
+git status -s
+cat cau-hinh.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M ca-test.txt
+ M cau-hinh.txt
+ M ca-test.txt
+timeout=60</code></pre></div>
+<p>Chỉ <code>cau-hinh.txt</code> quay về như HEAD. Giờ giả sử mình đã stage giá trị sai rồi mới nhận ra:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -s
+git restore --staged cau-hinh.txt
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M ca-test.txt
+M  cau-hinh.txt
+ M ca-test.txt
+ M cau-hinh.txt</code></pre></div>
+<p>Chữ <code>M</code> chuyển từ cột trái (index) sang cột phải (working tree): tệp được unstage, sửa đổi vẫn còn.</p>
+<p>Lấy phiên bản của commit trước nữa (trước &quot;Tăng timeout&quot;):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore --source=HEAD~1 cau-hinh.txt
+git diff cau-hinh.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">--- a/cau-hinh.txt
++++ b/cau-hinh.txt
+@@ -1 +1 @@
+-timeout=60
++timeout=30</code></pre></div>
+<p>(Output đã rút gọn phần header.) Chỉ working tree thay đổi; muốn đưa luôn vào index thì thêm <code>--staged --worktree</code>, khi đó <code>git status -s</code> hiện <code>M  cau-hinh.txt</code>.</p>
+<p>Gõ sai tên tệp thì Git từ chối, không làm gì:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: pathspec &#39;khong-co.txt&#39; did not match any file(s) known to git</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>git restore .</code> cho nhanh.</strong> Dấu chấm là pathspec của cả thư mục. Trong thử nghiệm của mình, nó xóa luôn ca kiểm thử đang viết ở <code>ca-test.txt</code>. Luôn gõ đích danh tệp.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git restore &lt;tệp&gt;</code> ghi đè working tree mà không hỏi, và sửa đổi bị bỏ không vào reflog. Nếu chưa chắc, chạy <code>git diff &lt;tệp&gt;</code> trước, hoặc <code>git stash push &lt;tệp&gt;</code> để cất tạm.</p>
+</aside>
+<p><strong>Nhầm <code>--staged</code> với bỏ sửa đổi.</strong> <code>--staged</code> chỉ đưa tệp ra khỏi index; nội dung sai vẫn nằm trong working tree.</p>
+<p><strong>Dùng <code>git reset --hard</code> cho một tệp.</strong> <code>reset --hard</code> không nhận pathspec (Git báo <code>fatal: Cannot do hard reset with paths.</code>), và nếu bỏ pathspec thì mọi tệp đều bị ảnh hưởng.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git restore -p &lt;tệp&gt;</code> cho bạn duyệt từng hunk và chỉ bỏ những đoạn không muốn, khi một tệp có cả sửa đổi tốt lẫn xấu.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn đang viết thêm ca kiểm thử cho màn hình mở tài khoản trực tuyến, đồng thời chỉnh tạm tệp cấu hình môi trường để trỏ vào máy chủ giả lập. Trước khi commit, bạn khôi phục riêng tệp cấu hình về như HEAD để không đẩy địa chỉ máy giả lập lên, còn tệp ca kiểm thử giữ nguyên để commit.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có hai tệp cùng đang bị sửa: một tệp cần quay về như HEAD, tệp còn lại phải giữ nguyên sửa đổi. Hãy dùng <code>git status -s</code> trước và sau để chắc chỉ tệp được yêu cầu thay đổi trạng thái, và tệp kia vẫn hiện là modified.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git restore &lt;tệp&gt;</code> bỏ sửa đổi của đúng tệp đó, lấy từ index.</li>
+<li><code>--staged</code> unstage; <code>-SW</code> đưa cả hai về HEAD; <code>--source</code> lấy từ commit khác.</li>
+<li>Pathspec quyết định phạm vi; tránh <code>.</code> khi chỉ muốn một tệp.</li>
+<li>Ghi đè working tree không thể hoàn tác bằng reflog.</li>
+<li><code>git checkout -- &lt;tệp&gt;</code> là cách cũ, vẫn dùng được.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open resetting-single-file
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/fix-last-message.html" rel="prev"><small>Bài trước</small>Sửa thông điệp cuối</a><a class="next" href="../undo/detached-head.html" rel="next"><small>Bài sau</small>Cứu commit khi detached HEAD</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 8/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

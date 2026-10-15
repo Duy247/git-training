@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Theo lịch sử qua đổi tên - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 7/10</span></p>
+<h1>Theo lịch sử qua đổi tên</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>file-history-renames</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu Git không lưu &quot;sự kiện đổi tên&quot; mà suy ra đổi tên bằng so sánh nội dung.</li>
+<li>Dùng <code>git log --follow</code> để xem lịch sử một tệp xuyên qua các lần đổi tên.</li>
+<li>Đọc chỉ số tương đồng như <code>R100</code>, <code>R056</code> trong output.</li>
+<li>Biết giới hạn của <code>--follow</code> và mẹo giúp Git nhận đổi tên chính xác hơn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bài mô hình object cho thấy blob không chứa tên tệp, còn tree chỉ ghi &quot;tên này trỏ tới blob kia&quot;. Khi bạn đổi <code>config.txt</code> thành <code>conf/app.conf</code>, commit mới đơn giản là có một tree không còn tên cũ và có tên mới. Git <strong>không ghi</strong> một bản ghi &quot;đã đổi tên&quot; nào cả.</p>
+<p>Vậy làm sao Git biết đó là đổi tên? Khi so sánh hai snapshot, nếu thấy một đường dẫn biến mất và một đường dẫn mới xuất hiện với nội dung <strong>đủ giống</strong>, Git kết luận đó là đổi tên. Mức giống được tính thành phần trăm: <code>R100</code> là giống hoàn toàn, <code>R056</code> là giống 56 phần trăm. Ngưỡng mặc định là 50 phần trăm. Đây gọi là <strong>phát hiện đổi tên</strong> (rename detection), bật mặc định cho <code>git diff</code>, <code>git log -p</code>, <code>git show</code> và <code>git status</code> trong Git hiện đại.</p>
+<p>Vấn đề nằm ở lệnh <code>git log -- &lt;đường-dẫn&gt;</code>. Nó lọc commit theo <strong>đường dẫn đó</strong>. Với tên mới <code>conf/app.conf</code>, lịch sử chỉ bắt đầu từ commit đổi tên; mọi commit trước đó chạm vào <code>config.txt</code>, không phải <code>conf/app.conf</code>. Bạn mất nửa câu chuyện.</p>
+<p><code>git log --follow -- &lt;tệp&gt;</code> giải quyết đúng việc này: khi đi ngược lịch sử và gặp commit tạo ra tệp, nó kiểm tra xem đó có phải đổi tên từ tệp khác không, nếu có thì tiếp tục theo tên cũ. Kết hợp với <code>--name-status</code>, bạn thấy cả dòng <code>R100 config.txt conf/app.conf</code> đánh dấu chỗ đổi tên.</p>
+<p>Giới hạn cần biết:</p>
+<ul>
+<li><code>--follow</code> chỉ áp dụng cho <strong>một tệp</strong>, không cho thư mục hay nhiều đường dẫn.</li>
+<li>Nếu bạn vừa đổi tên vừa sửa nhiều nội dung trong cùng commit, độ tương đồng có thể dưới ngưỡng và Git coi là xóa tệp cũ, thêm tệp mới. Mẹo: đổi tên trong một commit riêng (như <code>git mv</code> rồi commit), sửa nội dung ở commit sau.</li>
+<li><code>git blame</code> tự theo đổi tên trong lịch sử của chính tệp, nên bạn thấy cột tên cũ trong output.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;c48be0e: config.txt&quot;] --&gt; B[&quot;a6a4f2b: config.txt&quot;]
+  B --&gt; C[&quot;409d8ac: config.txt&quot;]
+  C --&gt; D[&quot;54d864d: đổi tên R100&quot;]
+  D --&gt; E[&quot;eedf5e9: conf/app.conf&quot;]
+  P[&quot;git log -- conf/app.conf&quot;] -.-&gt;|&quot;chỉ thấy&quot;| D
+  P -.-&gt;|&quot;chỉ thấy&quot;| E
+  F[&quot;git log --follow&quot;] -.-&gt;|&quot;thấy toàn bộ&quot;| A</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline -- &lt;tệp&gt;                  # chỉ lịch sử dưới tên hiện tại
+git log --oneline --follow -- &lt;tệp&gt;         # theo qua đổi tên
+git log --follow --name-status --format=&quot;%h %s&quot; -- &lt;tệp&gt;  # thấy dòng R
+git diff --name-status &lt;a&gt; &lt;b&gt;              # phát hiện đổi tên giữa hai commit
+git diff --no-renames --name-status &lt;a&gt; &lt;b&gt; # tắt phát hiện, thấy D và A
+git diff -M30% --name-status &lt;a&gt; &lt;b&gt;        # hạ ngưỡng tương đồng xuống 30 phần trăm
+git mv &lt;cũ&gt; &lt;mới&gt;                           # đổi tên và stage một lần</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Ký hiệu</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>R100</code></td>
+<td>Đổi tên, nội dung giống hoàn toàn</td>
+</tr>
+<tr>
+<td><code>R056</code></td>
+<td>Đổi tên, giống 56 phần trăm</td>
+</tr>
+<tr>
+<td><code>D</code> rồi <code>A</code></td>
+<td>Git coi là xóa và thêm, không nhận ra đổi tên</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tệp cấu hình trong repository mẫu từng tên <code>config.txt</code>, sau đó được chuyển vào <code>conf/app.conf</code>. Hỏi lịch sử theo tên mới:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline -- conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+54d864d Chuyển cấu hình vào conf</code></pre></div>
+<p>Chỉ hai commit. Thêm <code>--follow</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --follow -- conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+54d864d Chuyển cấu hình vào conf
+409d8ac Giảm timeout cho nhanh
+b14bd70 Đổi môi trường sang uat
+a6a4f2b Tăng timeout
+b622b70 Thêm khóa demo
+c48be0e Tạo cấu hình</code></pre></div>
+<p>Đủ bảy commit. Xem chỗ đổi tên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --follow --name-status --format=&quot;%h %s&quot; -- conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+
+M	conf/app.conf
+54d864d Chuyển cấu hình vào conf
+
+R100	config.txt	conf/app.conf
+409d8ac Giảm timeout cho nhanh
+
+M	config.txt
+...</code></pre></div>
+<p>Dòng <code>R100</code> cho biết tên cũ. So sánh qua nhiều commit, khi nội dung cũng đã đổi:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --name-status HEAD~3 HEAD
+git diff --no-renames --name-status HEAD~3 HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">R056	config.txt	conf/app.conf
+M	login_test.txt
+A	conf/app.conf
+D	config.txt
+M	login_test.txt</code></pre></div>
+<p>Tắt phát hiện đổi tên, bạn thấy đúng bản chất mà Git lưu: một tên biến mất, một tên xuất hiện.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Kết luận &quot;tệp này mới được tạo tuần trước&quot;.</strong> Thật ra chỉ là tên mới. Luôn thử <code>--follow</code> khi lịch sử ngắn bất thường.</p>
+<p><strong>Đổi tên và sửa lớn trong cùng commit.</strong> Git không nhận ra đổi tên, lịch sử bị cắt đôi. Tách thành hai commit.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn <code>git log</code> luôn theo đổi tên khi bạn chỉ định một tệp, đặt <code>git config log.follow true</code>. Nó chỉ có tác dụng khi lệnh nhận đúng một đường dẫn.</p>
+</aside>
+<p><strong>Dùng <code>--follow</code> cho thư mục.</strong> Không được hỗ trợ; với thư mục, dùng <code>git log -- &lt;thư-mục-cũ&gt; &lt;thư-mục-mới&gt;</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Đổi tên bằng <code>mv</code> thường rồi <code>git add -A</code> cho cùng kết quả với <code>git mv</code>. Git không phân biệt hai cách, vì nó không lưu sự kiện đổi tên.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm tái cấu trúc thư mục test, chuyển <code>tests/login_spec.js</code> vào <code>tests/e2e/auth/login.spec.js</code>. Ba tháng sau, bạn cần biết test này từng bị tắt vì lý do gì. <code>git log -- tests/e2e/auth/login.spec.js</code> chỉ có vài commit gần đây, nhưng <code>git log --follow</code> dẫn bạn về tận commit &quot;tạm skip test login do môi trường SMS lỗi&quot; ở tên cũ. Bối cảnh đầy đủ giúp bạn quyết định bật lại test một cách tự tin.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có một tệp đã được đổi tên ở commit gần nhất. Câu hỏi hỏi tên trước khi đổi của tệp đó. Hãy:</p>
+<ul>
+<li>Dùng <code>git log --follow --name-status</code> trên tên hiện tại để thấy dòng đổi tên.</li>
+<li>Hoặc <code>git show --name-status</code> trên commit đổi tên.</li>
+<li>Đọc cột tên cũ trong dòng bắt đầu bằng <code>R</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Git không lưu sự kiện đổi tên; nó suy ra bằng độ tương đồng nội dung.</li>
+<li><code>git log -- &lt;tệp&gt;</code> chỉ theo tên hiện tại; <code>--follow</code> đi xuyên qua đổi tên.</li>
+<li><code>R100</code>, <code>R056</code> cho biết mức giống; ngưỡng mặc định 50 phần trăm.</li>
+<li>Đổi tên trong commit riêng giúp Git nhận diện chính xác.</li>
+<li><code>--follow</code> chỉ dùng cho một tệp.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open file-history-renames
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/inspecting-commits.html" rel="prev"><small>Bài trước</small>Xem chi tiết commit</a><a class="next" href="../inspection/pickaxe-detail.html" rel="next"><small>Bài sau</small>Pickaxe chuyên sâu</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 7/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

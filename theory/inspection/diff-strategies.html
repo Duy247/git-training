@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Các cách xem diff - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 9/10</span></p>
+<h1>Các cách xem diff</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>diff-strategies</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Chọn mức chi tiết phù hợp: từ một dòng tóm tắt đến diff từng từ.</li>
+<li>Dùng <code>--stat</code>, <code>--shortstat</code>, <code>--numstat</code>, <code>--name-only</code> để nắm phạm vi thay đổi.</li>
+<li>Dùng <code>--word-diff</code> để thấy chính xác phần nào trong dòng đã đổi.</li>
+<li>Lọc nhiễu khoảng trắng và giảm ngữ cảnh khi cần.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Diff mặc định của Git là &quot;unified diff&quot; theo dòng: mỗi dòng đổi hiện thành một dòng <code>-</code> và một dòng <code>+</code>, kèm ba dòng ngữ cảnh. Định dạng này tốt cho mã nguồn ngắn, nhưng không phải lúc nào cũng là cách đọc hiệu quả nhất. Git cho bạn nhiều &quot;ống kính&quot; khác nhau trên cùng một thay đổi.</p>
+<p><strong>Phạm vi trước, chi tiết sau.</strong> Khi review một commit lớn hay so sánh hai bản release, câu hỏi đầu tiên là &quot;đụng tới bao nhiêu thứ?&quot;. Các tùy chọn tóm tắt trả lời ngay:</p>
+<ul>
+<li><code>--stat</code>: mỗi tệp một dòng với số dòng thay đổi và thanh <code>+</code>/<code>-</code> minh họa, cuối cùng là tổng.</li>
+<li><code>--shortstat</code>: chỉ dòng tổng.</li>
+<li><code>--numstat</code>: số dòng thêm và bớt dạng cột, dễ xử lý bằng script.</li>
+<li><code>--name-only</code>, <code>--name-status</code>: chỉ tên tệp, hoặc kèm trạng thái.</li>
+</ul>
+<p><strong>Chi tiết trong dòng.</strong> Với tệp cấu hình, văn bản, dữ liệu test hay câu dài, đổi một từ cũng làm cả dòng hiện <code>-</code> và <code>+</code>, mắt phải tự dò chỗ khác. <code>--word-diff</code> hiển thị trên một dòng với phần bị xóa trong <code>[-...-]</code> và phần thêm trong <code>{+...+}</code>. Mặc định &quot;từ&quot; là chuỗi không chứa khoảng trắng; với <code>--word-diff-regex</code> bạn tự định nghĩa đơn vị so sánh, ví dụ tách theo dấu <code>=</code> để thấy riêng giá trị thay đổi. <code>--color-words</code> cho hiệu ứng tương tự bằng màu trên terminal. Dạng <code>--word-diff=porcelain</code> dành cho công cụ đọc.</p>
+<p><strong>Giảm nhiễu.</strong> <code>-w</code> bỏ qua mọi khác biệt khoảng trắng, hữu ích khi ai đó đổi thụt lề. <code>--check</code> thì ngược lại: chỉ ra khoảng trắng thừa cuối dòng và dấu xung đột còn sót. <code>-U&lt;n&gt;</code> đổi số dòng ngữ cảnh: <code>-U0</code> chỉ hiện dòng đổi, <code>-U10</code> hiện rộng hơn.</p>
+<p>Mọi tùy chọn này dùng được với <code>git diff</code>, <code>git show</code> và <code>git log -p</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;--shortstat: một dòng tổng&quot;] --&gt; B[&quot;--stat: theo tệp&quot;]
+  B --&gt; C[&quot;--name-status: loại thay đổi&quot;]
+  C --&gt; D[&quot;diff dòng mặc định&quot;]
+  D --&gt; E[&quot;--word-diff: trong dòng&quot;]
+  A -.-&gt;|&quot;từ tổng quan&quot;| E</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --stat &lt;a&gt; &lt;b&gt;           # thống kê theo tệp
+git diff --shortstat &lt;a&gt; &lt;b&gt;      # chỉ dòng tổng
+git diff --numstat &lt;a&gt; &lt;b&gt;        # cột thêm, bớt, tên tệp
+git diff --name-only &lt;a&gt; &lt;b&gt;      # chỉ tên tệp
+git show --word-diff &lt;commit&gt;     # diff theo từ
+git show --word-diff --word-diff-regex=&#39;[^=]+&#39; &lt;commit&gt;   # tự định nghĩa từ
+git diff --color-words            # tô màu theo từ
+git diff -w                       # bỏ qua khoảng trắng
+git diff --check                  # báo khoảng trắng thừa, dấu xung đột
+git diff -U0 &lt;a&gt; &lt;b&gt;              # không có dòng ngữ cảnh</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Trả lời câu hỏi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--shortstat</code></td>
+<td>Thay đổi lớn cỡ nào?</td>
+</tr>
+<tr>
+<td><code>--stat</code></td>
+<td>Tệp nào đổi nhiều nhất?</td>
+</tr>
+<tr>
+<td><code>--name-only</code></td>
+<td>Danh sách tệp để chạy lại test?</td>
+</tr>
+<tr>
+<td><code>--word-diff</code></td>
+<td>Chính xác từ nào đổi?</td>
+</tr>
+<tr>
+<td><code>-w</code></td>
+<td>Có thay đổi thật ngoài khoảng trắng không?</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>So sánh năm commit gần nhất của repository mẫu ở ba mức:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --shortstat HEAD~5 HEAD
+git diff --stat HEAD~5 HEAD
+git diff --numstat HEAD~5 HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> 3 files changed, 4 insertions(+), 4 deletions(-)
+ conf/app.conf  | 3 +++
+ config.txt     | 4 ----
+ login_test.txt | 1 +
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+3	0	conf/app.conf
+0	4	config.txt
+1	0	login_test.txt</code></pre></div>
+<p>Xem commit giảm timeout theo từ, mặc định rồi tự định nghĩa:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --format= --word-diff 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">...
+@@ -1,4 +1,4 @@
+env=uat
+[-timeout=60-]{+timeout=5+}
+retry=3
+API_KEY_DEMO=abc123</code></pre></div>
+<p><code>timeout=60</code> không có khoảng trắng nên được coi là một từ. Tách theo dấu <code>=</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --format= --word-diff --word-diff-regex=&#39;[^=]+&#39; 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">...
+env=uat
+timeout=[-60-]{+5+}
+retry=3
+API_KEY_DEMO=abc123</code></pre></div>
+<p>Giờ chỉ giá trị được đánh dấu. Thêm hai dấu cách thừa vào cuối một dòng trong <code>login_test.txt</code> rồi thử:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff -w; echo &quot;(trống)&quot;
+git diff --check</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">(trống)
+login_test.txt:1: trailing whitespace.
++kiem tra dang nhap  </code></pre></div>
+<p><code>-w</code> xác nhận không có thay đổi thật; <code>--check</code> chỉ đúng chỗ khoảng trắng thừa.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Đọc diff đầy đủ của commit lớn ngay từ đầu.</strong> Dễ lạc. Xem <code>--stat</code> trước, chọn tệp quan trọng, rồi <code>git show &lt;commit&gt; -- &lt;tệp&gt;</code>.</p>
+<p><strong>Dùng <code>-w</code> khi review mã nhạy khoảng trắng.</strong> Với YAML, Python hay Makefile, thụt lề có nghĩa. Bỏ qua nó có thể giấu lỗi thật.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>--word-diff</code> mặc định coi chuỗi không có khoảng trắng là một từ. Với dữ liệu dạng <code>key=value</code> hay JSON nén, hãy dùng <code>--word-diff-regex</code> để thấy thay đổi chính xác.</p>
+</aside>
+<p><strong>Copy diff từ <code>--word-diff</code> để áp dụng như patch.</strong> Định dạng này để đọc, không áp dụng được bằng <code>git apply</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git diff --name-only main...HEAD</code> cho danh sách tệp nhánh bạn đã đổi, rất tiện để chọn bộ test cần chạy lại.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trước khi chạy hồi quy cho bản release, bạn lấy <code>git diff --name-only v3.1.0 v3.2.0 -- src/</code> để biết module nào đổi, và chỉ chọn bộ test tương ứng cho lượt chạy đầu. Với tệp dữ liệu test dạng CSV bị đổi một giá trị, <code>--word-diff-regex=&#39;[^,]+&#39;</code> cho thấy đúng ô nào thay đổi, không phải dò cả dòng dài.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có <code>app.txt</code> với vài commit. Câu hỏi hỏi commit mới nhất thay đổi tệp nào. Hãy:</p>
+<ul>
+<li>Thử <code>git show --stat</code> và <code>git show --name-only</code> trên HEAD.</li>
+<li>So sánh với <code>git diff --stat HEAD~1 HEAD</code> để thấy hai cách cho cùng thông tin.</li>
+<li>Thử thêm <code>--word-diff</code> để luyện đọc thay đổi trong dòng.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Bắt đầu từ tổng quan (<code>--shortstat</code>, <code>--stat</code>) rồi mới đi vào chi tiết.</li>
+<li><code>--numstat</code> và <code>--name-only</code> hợp cho script và chọn test.</li>
+<li><code>--word-diff</code> cho thấy phần thay đổi trong dòng; <code>--word-diff-regex</code> tự định nghĩa từ.</li>
+<li><code>-w</code> bỏ qua khoảng trắng, <code>--check</code> tìm khoảng trắng thừa và dấu xung đột.</li>
+<li>Các tùy chọn dùng chung cho <code>diff</code>, <code>show</code> và <code>log -p</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open diff-strategies
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/pickaxe-detail.html" rel="prev"><small>Bài trước</small>Pickaxe chuyên sâu</a><a class="next" href="../inspection/range-diff.html" rel="next"><small>Bài sau</small>So sánh hai chuỗi commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 9/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

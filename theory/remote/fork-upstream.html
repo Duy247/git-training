@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Fork và upstream - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 3/12</span></p>
+<h1>Fork và upstream</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>fork-upstream</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu fork là gì và nó khác clone ở chỗ nào.</li>
+<li>Biết vai trò của hai remote <code>origin</code> và <code>upstream</code> trong mô hình fork.</li>
+<li>Đồng bộ fork với dự án gốc khi dự án gốc có commit mới.</li>
+<li>Biết phần nào được mô phỏng trong bài tập offline.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn muốn đóng góp vào một dự án mà mình không có quyền push, ví dụ thư viện mã nguồn mở hay repository của một nhóm khác trong công ty. Bạn không thể tạo nhánh trực tiếp trên đó. Giải pháp phổ biến là <strong>fork</strong>.</p>
+<p><strong>Fork</strong> là một bản sao của repository <strong>trên server</strong>, thuộc tài khoản của bạn. Fork là tính năng của nền tảng (GitHub, GitLab...), không phải lệnh Git: bạn bấm nút trên giao diện, nền tảng sao chép repository sang không gian của bạn và ghi nhớ quan hệ &quot;bản này được fork từ bản kia&quot;. Nhờ quan hệ đó, bạn có thể mở PR từ fork về dự án gốc.</p>
+<p>So sánh nhanh: <strong>clone</strong> tạo bản sao trên <strong>máy bạn</strong>; <strong>fork</strong> tạo bản sao trên <strong>server</strong>, và sau đó bạn vẫn clone fork về máy để làm việc.</p>
+<p>Từ đây, repository local của bạn có quan hệ với <strong>hai</strong> repository trên server:</p>
+<ul>
+<li><strong><code>origin</code></strong>: fork của bạn. Bạn có quyền push. Khi clone fork về, Git tự đặt tên này.</li>
+<li><strong><code>upstream</code></strong>: dự án gốc. Bạn thường chỉ fetch từ đây. Git không tự thêm; bạn phải <code>git remote add upstream &lt;địa chỉ&gt;</code>. Tên <code>upstream</code> chỉ là quy ước rất phổ biến, Git không bắt buộc.</li>
+</ul>
+<p>Lưu ý thuật ngữ: chữ &quot;upstream&quot; ở đây là <strong>tên một remote</strong>, khác với &quot;upstream của một nhánh&quot; (nhánh remote-tracking mà nhánh local theo dõi) ở track branching. Hai nghĩa dùng chung chữ nhưng không liên quan trực tiếp.</p>
+<p>Quy trình đóng góp:</p>
+<ol>
+<li>Fork trên giao diện, clone fork về, thêm remote <code>upstream</code>.</li>
+<li>Trước khi bắt đầu, <strong>đồng bộ</strong>: fetch <code>upstream</code>, cập nhật <code>main</code> local từ <code>upstream/main</code>, push lên <code>origin</code> để fork không bị lạc hậu.</li>
+<li>Tạo nhánh từ <code>main</code> đã đồng bộ, commit, push nhánh lên <code>origin</code>.</li>
+<li>Mở PR từ nhánh trên fork vào <code>main</code> của dự án gốc.</li>
+</ol>
+<p>Fork <strong>không tự cập nhật</strong>. Dự án gốc có commit mới thì fork vẫn đứng yên cho tới khi bạn đồng bộ (bằng Git như trên, hoặc nút &quot;Sync fork&quot; mà một số nền tảng cung cấp).</p>
+<p><strong>Phần mô phỏng trong ứng dụng.</strong> Bài tập không tạo fork thật. Hai bare repository trong thư mục bài tập đóng vai fork (<code>origin</code>) và dự án gốc. Việc thêm remote là thao tác Git thật.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  G[&quot;Dự án gốc&quot;] -- &quot;fork trên nền tảng&quot; --&gt; F[&quot;Fork của bạn&quot;]
+  F -- &quot;clone, tên origin&quot; --&gt; L[&quot;Repository local&quot;]
+  G -- &quot;fetch qua remote upstream&quot; --&gt; L
+  L -- &quot;push nhánh&quot; --&gt; F
+  F -- &quot;mở PR&quot; --&gt; G</pre>
+<pre class="mermaid">sequenceDiagram
+  participant U as upstream
+  participant L as Local
+  participant O as origin
+  U-&gt;&gt;U: Dự án gốc có commit mới
+  L-&gt;&gt;U: git fetch upstream
+  L-&gt;&gt;L: merge --ff-only upstream/main
+  L-&gt;&gt;O: git push origin main
+  Note over O: Fork đã bắt kịp dự án gốc</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone &lt;địa-chỉ-fork&gt;                  # origin tự trỏ về fork
+git remote add upstream &lt;địa-chỉ-gốc&gt;     # thêm dự án gốc
+git remote -v                             # kiểm tra cả hai remote
+git fetch upstream                        # lấy commit mới của dự án gốc
+git merge --ff-only upstream/main         # cập nhật main local, không tạo merge commit
+git push origin main                      # đưa bản đồng bộ lên fork
+git remote show upstream                  # thông tin chi tiết về remote</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Remote</th>
+<th>Trỏ tới</th>
+<th>Bạn làm gì với nó</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>origin</code></td>
+<td>Fork của bạn</td>
+<td>Fetch và push</td>
+</tr>
+<tr>
+<td><code>upstream</code></td>
+<td>Dự án gốc</td>
+<td>Chủ yếu fetch, PR qua nền tảng</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình mô phỏng bằng hai bare repository: <code>goc.git</code> là dự án gốc, <code>fork-cua-toi.git</code> là bản sao của nó. Clone fork về:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clone fork-cua-toi.git lam-viec
+cd lam-viec
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Cloning into &#39;lam-viec&#39;...
+done.
+origin	/tmp/gt/r3/fork-cua-toi.git (fetch)
+origin	/tmp/gt/r3/fork-cua-toi.git (push)</code></pre></div>
+<p>Chỉ có <code>origin</code>. Thêm dự án gốc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add upstream ../goc.git
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	/tmp/gt/r3/fork-cua-toi.git (fetch)
+origin	/tmp/gt/r3/fork-cua-toi.git (push)
+upstream	../goc.git (fetch)
+upstream	../goc.git (push)</code></pre></div>
+<p>Dự án gốc có thêm commit. Fetch và xem các nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch upstream
+git branch -a</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">From ../goc
+ * [new branch]      main       -&gt; upstream/main
+* main
+  remotes/origin/HEAD -&gt; origin/main
+  remotes/origin/main
+  remotes/upstream/main</code></pre></div>
+<p>Đồng bộ <code>main</code> local rồi đẩy lên fork:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge --ff-only upstream/main
+git push origin main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updating 44b89d2..ea25560
+Fast-forward
+ lib.txt | 1 +
+ 1 file changed, 1 insertion(+)
+To /tmp/gt/r3/fork-cua-toi.git
+   44b89d2..ea25560  main -&gt; main</code></pre></div>
+<p>Cấu hình đằng sau mỗi remote chỉ là vài dòng trong <code>.git/config</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --get-regexp &quot;^remote\.&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">remote.origin.url /tmp/gt/r3/fork-cua-toi.git
+remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+remote.upstream.url ../goc.git
+remote.upstream.fetch +refs/heads/*:refs/remotes/upstream/*</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên thêm <code>upstream</code>.</strong> Fork lạc hậu dần, và PR của bạn đầy conflict vì dựa trên bản cũ.</p>
+<p><strong>Commit thẳng lên <code>main</code> của fork.</strong> Khi đồng bộ, <code>main</code> local và <code>upstream/main</code> phân kỳ, <code>--ff-only</code> thất bại. Giữ <code>main</code> sạch, làm việc trên nhánh riêng.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Nếu <code>merge --ff-only</code> báo không thể fast-forward, nghĩa là <code>main</code> local có commit riêng. Chuyển các commit đó sang một nhánh, rồi đưa <code>main</code> về <code>upstream/main</code>.</p>
+</aside>
+<p><strong>Nhầm hai nghĩa của &quot;upstream&quot;.</strong> <code>git push -u</code> đặt upstream của <strong>nhánh</strong>; <code>git remote add upstream</code> thêm <strong>remote</strong> tên upstream. Đọc kỹ ngữ cảnh.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn tránh lỡ tay push vào dự án gốc khi bạn có quyền, xem bài Nhiều remote về cách đặt push URL riêng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm hạ tầng duy trì thư viện kiểm thử dùng chung cho các ứng dụng thẻ và tài khoản, nhưng không cấp quyền push cho từng tester. Bạn fork thư viện, thêm hàm tiện ích sinh số thẻ giả lập hợp lệ, mở PR về repository gốc. Mỗi sáng bạn đồng bộ fork để nhánh làm việc luôn dựa trên bản mới nhất của nhóm hạ tầng.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này được mô phỏng: repository bài tập đã có <code>origin</code>, và một bare repository khác trong thư mục bài tập đóng vai dự án gốc. Bạn cần thêm remote cho dự án gốc với tên quy ước, giữ nguyên <code>origin</code>. Kiểm tra bằng <code>git remote -v</code> để chắc có đủ hai remote và đường dẫn đúng.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Fork là bản sao trên server do nền tảng tạo; clone là bản sao trên máy.</li>
+<li><code>origin</code> là fork của bạn, <code>upstream</code> là tên quy ước cho dự án gốc.</li>
+<li>Git không tự thêm <code>upstream</code>; bạn thêm bằng <code>git remote add</code>.</li>
+<li>Đồng bộ fork: fetch upstream, fast-forward main, push lên origin.</li>
+<li>Trong ứng dụng, fork được mô phỏng bằng bare repository local.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open fork-upstream
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/pull-request-workflow.html" rel="prev"><small>Bài trước</small>Quy trình pull request</a><a class="next" href="../remote/ssh-keys.html" rel="next"><small>Bài sau</small>Xác thực bằng khóa SSH</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 3/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

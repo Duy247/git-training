@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Revert và reset - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 1/12</span></p>
+<h1>Revert và reset</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>revert-vs-reset</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Phân biệt hai cách &quot;hoàn tác&quot; một commit: thêm commit đảo ngược và dời nhánh lùi lại.</li>
+<li>Biết khi nào dùng cách nào, đặc biệt với commit đã chia sẻ cho người khác.</li>
+<li>Đọc commit revert và thông điệp mặc định của nó.</li>
+<li>Hiểu rủi ro của reset trên lịch sử đã push.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn vừa phát hiện commit &quot;Cấu hình lỗi&quot; làm hỏng môi trường test. Có hai cách gỡ nó ra, khác nhau về bản chất.</p>
+<p><strong><code>git revert &lt;commit&gt;</code></strong> tạo một <strong>commit mới</strong> mang thay đổi ngược lại với commit kia. Nếu commit lỗi đổi <code>safe</code> thành <code>broken</code>, commit revert đổi <code>broken</code> thành <code>safe</code>. Lịch sử chỉ <strong>tiến lên</strong>: commit lỗi vẫn ở đó, commit đảo ngược nằm phía trên. Không object nào bị bỏ, không ai phải viết lại lịch sử. Vì vậy revert là cách an toàn cho mọi thứ đã push, đã nằm trên nhánh chung, đã được người khác pull về. Thông điệp mặc định có dạng <code>Revert &quot;&lt;subject cũ&gt;&quot;</code> kèm dòng &quot;This reverts commit &lt;hash&gt;.&quot; để ai đọc cũng biết đây là đảo ngược của commit nào.</p>
+<p><strong><code>git reset &lt;commit&gt;</code></strong> làm việc khác hẳn: nó <strong>dời nhánh hiện tại</strong> về một commit cũ hơn. Các commit phía sau không còn được nhánh trỏ tới, như thể chưa từng xảy ra trên nhánh đó. Tùy chế độ (<code>--soft</code>, <code>--mixed</code>, <code>--hard</code>, bài sau), reset còn đổi index và working tree. Lịch sử bị <strong>viết lại</strong>: nếu bạn đã push commit lỗi, nhánh trên remote vẫn có nó, và bạn phải force push. Đồng nghiệp đã pull commit đó sẽ có lịch sử lệch với bạn.</p>
+<p>Quy tắc ngắn gọn:</p>
+<ul>
+<li>Commit <strong>chưa chia sẻ</strong> (chỉ ở máy bạn): reset thoải mái, lịch sử gọn hơn.</li>
+<li>Commit <strong>đã chia sẻ</strong>: revert, để lịch sử của mọi người vẫn khớp nhau.</li>
+</ul>
+<p>Revert cũng dùng được cho commit nằm sâu trong lịch sử, không chỉ commit cuối. Nếu các commit sau đã sửa cùng vùng, revert có thể conflict; xử lý như conflict merge rồi <code>git revert --continue</code>. Với <code>--no-commit</code> (<code>-n</code>), revert chỉ ghi thay đổi đảo ngược vào index và working tree để bạn gộp nhiều revert thành một commit.</p>
+<p>Revert merge commit cần thêm <code>-m 1</code> để chỉ ra parent nào là &quot;dòng chính&quot;; đó là chủ đề nâng cao hơn.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  commit id: &quot;Cấu hình an toàn&quot;
+  commit id: &quot;Cấu hình lỗi&quot;
+  commit id: &quot;Revert lỗi&quot; type: HIGHLIGHT</pre>
+<p>Với revert, lịch sử tiến thêm một commit. Với reset, nhánh lùi lại:</p>
+<pre class="mermaid">flowchart LR
+  A[&quot;Cấu hình an toàn&quot;] --&gt; B[&quot;Cấu hình lỗi&quot;]
+  M1[&quot;main trước reset&quot;] -.-&gt; B
+  M2[&quot;main sau git reset --hard HEAD~1&quot;] -.-&gt; A
+  B -.-&gt;|&quot;không còn nhánh nào trỏ tới&quot;| X[&quot;Chỉ còn trong reflog&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git revert &lt;commit&gt;              # tạo commit đảo ngược, mở editor cho thông điệp
+git revert --no-edit &lt;commit&gt;    # dùng thông điệp mặc định
+git revert -n &lt;commit&gt;           # chỉ chuẩn bị thay đổi đảo ngược, chưa commit
+git revert --continue            # tiếp tục sau khi giải quyết conflict
+git revert --abort               # hủy revert đang dở
+git reset --hard &lt;commit&gt;        # dời nhánh, bỏ index và working tree (cẩn thận)
+git reflog                       # tìm lại vị trí cũ nếu reset nhầm</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><code>git revert</code></th>
+<th><code>git reset</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lịch sử</td>
+<td>Thêm commit mới</td>
+<td>Dời nhánh lùi</td>
+</tr>
+<tr>
+<td>Commit lỗi</td>
+<td>Vẫn còn trong lịch sử</td>
+<td>Không còn trên nhánh</td>
+</tr>
+<tr>
+<td>An toàn với nhánh đã push</td>
+<td>Có</td>
+<td>Cần force push, ảnh hưởng người khác</td>
+</tr>
+<tr>
+<td>Hợp với</td>
+<td>Nhánh chung, production</td>
+<td>Commit local chưa chia sẻ</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Lịch sử có commit lỗi ở đầu:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">2b3486a Cấu hình lỗi
+3ccbcef Cấu hình an toàn
+7e1e491 Khởi tạo</code></pre></div>
+<p>Đảo ngược bằng revert:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git revert --no-edit HEAD
+git log --oneline
+cat config.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 91a4204] Revert &quot;Cấu hình lỗi&quot;
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+91a4204 Revert &quot;Cấu hình lỗi&quot;
+2b3486a Cấu hình lỗi
+3ccbcef Cấu hình an toàn
+7e1e491 Khởi tạo
+safe</code></pre></div>
+<p>(Output đầu đã lược một dòng <code>Date:</code>.) Nội dung trở lại <code>safe</code>, lịch sử có thêm một commit. Thông điệp đầy đủ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Revert &quot;Cấu hình lỗi&quot;
+
+This reverts commit 2b3486aa74d1c618c042f51795e100e3a4909fdd.</code></pre></div>
+<p>So sánh với reset trên cùng tình huống ban đầu:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --hard HEAD~1
+git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 3ccbcef Cấu hình an toàn
+3ccbcef Cấu hình an toàn
+7e1e491 Khởi tạo</code></pre></div>
+<p>Nội dung tệp giống nhau, nhưng lịch sử thì không: commit lỗi đã rời khỏi nhánh.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Reset commit đã push.</strong> Lần push sau bị từ chối vì nhánh local &quot;đi sau&quot; remote. Force push thì đè lên nhánh chung. Nếu đã chia sẻ, quay lại dùng revert.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git reset --hard</code> xóa luôn thay đổi chưa commit trong working tree, và phần này không có trong reflog. Kiểm tra <code>git status</code> trước khi chạy.</p>
+</aside>
+<p><strong>Revert nhầm commit.</strong> Revert chính commit revert (revert của revert) là cách đưa thay đổi trở lại. Lịch sử vẫn minh bạch.</p>
+<p><strong>Revert rồi không hiểu vì sao merge lại nhánh cũ không mang thay đổi vào.</strong> Sau khi revert, Git coi các commit gốc đã được merge; muốn đưa lại, revert commit revert.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Dùng <code>git revert -n</code> cho nhiều commit liên tiếp, rồi commit một lần với thông điệp giải thích, để lịch sử không có năm commit revert rời rạc.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Sáng thứ sáu, một commit đổi URL môi trường trong cấu hình test đã được merge vào <code>main</code> và pipeline đêm qua đỏ toàn bộ. Nhiều người đã pull <code>main</code>. Bạn chạy <code>git revert --no-edit &lt;hash&gt;</code>, push commit revert, pipeline xanh lại. Commit gốc vẫn nằm trong lịch sử để người viết xem lại và sửa đúng cách, không ai phải xử lý lịch sử bị viết lại.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có một commit cuối làm hỏng tệp cấu hình. Bạn cần đưa nội dung trở về trạng thái an toàn bằng một commit mới, không xóa commit nào khỏi lịch sử, và giữ working tree sạch. Câu hỏi hỏi lệnh phù hợp để đảo thay đổi đã chia sẻ mà vẫn giữ lịch sử. Hãy:</p>
+<ul>
+<li>Xem <code>git log --oneline</code> để biết số commit trước khi làm.</li>
+<li>Nhớ rằng nếu không có tùy chọn, editor sẽ mở cho thông điệp.</li>
+<li>Sau khi xong, số commit phải tăng thêm một và tệp cấu hình mang giá trị an toàn.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git revert</code> thêm commit đảo ngược; lịch sử chỉ tiến lên.</li>
+<li><code>git reset</code> dời nhánh lùi; lịch sử của nhánh bị viết lại.</li>
+<li>Commit đã chia sẻ: revert. Commit chỉ ở local: reset cũng được.</li>
+<li>Revert có thể conflict; xử lý rồi <code>--continue</code>.</li>
+<li><code>reset --hard</code> còn xóa thay đổi chưa commit, hãy kiểm tra trước.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open revert-vs-reset
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/range-diff.html" rel="prev"><small>Bài trước</small>So sánh hai chuỗi commit (Quan sát và truy lỗi)</a><a class="next" href="../undo/reset-variations.html" rel="next"><small>Bài sau</small>Các kiểu reset</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 1/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

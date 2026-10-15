@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tách một commit - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 7/13</span></p>
+<h1>Tách một commit</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>splitting-commit</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao commit lẫn nhiều thay đổi gây khó cho review và hoàn tác.</li>
+<li>Phân biệt ba chế độ <code>git reset --soft</code>, mặc định (<code>--mixed</code>) và <code>--hard</code>.</li>
+<li>Tách commit cuối thành nhiều commit nhỏ, mỗi commit một mục đích.</li>
+<li>Tách một commit nằm giữa lịch sử bằng <code>edit</code> trong rebase tương tác.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Commit lý tưởng làm đúng một việc. Khi một commit trộn sửa lỗi với refactor, hoặc trộn hai tính năng, người review khó đọc, và nếu sau này cần revert một phần thì không có cách gọn gàng. Tách commit là đưa các thay đổi đó trở lại vùng làm việc rồi commit lại từng phần.</p>
+<p>Công cụ chính là <code>git reset</code>, vốn dời nhánh hiện tại về một commit khác. Ba chế độ khác nhau ở chỗ nó đụng tới bao nhiêu &quot;vùng&quot;:</p>
+<ul>
+<li><code>--soft</code>: chỉ dời nhánh. Index và working tree giữ nguyên, nên mọi thay đổi của commit bị bỏ vẫn đang ở trạng thái staged.</li>
+<li><code>--mixed</code> (mặc định khi không ghi tùy chọn): dời nhánh và đặt lại index theo commit đích. Thay đổi vẫn còn trong working tree nhưng không còn được stage.</li>
+<li><code>--hard</code>: dời nhánh, đặt lại cả index lẫn working tree. Thay đổi chưa commit mất. Không dùng để tách commit.</li>
+</ul>
+<p>Để tách commit cuối, cách gọn nhất là <code>git reset HEAD~1</code> (chế độ mặc định): commit biến khỏi nhánh, các tệp trở về trạng thái &quot;đã sửa nhưng chưa stage&quot;, rồi bạn <code>git add</code> từng phần và commit lần lượt. Nếu dùng <code>--soft</code>, mọi thứ đã stage sẵn, bạn cần bỏ stage phần không thuộc commit đầu (<code>git restore --staged &lt;tệp&gt;</code>) trước khi commit.</p>
+<p>Khi các thay đổi cần tách nằm trong cùng một tệp, <code>git add -p</code> cho phép chọn từng hunk.</p>
+<p>Nếu commit cần tách không phải commit cuối, bạn dùng rebase tương tác: đổi <code>pick</code> của commit đó thành <code>edit</code>. Rebase áp commit rồi dừng lại ngay sau nó. Lúc này commit đó chính là HEAD, nên bạn làm y như tách commit cuối: reset, commit từng phần, rồi <code>git rebase --continue</code> để Git áp tiếp các commit phía sau.</p>
+<p>Commit bị reset không mất ngay; nó vẫn trong reflog. Nhưng các thay đổi chưa commit thì không có lưới an toàn đó, nên đừng nhầm với <code>--hard</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph S[&quot;Ba chế độ reset&quot;]
+    R1[&quot;--soft: chỉ dời nhánh&quot;]
+    R2[&quot;mặc định: dời nhánh và index&quot;]
+    R3[&quot;--hard: dời nhánh, index, working tree&quot;]
+  end
+  R1 --&gt; K1[&quot;Thay đổi còn staged&quot;]
+  R2 --&gt; K2[&quot;Thay đổi còn trong working tree&quot;]
+  R3 --&gt; K3[&quot;Thay đổi chưa commit bị mất&quot;]</pre>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  commit id: &quot;Hai thay đổi lẫn nhau&quot; type: REVERSE
+  commit id: &quot;Thêm a&quot;
+  commit id: &quot;Thêm b&quot;</pre>
+<p>Trong sơ đồ trên, commit đánh dấu đảo là commit bị bỏ khỏi nhánh; hai commit sau thay thế nó.</p>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Bỏ commit cuối, giữ thay đổi trong working tree (chưa stage)
+git reset HEAD~1
+
+# Bỏ commit cuối, giữ thay đổi đang staged
+git reset --soft HEAD~1
+
+# Bỏ stage một tệp mà không mất nội dung
+git restore --staged b.txt
+
+# Chọn từng hunk trong một tệp
+git add -p bai.txt
+
+# Xem commit chạm tới tệp nào
+git diff-tree --no-commit-id --name-only -r HEAD
+
+# Tách commit giữa lịch sử: đánh dấu edit, rồi tiếp tục sau khi tách
+git rebase -i main
+git rebase --continue</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Chế độ</th>
+<th>Nhánh</th>
+<th>Index</th>
+<th>Working tree</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--soft</code></td>
+<td>Dời</td>
+<td>Giữ</td>
+<td>Giữ</td>
+</tr>
+<tr>
+<td><code>--mixed</code> (mặc định)</td>
+<td>Dời</td>
+<td>Đặt lại</td>
+<td>Giữ</td>
+</tr>
+<tr>
+<td><code>--hard</code></td>
+<td>Dời</td>
+<td>Đặt lại</td>
+<td>Đặt lại</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Commit cuối &quot;Hai thay đổi lẫn nhau&quot; tạo cùng lúc <code>a.txt</code> và <code>b.txt</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --stat --format=%s HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Hai thay đổi lẫn nhau
+
+ a.txt | 1 +
+ b.txt | 1 +
+ 2 files changed, 2 insertions(+)</code></pre></div>
+<p>Reset ở chế độ mặc định, rồi commit từng tệp (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset HEAD~1
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">?? a.txt
+?? b.txt</code></pre></div>
+<p>Hai tệp là tệp mới nên sau reset chúng hiện là chưa theo dõi. Commit lần lượt:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add a.txt
+git commit -m &quot;Thêm a&quot;
+git add b.txt
+git commit -m &quot;Thêm b&quot;
+git log --oneline
+git diff-tree --no-commit-id --name-only -r HEAD~1
+git diff-tree --no-commit-id --name-only -r HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">f370785 Thêm b
+83c55bd Thêm a
+6c18ce2 Khởi tạo
+a.txt
+b.txt</code></pre></div>
+<p>So sánh với <code>--soft</code> trên một repository giống hệt:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --soft HEAD~1
+git status --short
+git restore --staged b.txt
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">A  a.txt
+A  b.txt
+A  a.txt
+?? b.txt</code></pre></div>
+<p>Với <code>--soft</code>, cả hai tệp còn staged; bỏ stage <code>b.txt</code> rồi commit <code>a.txt</code> trước.</p>
+<p>Tách commit giữa lịch sử: topic có &quot;Lẫn&quot; (a và b) rồi &quot;Sau&quot; (c). Đổi dòng đầu todo thành <code>edit</code>:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Rebasing (1/2)Stopped at 5ada2c8...  Lẫn
+You can amend the commit now, with
+
+  git commit --amend 
+
+Once you are satisfied with your changes, run
+
+  git rebase --continue</code></pre></div>
+<p>Sau đó <code>git reset HEAD~1</code>, commit A rồi B, và <code>git rebase --continue</code>:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Rebasing (2/2)Successfully rebased and updated refs/heads/topic.</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline main..topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">a976065 Sau
+b126854 B
+71fb6a3 A</code></pre></div>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Gõ nhầm <code>git reset --hard HEAD~1</code> khi định tách commit sẽ xóa thay đổi khỏi working tree. Commit vẫn cứu được qua reflog, nhưng hãy tập thói quen đọc lại lệnh trước khi Enter.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>--hard</code> thay vì mặc định.</strong> Thay đổi biến mất khỏi thư mục. Chạy <code>git reflog</code>, tìm commit vừa bỏ và <code>git reset --hard &lt;id&gt;</code> để lấy lại trạng thái, rồi làm lại đúng cách.</p>
+<p><strong>Quên tệp mới sau reset.</strong> Tệp được tạo trong commit bị bỏ trở thành untracked; <code>git add -u</code> không thấy chúng. Đọc <code>git status</code> trước khi commit.</p>
+<p><strong>Commit thứ hai vô tình rỗng hoặc gom hết.</strong> Do <code>git add .</code> ngay từ đầu. Stage có chủ đích: chỉ đúng tệp hoặc hunk của từng commit.</p>
+<p><strong>Quên <code>git rebase --continue</code> khi tách commit giữa lịch sử.</strong> Repository đứng ở trạng thái rebase dở, nhánh chưa được cập nhật. <code>git status</code> sẽ nhắc bạn.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn lỡ commit một lần cả việc nâng phiên bản thư viện Selenium lẫn việc sửa một test đăng nhập OTP. Nếu phiên bản thư viện mới gây lỗi trên máy CI, nhóm sẽ muốn revert riêng phần nâng cấp. Bạn reset commit đó, commit riêng tệp cấu hình phụ thuộc, rồi commit riêng phần sửa test. Hai commit, hai mục đích, revert được độc lập.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có commit cuối chứa đồng thời <code>a.txt</code> và <code>b.txt</code>. Bạn cần thay nó bằng hai commit, mỗi commit đúng một tệp, và working tree sạch. Câu hỏi kiến thức hỏi chế độ reset nào bỏ commit nhưng vẫn giữ nội dung ở trạng thái staged.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Nhớ bảng ba chế độ reset ở trên, đặc biệt là cột Index.</li>
+<li>Quyết định bạn muốn bắt đầu từ trạng thái staged hay unstaged, rồi chọn chế độ phù hợp.</li>
+<li>Sau khi xong, kiểm tra từng commit chạm vào tệp nào bằng <code>git diff-tree</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Tách commit giúp mỗi commit một mục đích, dễ review và dễ revert.</li>
+<li><code>--soft</code> giữ thay đổi staged, mặc định giữ trong working tree, <code>--hard</code> xóa.</li>
+<li>Tách commit cuối: reset rồi stage và commit từng phần.</li>
+<li>Tách commit giữa lịch sử: <code>edit</code> trong rebase tương tác, tách, rồi <code>--continue</code>.</li>
+<li>Reflog cứu được commit, nhưng không cứu được thay đổi chưa commit.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open splitting-commit
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/squashing-autosquash.html" rel="prev"><small>Bài trước</small>Squash và autosquash</a><a class="next" href="../advanced/cherry-pick-series.html" rel="next"><small>Bài sau</small>Chép chuỗi commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 7/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

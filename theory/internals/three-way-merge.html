@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cơ chế merge ba phía - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 11/11</span></p>
+<h1>Cơ chế merge ba phía</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>three-way-merge</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao merge cần ba phiên bản: merge base, ours, theirs.</li>
+<li>Biết luật ghép từng vùng thay đổi và khi nào Git báo conflict.</li>
+<li>Đọc conflict marker kiểu <code>diff3</code>, thấy được cả phiên bản gốc.</li>
+<li>Thử merge mà không đụng working tree bằng <code>git merge-tree</code> và <code>git merge-file</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Giả sử bạn chỉ có hai phiên bản của một tệp: một bên ghi &quot;hạn mức: 150&quot;, bên kia ghi &quot;hạn mức: 300&quot;. Không thể biết ai sửa, ai giữ nguyên. Merge hai phía luôn mơ hồ.</p>
+<p>Git giải bằng phiên bản thứ ba: <strong>merge base</strong>, commit tổ tiên chung gần nhất của hai nhánh, tức trạng thái trước khi hai nhánh tách ra. Với ba phiên bản (base, ours là nhánh hiện tại, theirs là nhánh được merge vào), Git so từng vùng:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Base so với ours</th>
+<th>Base so với theirs</th>
+<th>Kết quả</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Không đổi</td>
+<td>Không đổi</td>
+<td>Giữ nguyên</td>
+</tr>
+<tr>
+<td>Đổi</td>
+<td>Không đổi</td>
+<td>Lấy ours</td>
+</tr>
+<tr>
+<td>Không đổi</td>
+<td>Đổi</td>
+<td>Lấy theirs</td>
+</tr>
+<tr>
+<td>Đổi giống nhau</td>
+<td>Đổi giống nhau</td>
+<td>Lấy bản đã đổi</td>
+</tr>
+<tr>
+<td>Đổi khác nhau</td>
+<td>Đổi khác nhau</td>
+<td>Conflict</td>
+</tr>
+</tbody></table></div>
+<p>Điều này áp dụng ở cả hai cấp. Ở cấp tree, Git xét từng đường dẫn: thêm, xóa, đổi tên, sửa. Ở cấp nội dung tệp, Git so từng hunk (khối dòng). Hai bên sửa hai vùng cách xa nhau trong cùng một tệp thì ghép được. Hai bên sửa cùng dòng, hoặc các dòng sát cạnh nhau, thì Git không tự quyết mà báo conflict.</p>
+<p>Chiến lược merge mặc định hiện nay là <code>ort</code>. Khi có nhiều merge base (lịch sử có merge chéo), <code>ort</code> merge các base với nhau trước để tạo một base ảo, rồi mới merge ba phía.</p>
+<p>Khi conflict, Git ghi ba phiên bản vào index (stage 1 base, 2 ours, 3 theirs) và viết marker vào tệp. Kiểu mặc định chỉ hiện ours và theirs. Đặt <code>merge.conflictStyle=diff3</code> (hoặc <code>zdiff3</code>) để thấy thêm phần base ở giữa, giúp bạn hiểu mỗi bên đã đổi gì so với gốc.</p>
+<p>Kết quả merge thành công (không fast-forward) là một merge commit có hai parent: commit trước đó của nhánh hiện tại và đầu nhánh được merge vào.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Nền&quot;
+  branch topic
+  commit id: &quot;Tăng hạn mức&quot;
+  checkout main
+  commit id: &quot;Đổi tên&quot;
+  merge topic id: &quot;Gộp topic&quot;</pre>
+<pre class="mermaid">flowchart TD
+  B[&quot;Merge base: Nền&quot;] --&gt; O[&quot;Ours: main, đổi dòng tên&quot;]
+  B --&gt; T[&quot;Theirs: topic, đổi dòng hạn mức&quot;]
+  O --&gt; M[&quot;So từng vùng với base&quot;]
+  T --&gt; M
+  M --&gt;|&quot;vùng khác nhau&quot;| OK[&quot;Ghép tự động, merge commit 2 parent&quot;]
+  M --&gt;|&quot;cùng vùng, khác nội dung&quot;| C[&quot;Conflict: stage 1, 2, 3&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Merge base của hai nhánh
+git merge-base main topic
+
+# Merge nhánh topic vào nhánh hiện tại
+git merge topic
+
+# Hiện cả phần base trong conflict marker
+git -c merge.conflictStyle=diff3 merge topic
+git config --global merge.conflictStyle zdiff3
+
+# Thử merge mà không đụng working tree hay index
+git merge-tree --write-tree --name-only main topic
+
+# Merge ba phía cho ba tệp bất kỳ, in kết quả ra màn hình
+git merge-file -p ours.txt base.txt theirs.txt
+
+# Parent của merge commit
+git log -1 --format=%P</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p><code>cfg.txt</code> có sáu dòng cấu hình một sản phẩm tiết kiệm mẫu. Nhánh topic đổi dòng cuối thành &quot;hạn mức: 200&quot;; main đổi dòng đầu thành &quot;tên: Lan Nguyễn&quot; (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge-base main topic
+git log --oneline --all --graph</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">9b7e455956cfc98a6fdbe7e734fd2369f54e34af
+* c89b3db Đổi tên
+| * 36c2ee4 Tăng hạn mức
+|/  
+* 9b7e455 Nền</code></pre></div>
+<p>Merge:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge topic -m &quot;Gộp topic&quot;
+cat cfg.txt
+git log -1 --format=%P</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Auto-merging cfg.txt
+Merge made by the &#39;ort&#39; strategy.
+ cfg.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+tên: Lan Nguyễn
+loại: tiết kiệm
+kỳ hạn: 6 tháng
+lãi suất: 4.5
+tiền tệ: VND
+hạn mức: 200
+c89b3dba2909d73230a22f2367fef8ae1dff8029 36c2ee41e58087411e5ff9348ae34535c5c3e426</code></pre></div>
+<p>Hai thay đổi ở hai vùng khác nhau nên được ghép, merge commit có hai parent. Giờ thử trường hợp conflict: quay lại trước merge, main đổi hạn mức thành 150, topic đổi thành 300:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -c merge.conflictStyle=diff3 merge topic
+tail -7 cfg.txt
+git ls-files -u</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">CONFLICT (content): Merge conflict in cfg.txt
+Automatic merge failed; fix conflicts and then commit the result.
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+hạn mức: 150
+||||||| 9b7e455
+hạn mức: 100
+=======
+hạn mức: 300
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; topic
+100644 5e7d7a8cc0c7be6a9376a31c2486390a76f69944 1	cfg.txt
+100644 e79874d79675a0c350f1ca3be28d7d21dbfaf75c 2	cfg.txt
+100644 e8e8cf2828d97e21b00588ac7f7b31c5a017a4ee 3	cfg.txt</code></pre></div>
+<p>Phần giữa <code>|||||||</code> và <code>=======</code> là base: cả hai bên đều đổi từ 100, mỗi bên một giá trị. Đây là quyết định nghiệp vụ, không phải việc Git tự đoán. Sau khi <code>git merge --abort</code>, bạn có thể hỏi trước &quot;merge này có conflict không&quot; mà không đụng gì:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge-tree --write-tree --name-only main topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">d03644421acbc2490d34c557cccfd6be1dfed710
+cfg.txt
+
+Auto-merging cfg.txt
+CONFLICT (content): Merge conflict in cfg.txt</code></pre></div>
+<p>Mã thoát 1 nghĩa là có conflict. Dòng đầu là tree kết quả (có marker), tiếp theo là tệp bị conflict.</p>
+<p>Cuối cùng, <code>git merge-file</code> cho thấy luật &quot;vùng sát nhau&quot;. Ours đổi dòng 2, theirs đổi dòng 3:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge-file -p o2.txt b2.txt t2.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; o2.txt
+2-ours
+3
+=======
+2
+3-theirs
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; t2.txt
+4
+5
+6</code></pre></div>
+<p>(Đường dẫn trong marker đã được rút gọn.) Hai dòng liền kề bị coi là cùng một vùng nên vẫn conflict. Nếu ours đổi dòng 1 và theirs đổi dòng 6, kết quả ghép sạch.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Bật <code>merge.conflictStyle=zdiff3</code> một lần cho mọi repository. Thấy được phần base giúp bạn hiểu ý định của mỗi bên nhanh hơn rất nhiều.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ Git merge bằng cách so trực tiếp hai nhánh.</strong> Git luôn so mỗi bên với merge base.</p>
+<p><strong>Nghĩ khác tệp thì không bao giờ conflict.</strong> Đổi tên và xóa cũng có thể xung đột ở cấp tree, ví dụ một bên sửa tệp mà bên kia xóa.</p>
+<p><strong>Merge sạch nghĩa là code đúng.</strong> Git chỉ ghép văn bản. Hai thay đổi hợp lệ riêng lẻ vẫn có thể phá nhau về logic; hãy chạy test sau merge.</p>
+<p><strong>Xóa marker mà không đọc phần base.</strong> Dễ chọn nhầm bên hoặc làm mất thay đổi của người khác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Merge fast-forward không tạo merge commit vì không có gì để ghép ba phía: nhánh hiện tại chỉ đơn giản được dời lên. Dùng <code>--no-ff</code> nếu nhóm muốn luôn có merge commit.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Hai kỹ sư cùng chỉnh tệp cấu hình hạn mức giao dịch cho môi trường test: một người đổi đơn vị tiền tệ, người kia đổi hạn mức. Trước khi merge, bạn chạy <code>git merge-tree --write-tree</code> để biết trước có conflict không. Không có conflict, nhưng bạn vẫn chạy bộ test cấu hình sau merge vì hạn mức mới có thể không hợp lệ với đơn vị tiền tệ mới.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu bạn đứng trên main và merge một nhánh khác vào, sao cho kết quả là một merge commit có hai parent và không conflict. Câu hỏi kiến thức hỏi tên gọi phiên bản chung trước khi hai nhánh tách ra.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Kiểm tra bạn đang ở đúng nhánh trước khi merge.</li>
+<li>Xem đồ thị bằng <code>git log --oneline --graph --all</code> để biết có phải fast-forward không.</li>
+<li>Sau khi merge, kiểm tra số parent của commit mới.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Merge ba phía so ours và theirs với merge base, tổ tiên chung gần nhất.</li>
+<li>Chỉ một bên đổi thì lấy bên đó; cả hai đổi khác nhau cùng vùng thì conflict.</li>
+<li><code>diff3</code> và <code>zdiff3</code> hiện thêm phần base trong conflict marker.</li>
+<li><code>git merge-tree --write-tree</code> và <code>git merge-file</code> thử merge mà không đụng working tree.</li>
+<li>Merge không fast-forward tạo commit có hai parent; merge sạch vẫn cần chạy test.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open three-way-merge
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/plumbing-vs-porcelain.html" rel="prev"><small>Bài trước</small>Lệnh thấp và cao</a><a class="next" href="../teamwork/reviewing-with-diff.html" rel="next"><small>Bài sau</small>Review bằng diff (Làm việc nhóm và review)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 11/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

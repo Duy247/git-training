@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đổi thứ tự commit - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 5/13</span></p>
+<h1>Đổi thứ tự commit</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>reordering-commits</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đổi thứ tự commit trong rebase tương tác bằng cách đổi thứ tự dòng.</li>
+<li>Hiểu vì sao đổi thứ tự tạo commit mới và có thể gây xung đột.</li>
+<li>Nhận biết khi nào hai commit &quot;độc lập&quot; để đổi chỗ an toàn.</li>
+<li>Kiểm tra kết quả theo thứ tự thời gian bằng <code>git log --reverse</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Thứ tự commit kể câu chuyện của thay đổi. Người review đọc dễ hơn khi phần nền đi trước phần dùng nền đó: thêm hàm tiện ích trước, rồi mới tới test dùng hàm đó. Nhưng khi làm thật, bạn thường viết theo thứ tự ngược lại hoặc lộn xộn. Rebase tương tác cho phép sắp xếp lại.</p>
+<p>Trong todo list, mỗi dòng là một commit, thực hiện từ trên xuống. Để đổi thứ tự, bạn chỉ cần đổi thứ tự dòng, giữ nguyên thao tác <code>pick</code>. Không có lệnh đặc biệt nào tên là &quot;move&quot;: vị trí dòng chính là thứ tự áp dụng.</p>
+<p>Khi Git áp lại commit theo thứ tự mới, mỗi commit nhận một parent khác, nên object ID của tất cả commit được sắp lại đều thay đổi. Nội dung cuối cùng (snapshot ở đầu nhánh) thường giống hệt trước, chỉ đường đi khác.</p>
+<p>Rủi ro nằm ở chỗ mỗi commit thực chất là một bản vá so với parent của nó. Nếu commit B sửa một dòng mà commit A tạo ra, thì đưa B lên trước A nghĩa là áp bản vá vào chỗ chưa có dòng đó. Git sẽ báo xung đột. Hai commit càng chạm vào phần khác nhau của mã thì đổi chỗ càng an toàn. Hai commit sửa cùng một vùng thì nên cân nhắc gộp lại thay vì đổi chỗ.</p>
+<p>Một cách nghĩ hữu ích: trước khi đổi thứ tự, hãy hỏi &quot;commit phía sau có cần commit phía trước để tồn tại không?&quot;. Nếu có, đổi chỗ sẽ đau. Nếu không, cứ đổi.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<p>Trước khi đổi, topic có A rồi B:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch topic
+  checkout topic
+  commit id: &quot;A&quot;
+  commit id: &quot;B&quot;</pre>
+<p>Sau khi đổi, B được áp trước rồi tới A; cả hai đều là commit mới:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch topic
+  checkout topic
+  commit id: &quot;B mới&quot;
+  commit id: &quot;A mới&quot;</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;Todo: pick A, pick B&quot;] --&gt;|&quot;đổi chỗ hai dòng&quot;| B[&quot;Todo: pick B, pick A&quot;]
+  B --&gt; C{&quot;B có phụ thuộc A không&quot;}
+  C --&gt;|&quot;không&quot;| D[&quot;Rebase xong, thứ tự mới&quot;]
+  C --&gt;|&quot;có&quot;| E[&quot;Xung đột, sửa hoặc abort&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Mở todo list cho hai commit cuối
+git rebase -i HEAD~2
+
+# Xem thứ tự theo thời gian (cũ trước), dễ so với todo list
+git log --reverse --format=%s main..topic
+
+# Khi xung đột: sửa tệp, stage, đi tiếp
+git add &lt;tệp&gt;
+git rebase --continue
+
+# Hoặc hủy và trả về như cũ
+git rebase --abort</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Muốn làm</th>
+<th>Trong todo list</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Đổi thứ tự</td>
+<td>Cắt dán dòng <code>pick</code> lên hoặc xuống</td>
+</tr>
+<tr>
+<td>Giữ commit như cũ</td>
+<td>Để nguyên <code>pick</code></td>
+</tr>
+<tr>
+<td>Bỏ một commit</td>
+<td><code>drop</code> hoặc xóa dòng</td>
+</tr>
+<tr>
+<td>Đổi chỗ và gộp</td>
+<td>Đặt cạnh nhau rồi dùng <code>fixup</code> hoặc <code>squash</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Nhánh topic có hai commit A (tạo <code>a.txt</code>) và B (tạo <code>b.txt</code>). Hai commit chạm vào hai tệp khác nhau, nên đổi chỗ an toàn. Object ID trên máy bạn sẽ khác.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline main..topic</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">8a504ec B
+b3c6908 A</code></pre></div>
+<p>Chạy <code>git rebase -i HEAD~2</code>. Todo list mở ra có hai dòng <code>pick</code>, A ở trên, B ở dưới. Mình đổi chỗ để B lên trên, lưu và đóng editor:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Rebasing (1/2)Rebasing (2/2)Successfully rebased and updated refs/heads/topic.</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline main..topic
+git log --reverse --format=%s main..topic
+git ls-tree --name-only HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">c4327e2 A
+fe85916 B
+B
+A
+README.md
+a.txt
+b.txt</code></pre></div>
+<p>Cả hai ID đều mới, B giờ là commit cũ hơn, và snapshot cuối vẫn có đủ hai tệp.</p>
+<p>Giờ một trường hợp không an toàn. Commit &quot;Sửa dòng 1&quot; đổi dòng đầu tệp thành <code>a1</code>, commit kế tiếp &quot;Sửa tiếp dòng 1&quot; đổi <code>a1</code> thành <code>a1-x</code>. Đổi chỗ hai commit này:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Rebasing (1/2)Auto-merging f.txt
+CONFLICT (content): Merge conflict in f.txt
+error: could not apply c3a09fe... Sửa tiếp dòng 1
+hint: Resolve all conflicts manually, mark them as resolved with
+hint: &quot;git add/rm &lt;conflicted_files&gt;&quot;, then run &quot;git rebase --continue&quot;.</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat f.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+a
+=======
+a1-x
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; c3a09fe (Sửa tiếp dòng 1)
+b
+c</code></pre></div>
+<p>Commit sau cần commit trước. Ở đây hợp lý nhất là <code>git rebase --abort</code>, và nếu thực sự muốn gọn thì gộp hai commit bằng <code>fixup</code> thay vì đổi chỗ.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trước khi đổi thứ tự một chuỗi dài, chạy <code>git show --stat</code> cho từng commit để xem chúng chạm vào tệp nào. Commit chạm tệp khác nhau thường đổi chỗ được ngay.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Đổi thứ tự theo cách nhìn của <code>git log</code>.</strong> Log hiện commit mới nhất ở trên, todo list thì ngược lại. Nếu muốn &quot;B cũ hơn A&quot;, trong todo list B phải đứng trên A.</p>
+<p><strong>Lỡ đổi nhầm thao tác thay vì đổi dòng.</strong> Sửa <code>pick</code> thành <code>squash</code> sẽ gộp commit, không phải đổi chỗ. Nếu kết quả sai, xem <code>git reflog</code> và reset về trạng thái trước rebase.</p>
+<p><strong>Đổi chỗ commit phụ thuộc nhau.</strong> Xung đột xuất hiện liên tục. Hãy abort, cân nhắc gộp, hoặc chấp nhận thứ tự hiện tại.</p>
+<p><strong>Đổi thứ tự commit đã chia sẻ.</strong> Như mọi rebase, object ID đổi; người khác dựa trên commit cũ sẽ gặp rắc rối. Chỉ làm trên nhánh của riêng bạn.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Có thể đạt cùng kết quả mà không dùng rebase, bằng cách reset nhánh về nền rồi cherry-pick từng commit theo thứ tự mong muốn. Rebase tương tác chỉ làm việc đó gọn hơn.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn viết test cho màn hình mở tài khoản tiết kiệm. Bạn commit test case trước (&quot;Thêm test kỳ hạn 6 tháng&quot;) rồi mới nhận ra cần một helper sinh dữ liệu khách hàng, và commit helper sau. Trước khi gửi review, bạn đưa commit helper lên trước để người review đọc theo đúng logic: công cụ trước, test dùng công cụ sau. Vì helper là tệp mới và test nằm ở tệp khác, việc đổi chỗ không gây xung đột.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có nhánh topic với hai commit A rồi B, mỗi commit thêm một tệp riêng. Nhiệm vụ là đảo để B trở thành commit cũ hơn A, giữ nguyên nội dung hai tệp và working tree sạch. Câu hỏi kiến thức hỏi về thao tác trong todo list giữ commit lại nhưng cho phép bạn đổi vị trí dòng.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Xem <code>git log --oneline main..topic</code> để biết thứ tự hiện tại.</li>
+<li>Nhớ todo list đọc từ trên xuống, cũ trước.</li>
+<li>Biết cách cắt dán một dòng trong editor bạn dùng.</li>
+<li>Sau khi xong, kiểm tra bằng <code>git log -2 --format=%s</code> (mới nhất ở trên).</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Đổi thứ tự commit bằng cách đổi thứ tự dòng trong todo list rebase.</li>
+<li>Mọi commit được sắp lại đều có object ID mới.</li>
+<li>Commit phụ thuộc nhau dễ xung đột khi đổi chỗ.</li>
+<li><code>git log --reverse</code> giúp so trực tiếp với thứ tự todo list.</li>
+<li>Chỉ đổi thứ tự commit chưa chia sẻ.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reordering-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/hooks-automation.html" rel="prev"><small>Bài trước</small>Hook và tự động hóa</a><a class="next" href="../advanced/squashing-autosquash.html" rel="next"><small>Bài sau</small>Squash và autosquash</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 5/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

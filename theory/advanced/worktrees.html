@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhiều worktree - Kỹ thuật Git nâng cao - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Kỹ thuật Git nâng cao</span><span class="badge" title="Vị trí bài trong track">Bài 2/13</span></p>
+<h1>Nhiều worktree</h1>
+<p class="meta">Track: Kỹ thuật Git nâng cao &middot; Mã bài: <code>worktrees</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu worktree là gì và khác gì so với clone thêm một bản repository.</li>
+<li>Tạo, liệt kê, gỡ worktree bằng nhóm lệnh <code>git worktree</code>.</li>
+<li>Biết vì sao một nhánh không thể được checkout ở hai worktree cùng lúc.</li>
+<li>Dọn dẹp worktree cũ mà không làm hỏng repository chính.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Một repository Git bình thường có đúng một working tree: thư mục bạn đang mở trong editor. Muốn xem nhánh khác, bạn phải <code>git switch</code>, và nếu đang sửa dở thì phải commit hoặc stash trước. Với việc nhỏ thì không sao, nhưng khi bạn đang chạy một bộ test dài trên nhánh này mà lại cần sửa gấp một lỗi trên nhánh khác, việc chuyển qua chuyển lại rất mệt.</p>
+<p>Worktree giải quyết đúng chỗ đó: một repository có thể gắn thêm nhiều thư mục làm việc, mỗi thư mục checkout một nhánh (hoặc một commit) riêng. Tất cả dùng chung một kho object, chung ref, chung cấu hình. Commit bạn tạo ở worktree này lập tức thấy được ở worktree kia, vì thực ra chỉ có một repository.</p>
+<p>Khác với clone thêm một bản:</p>
+<ul>
+<li>Clone tạo kho object thứ hai, tốn dung lượng, và hai bản phải push/fetch qua lại mới thấy nhau.</li>
+<li>Worktree chỉ thêm một thư mục làm việc và một ít metadata. Không có gì để đồng bộ.</li>
+</ul>
+<p>Mỗi worktree phụ có tệp <code>.git</code> (là tệp, không phải thư mục) chứa đường dẫn trỏ về <code>.git/worktrees/&lt;tên&gt;</code> trong repository chính. Ở đó Git lưu HEAD riêng, index riêng của worktree đó. Nhờ vậy mỗi worktree có trạng thái staging độc lập.</p>
+<p>Quy tắc an toàn quan trọng: một nhánh chỉ được checkout ở tối đa một worktree tại một thời điểm. Nếu hai thư mục cùng đứng trên một nhánh, commit ở bên này sẽ dời nhánh trong khi bên kia vẫn nghĩ nhánh ở chỗ cũ, index và working tree bên kia sẽ lệch. Git chặn điều này ngay từ đầu.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph R[&quot;Repository chính&quot;]
+    O[&quot;Kho object và ref chung&quot;]
+    M[&quot;Working tree chính: main&quot;]
+  end
+  W1[&quot;Thư mục them-nhanh: feature&quot;]
+  W2[&quot;Thư mục hotfix-dir: hotfix&quot;]
+  M --&gt; O
+  W1 --&gt;|&quot;tệp .git trỏ về&quot;| O
+  W2 --&gt;|&quot;tệp .git trỏ về&quot;| O</pre>
+<p>Vòng đời của một worktree phụ:</p>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; DangDung: git worktree add
+  DangDung --&gt; DaGo: git worktree remove
+  DangDung --&gt; MatThuMuc: xóa thư mục bằng tay
+  MatThuMuc --&gt; DaGo: git worktree prune
+  DaGo --&gt; [*]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tạo worktree ở thư mục song song, checkout nhánh có sẵn
+git worktree add ../them-nhanh feature
+
+# Tạo worktree kèm nhánh mới (nhánh mới bắt đầu từ HEAD hiện tại)
+git worktree add -b hotfix ../hotfix-dir
+
+# Liệt kê worktree; --porcelain cho định dạng dễ đọc bằng script
+git worktree list
+git worktree list --porcelain
+
+# Gỡ worktree (thư mục phải sạch, nếu không cần --force)
+git worktree remove ../hotfix-dir
+
+# Dọn metadata của worktree mà thư mục đã bị xóa bằng tay
+git worktree prune -v</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh con</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>add &lt;đường-dẫn&gt; [nhánh]</code></td>
+<td>Mở thêm một thư mục làm việc</td>
+</tr>
+<tr>
+<td><code>add -b &lt;nhánh-mới&gt; &lt;đường-dẫn&gt;</code></td>
+<td>Vừa tạo nhánh vừa mở thư mục</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>Xem worktree nào đang đứng ở đâu</td>
+</tr>
+<tr>
+<td><code>remove &lt;đường-dẫn&gt;</code></td>
+<td>Gỡ gọn gàng</td>
+</tr>
+<tr>
+<td><code>prune</code></td>
+<td>Dọn dấu vết worktree đã mất thư mục</td>
+</tr>
+<tr>
+<td><code>lock</code> / <code>unlock</code></td>
+<td>Chặn prune với worktree trên ổ di động</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai nhánh <code>main</code> và <code>feature</code>, đang đứng ở main. Mình tạo worktree cho feature ở thư mục bên cạnh (đường dẫn và object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git worktree add ../them-nhanh feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Preparing worktree (checking out &#39;feature&#39;)
+HEAD is now at 9a47a06 Khởi tạo</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git worktree list</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">/tmp/pb/x/w/wt          9a47a06 [main]
+/tmp/pb/x/w/them-nhanh  9a47a06 [feature]</code></pre></div>
+<p><code>git branch -v</code> đánh dấu nhánh đang được dùng ở worktree khác bằng dấu cộng ở đầu dòng:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">+ feature 9a47a06 Khởi tạo
+* main    9a47a06 Khởi tạo</code></pre></div>
+<p>Thử chuyển worktree chính sang feature, Git từ chối:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: &#39;feature&#39; is already used by worktree at &#39;/tmp/pb/x/w/them-nhanh&#39;</code></pre></div>
+<p>Nhìn vào thư mục mới, <code>.git</code> chỉ là một tệp nhỏ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat ../them-nhanh/.git</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gitdir: /tmp/pb/x/w/wt/.git/worktrees/them-nhanh</code></pre></div>
+<p>Tạo rồi gỡ một worktree tạm cho hotfix:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git worktree add -b hotfix ../hotfix-dir
+git worktree remove ../hotfix-dir</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Preparing worktree (new branch &#39;hotfix&#39;)
+HEAD is now at 9a47a06 Khởi tạo</code></pre></div>
+<p>Lưu ý: gỡ worktree không xóa nhánh <code>hotfix</code>. Nhánh là ref trong repository chính, vẫn còn đó cho tới khi bạn tự xóa.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt worktree ở thư mục song song (dùng <code>../</code>) thay vì bên trong repository chính. Đặt bên trong dễ khiến công cụ tìm kiếm, linter hoặc chính Git nhìn thấy thư mục lạ như tệp chưa theo dõi.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Xóa thư mục worktree bằng <code>rm -rf</code>.</strong> Git vẫn ghi nhận worktree đó và nhánh của nó vẫn bị coi là &quot;đang dùng&quot;. Chạy <code>git worktree prune</code> để dọn metadata. Lần sau hãy dùng <code>git worktree remove</code>.</p>
+<p><strong>Muốn checkout cùng nhánh ở hai nơi.</strong> Git không cho. Nếu chỉ cần xem code, dùng <code>git worktree add --detach ../xem-thu feature</code> để có một bản detached HEAD tại cùng commit, hoặc tạo nhánh phụ.</p>
+<p><strong>Quên rằng stash và ref là chung.</strong> Stash tạo ở worktree này hiện ở worktree kia, vì <code>refs/stash</code> là ref chung. Đặt tên stash rõ ràng để khỏi nhầm.</p>
+<p><strong><code>remove</code> từ chối vì còn thay đổi.</strong> Git bảo vệ việc dở dang của bạn. Commit hoặc stash trước, chỉ dùng <code>--force</code> khi chắc chắn không cần các thay đổi đó.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Công cụ build hoặc IDE đôi khi lưu cache theo đường dẫn tuyệt đối. Mở hai worktree cùng lúc trong IDE thì nên để mỗi worktree một cửa sổ riêng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn đang chạy bộ regression UI mất khoảng bốn mươi phút trên nhánh <code>test/release-2.3</code>. Giữa chừng, team báo một test smoke trên <code>main</code> đỏ vì locator cũ. Thay vì dừng bộ regression, bạn chạy <code>git worktree add ../smoke-fix main</code>, mở thư mục mới, sửa locator, commit và push. Bộ regression vẫn chạy yên ổn trong thư mục cũ. Xong việc, <code>git worktree remove ../smoke-fix</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập đã có nhánh <code>feature</code> và bạn đang đứng ở <code>main</code>. Nhiệm vụ là mở một worktree trong thư mục song song tên <code>them-nhanh</code> cho nhánh feature, sao cho <code>git worktree list</code> thấy đường dẫn đó. Câu hỏi kiến thức hỏi lệnh dùng để thêm worktree mới.</p>
+<p>Hãy ôn:</p>
+<ul>
+<li>Đường dẫn tương đối tính từ thư mục bạn đang đứng. &quot;Thư mục song song&quot; nghĩa là nằm cạnh repository, không nằm bên trong.</li>
+<li>Thứ tự đối số: đường dẫn trước, nhánh sau.</li>
+<li>Sau khi tạo, kiểm tra bằng <code>git worktree list</code> và thử <code>cd</code> vào thư mục mới để chạy <code>git status</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Worktree cho một repository nhiều thư mục làm việc, chung kho object và ref.</li>
+<li>Mỗi worktree có HEAD và index riêng, nên trạng thái staging độc lập.</li>
+<li>Một nhánh chỉ được checkout ở một worktree tại một thời điểm.</li>
+<li>Dùng <code>remove</code> để gỡ, <code>prune</code> để dọn khi thư mục đã bị xóa tay.</li>
+<li>Gỡ worktree không xóa nhánh.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start advanced</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open worktrees
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../advanced/interactive-rebase.html" rel="prev"><small>Bài trước</small>Rebase tương tác</a><a class="next" href="../advanced/submodules.html" rel="next"><small>Bài sau</small>Repository con dạng submodule</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Kỹ thuật Git nâng cao, bài 2/13</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

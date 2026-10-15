@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Token truy cập cá nhân - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 5/12</span></p>
+<h1>Token truy cập cá nhân</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>personal-access-tokens</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu personal access token (PAT) là gì và vì sao nó thay thế mật khẩu khi push qua HTTPS.</li>
+<li>Chọn phạm vi quyền và hạn dùng hợp lý cho một token.</li>
+<li>Biết Git lấy token từ đâu, và vì sao không nên nhét token vào URL remote.</li>
+<li>Lưu token cho CI ở chỗ an toàn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi remote dùng địa chỉ HTTPS, mỗi lần push hay fetch repository private, server hỏi bạn là ai. Các dịch vụ lớn như GitHub không còn chấp nhận mật khẩu tài khoản cho thao tác Git; thay vào đó bạn dùng <strong>personal access token</strong>: một chuỗi bí mật do dịch vụ sinh ra, dùng ở chỗ mật khẩu.</p>
+<p>Token tốt hơn mật khẩu ở ba điểm:</p>
+<ul>
+<li><strong>Phạm vi quyền (scope)</strong>: token chỉ làm được những gì bạn cho phép, ví dụ chỉ đọc, hoặc chỉ ghi vào vài repository cụ thể. Một số dịch vụ có loại token &quot;fine-grained&quot; để giới hạn tới từng repository.</li>
+<li><strong>Hạn dùng</strong>: bạn đặt ngày hết hạn; token tự vô hiệu sau đó.</li>
+<li><strong>Thu hồi riêng lẻ</strong>: lộ một token thì thu hồi đúng token đó, không phải đổi mật khẩu tài khoản và không ảnh hưởng các token khác.</li>
+</ul>
+<p>Nguyên tắc chọn: <strong>quyền ít nhất cần thiết, hạn ngắn nhất chấp nhận được</strong>, mỗi mục đích một token riêng.</p>
+<p>Git lấy thông tin đăng nhập qua <strong>credential helper</strong>. Lần đầu, Git hỏi tên người dùng và mật khẩu; bạn dán token vào chỗ mật khẩu. Helper (ví dụ Git Credential Manager, keychain của macOS, <code>libsecret</code> trên Linux) lưu lại một cách an toàn để những lần sau không phải hỏi. Cấu hình bằng <code>credential.helper</code>.</p>
+<p>Cách <strong>không nên</strong>: nhét token thẳng vào URL remote dạng <code>https://ten:&lt;token&gt;@host/...</code>. Token khi đó nằm dạng chữ thường trong <code>.git/config</code>, hiện ra mỗi khi chạy <code>git remote -v</code>, dễ bị chụp màn hình, dán vào log hay gửi trong tin nhắn hỏi đáp.</p>
+<p>Với <strong>CI</strong> (hệ thống chạy test tự động), token không thuộc về máy cá nhân nào. Hãy lưu nó trong kho <strong>secret</strong> của hệ thống CI: giá trị được mã hóa, chỉ được đưa vào job dưới dạng biến môi trường lúc chạy, và thường bị che trong log. Không bao giờ ghi token vào tệp cấu hình pipeline trong repository.</p>
+<p><strong>Phần mô phỏng trong ứng dụng.</strong> Bài tập không cần và không dùng token thật. Mọi giá trị trong ví dụ dưới đây là chuỗi giả, địa chỉ dùng tên miền <code>example.invalid</code> không tồn tại.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant G as Git
+  participant H as Credential helper
+  participant S as Dịch vụ Git
+  G-&gt;&gt;S: push qua HTTPS
+  S--&gt;&gt;G: Yêu cầu xác thực
+  G-&gt;&gt;H: Có thông tin cho host này không?
+  H--&gt;&gt;G: Tên người dùng và token đã lưu
+  G-&gt;&gt;S: Gửi lại kèm token
+  S-&gt;&gt;S: Kiểm tra scope và hạn dùng
+  S--&gt;&gt;G: Chấp nhận hoặc từ chối</pre>
+<pre class="mermaid">flowchart TD
+  T[&quot;Cần lưu token&quot;] --&gt; Q{&quot;Dùng ở đâu?&quot;}
+  Q -- &quot;Máy cá nhân&quot; --&gt; H[&quot;Credential helper của hệ điều hành&quot;]
+  Q -- &quot;Pipeline CI&quot; --&gt; S[&quot;Kho secret của CI&quot;]
+  Q -- &quot;Trong URL hoặc tệp repo&quot; --&gt; X[&quot;Không bao giờ&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --global credential.helper &lt;tên-helper&gt;   # chọn helper lưu thông tin
+git config --show-origin --get-all credential.helper # xem đang dùng helper nào
+git remote -v                                        # kiểm tra URL có lộ token không
+git remote set-url origin https://&lt;host&gt;/&lt;repo&gt;.git  # gỡ token khỏi URL
+git config transfer.credentialsInUrl die             # chặn URL chứa thông tin đăng nhập</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thuộc tính token</th>
+<th>Lựa chọn an toàn</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Scope</td>
+<td>Chỉ những repository và quyền cần dùng</td>
+</tr>
+<tr>
+<td>Hạn dùng</td>
+<td>Ngắn, gia hạn khi cần</td>
+</tr>
+<tr>
+<td>Nơi lưu trên máy</td>
+<td>Credential helper</td>
+</tr>
+<tr>
+<td>Nơi lưu cho CI</td>
+<td>Secret của hệ thống CI</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình cố tình làm sai để thấy hậu quả, với token giả <code>TOKEN_GIA_LAP</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add origin &quot;https://nguoi-dung:TOKEN_GIA_LAP@example.invalid/kiem-thu.git&quot;
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	https://nguoi-dung:TOKEN_GIA_LAP@example.invalid/kiem-thu.git (fetch)
+origin	https://nguoi-dung:TOKEN_GIA_LAP@example.invalid/kiem-thu.git (push)</code></pre></div>
+<p>Token hiện nguyên văn. Git có cấu hình <code>transfer.credentialsInUrl</code> để cảnh báo (<code>warn</code>) hoặc chặn (<code>die</code>) loại URL này:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git -c transfer.credentialsInUrl=die fetch origin</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: URL &#39;https://nguoi-dung:&lt;redacted&gt;@example.invalid/kiem-thu.git&#39; uses plaintext credentials</code></pre></div>
+<p>Git từ chối trước khi kết nối, và tự che token trong thông báo. Sửa lại URL cho sạch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote set-url origin https://example.invalid/kiem-thu.git
+git remote -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	https://example.invalid/kiem-thu.git (fetch)
+origin	https://example.invalid/kiem-thu.git (push)</code></pre></div>
+<p>Kiểm tra helper đang dùng. Trong môi trường thử của mình chưa cấu hình helper nào, nên lệnh không in gì; trên máy bạn, kết quả thường cho biết tên helper và tệp cấu hình chứa nó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git config --show-origin --get-all credential.helper</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng mật khẩu tài khoản thay token.</strong> Dịch vụ từ chối xác thực. Sinh token và dán vào chỗ mật khẩu.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Token đã xuất hiện trong commit, log CI, ảnh chụp màn hình hay tin nhắn thì coi như đã lộ. Thu hồi ngay trên dịch vụ rồi sinh token mới; chỉ xóa dấu vết là không đủ.</p>
+</aside>
+<p><strong>Token quyền quá rộng, không hạn dùng.</strong> Tiện lúc đầu, nhưng một lần lộ là mất kiểm soát mọi repository. Chia nhỏ theo mục đích.</p>
+<p><strong>Ghi token vào tệp pipeline.</strong> Tệp pipeline nằm trong repository, ai đọc được repository là thấy token. Dùng secret của CI.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt <code>transfer.credentialsInUrl</code> thành <code>warn</code> hoặc <code>die</code> ở cấu hình global để Git nhắc bạn mỗi khi có ai đó (kể cả chính bạn) dán URL chứa token.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Pipeline chạy test hồi quy hằng đêm cho cổng thanh toán trực tuyến cần clone một repository dữ liệu kiểm thử private. Bạn tạo một token chỉ có quyền đọc đúng repository đó, hạn 90 ngày, lưu vào secret của CI và tham chiếu qua biến môi trường. Lịch nhắc gia hạn được đặt trước ngày hết hạn một tuần.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi và được mô phỏng, không cần token thật. Câu hỏi hỏi về nơi lưu token dành cho hệ thống CI. Hãy ôn lại vì sao token không nên nằm trong repository hay trong URL, và hệ thống CI cung cấp cơ chế nào để đưa giá trị bí mật vào job lúc chạy.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>PAT thay mật khẩu khi dùng Git qua HTTPS, với scope và hạn dùng riêng.</li>
+<li>Quyền ít nhất, hạn ngắn, mỗi mục đích một token.</li>
+<li>Trên máy cá nhân, để credential helper lưu token.</li>
+<li>Không nhét token vào URL remote; <code>transfer.credentialsInUrl</code> giúp chặn.</li>
+<li>Token cho CI nằm trong secret của CI; token lộ thì thu hồi ngay.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open personal-access-tokens
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/ssh-keys.html" rel="prev"><small>Bài trước</small>Xác thực bằng khóa SSH</a><a class="next" href="../remote/multiple-remotes.html" rel="next"><small>Bài sau</small>Nhiều remote</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 5/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

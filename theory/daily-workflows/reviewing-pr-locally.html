@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Xem PR ở máy local - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 8/12</span></p>
+<h1>Xem PR ở máy local</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>reviewing-pr-locally</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Tải nhánh đề xuất về máy bằng <code>git fetch</code> mà không đụng tới nhánh của bạn.</li>
+<li>Phân biệt diff hai chấm và diff ba chấm khi so nhánh đề xuất với main.</li>
+<li>Tạo nhánh review local để chạy thử và kiểm thử.</li>
+<li>Liệt kê đúng những commit mà đề xuất mang vào.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Giao diện web của dịch vụ hosting cho bạn xem diff của một pull request, nhưng với QA, đọc thôi thường chưa đủ. Bạn muốn chạy ứng dụng, chạy bộ test, thử vài trường hợp biên trên chính mã của đề xuất. Việc đó cần mã nằm trên máy bạn.</p>
+<p>Quy trình gồm ba ý:</p>
+<p><strong>Tải về mà chưa gộp.</strong> <code>git fetch origin</code> hỏi remote có gì mới và cập nhật các remote-tracking ref như <code>origin/main</code>, <code>origin/feature</code>. Nó không đổi nhánh local nào của bạn, không đổi working tree. Bạn xem xét xong rồi mới quyết định có làm gì tiếp.</p>
+<p><strong>So sánh đúng cách.</strong> Đây là chỗ dễ nhầm nhất. Khi main và nhánh đề xuất đã phân kỳ (main có commit mới sau khi đề xuất tách ra), có hai kiểu diff:</p>
+<ul>
+<li><code>git diff main..feature</code> (hoặc <code>git diff main feature</code>): so trực tiếp snapshot của main với snapshot của feature. Kết quả lẫn cả những thay đổi mà main có nhưng feature chưa có, hiện ra như thể feature đã xóa chúng.</li>
+<li><code>git diff main...feature</code> (ba chấm): so feature với merge base, tức tổ tiên chung gần nhất của hai nhánh. Kết quả chỉ gồm những gì feature thật sự thay đổi. Đây chính là cách giao diện pull request thường hiển thị.</li>
+</ul>
+<p>Với <code>git log</code>, ý nghĩa của hai chấm và ba chấm khác với <code>git diff</code>: <code>git log main..feature</code> liệt kê commit có ở feature mà không có ở main, tức là danh sách commit của đề xuất. Đừng lẫn hai cú pháp giữa hai lệnh.</p>
+<p><strong>Chạy thử trên nhánh riêng.</strong> Tạo nhánh local, ví dụ <code>review/pr</code>, từ <code>origin/feature</code> để chạy test, ghi chú, thậm chí thử sửa mà không ảnh hưởng main. Xong thì xóa nhánh review.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch feature
+  commit id: &quot;Đề xuất&quot;
+  commit id: &quot;Thêm test&quot;
+  checkout main
+  commit id: &quot;Sửa nóng trên main&quot;</pre>
+<pre class="mermaid">flowchart LR
+  MB[&quot;Merge base: Khởi tạo&quot;] --&gt; F[&quot;feature&quot;]
+  MB --&gt; M[&quot;main&quot;]
+  D3[&quot;diff ba chấm main...feature&quot;] --&gt;|&quot;so merge base với feature&quot;| R3[&quot;Chỉ thay đổi của đề xuất&quot;]
+  D2[&quot;diff hai chấm main..feature&quot;] --&gt;|&quot;so main với feature&quot;| R2[&quot;Lẫn cả thay đổi của main&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tải mọi cập nhật từ origin, không gộp gì
+git fetch origin
+
+# Hoặc chỉ tải một nhánh
+git fetch origin feature
+
+# Danh sách commit của đề xuất
+git log --oneline main..origin/feature
+
+# Diff chỉ gồm thay đổi của đề xuất (so với merge base)
+git diff main...origin/feature
+
+# Tóm tắt tệp thay đổi
+git diff --stat main...origin/feature
+
+# Tìm merge base
+git merge-base main origin/feature
+
+# Tạo nhánh review để chạy thử
+git switch -c review/pr origin/feature
+
+# Commit riêng mỗi bên, đánh dấu bằng dấu nhỏ hơn và lớn hơn
+git log --oneline --left-right main...review/pr</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cú pháp</th>
+<th>Với <code>git diff</code></th>
+<th>Với <code>git log</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>A..B</code></td>
+<td>So snapshot A với B</td>
+<td>Commit có ở B, không ở A</td>
+</tr>
+<tr>
+<td><code>A...B</code></td>
+<td>So merge base với B</td>
+<td>Commit có ở đúng một bên</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Trên remote, nhánh feature có hai commit; main có thêm một commit sửa nóng sau khi feature tách ra. Fetch và xem (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch origin
+git log --oneline main..origin/feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7872afb Thêm test cho đề xuất
+86ae035 Đề xuất</code></pre></div>
+<p>So sánh hai kiểu diff:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --stat main..origin/feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> feature.test | 1 +
+ feature.txt  | 1 +
+ main.txt     | 1 -
+ 3 files changed, 2 insertions(+), 1 deletion(-)</code></pre></div>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff --stat main...origin/feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> feature.test | 1 +
+ feature.txt  | 1 +
+ 2 files changed, 2 insertions(+)</code></pre></div>
+<p>Kiểu hai chấm báo <code>main.txt</code> bị xóa, dù đề xuất chưa hề đụng tới tệp đó; chỉ là main có tệp này còn feature thì chưa. Kiểu ba chấm cho đúng phần đề xuất thay đổi.</p>
+<p>Tạo nhánh review và xem hai bên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c review/pr origin/feature
+git log --oneline --left-right main...review/pr</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;review/pr&#39;
+branch &#39;review/pr&#39; set up to track &#39;origin/feature&#39;.
+&lt; c72711c Sửa nóng trên main
+&gt; 7872afb Thêm test cho đề xuất
+&gt; 86ae035 Đề xuất</code></pre></div>
+<p>Dấu nhỏ hơn là commit chỉ có ở main, dấu lớn hơn là commit chỉ có ở nhánh review. Giờ bạn có thể chạy bộ test ngay trên nhánh này.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu thay đổi của main có thể ảnh hưởng tới đề xuất, hãy thử thêm <code>git merge --no-commit --no-ff main</code> trên nhánh review để xem kết hợp có xung đột không, rồi <code>git merge --abort</code>.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng diff hai chấm và tưởng đề xuất xóa mã.</strong> Đọc nhầm khiến bạn góp ý sai. Dùng ba chấm khi review.</p>
+<p><strong>Review <code>origin/feature</code> cũ.</strong> Quên fetch lại sau khi tác giả push sửa đổi. Chạy <code>git fetch</code> trước mỗi vòng review.</p>
+<p><strong>Sửa trực tiếp trên main để thử.</strong> Nhánh main local bị lẫn mã chưa duyệt. Luôn dùng nhánh review riêng.</p>
+<p><strong>Checkout <code>origin/feature</code> trực tiếp.</strong> Bạn vào detached HEAD; commit thử ở đó dễ thất lạc. Tạo nhánh bằng <code>git switch -c</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong ứng dụng luyện tập, pull request không tồn tại; nhánh feature trên origin local đóng vai đề xuất. Trên dịch vụ thật, cách tải PR có thể khác (mỗi dịch vụ có ref đặc biệt hoặc công cụ dòng lệnh riêng), nhưng nguyên tắc fetch rồi so ba chấm vẫn giữ.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Một developer mở PR sửa logic tính phí chuyển khoản liên ngân hàng. Bạn fetch nhánh đó, tạo <code>review/fee-fix</code>, chạy bộ test phí với dữ liệu biên (số tiền bằng đúng ngưỡng, số tiền 0, số âm). Diff ba chấm cho thấy PR cũng đổi một hằng số làm tròn mà mô tả PR không nhắc tới. Bạn ghi nhận xét cụ thể kèm tên test đỏ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có origin local, và trên origin đã có commit mới mà main local chưa có. Bạn cần tải commit đó về sao cho <code>origin/main</code> được cập nhật nhưng main local vẫn ở commit cũ. Câu hỏi kiến thức hỏi lệnh xem diff giữa main và nhánh feature.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Phân biệt lệnh chỉ tải với lệnh vừa tải vừa gộp.</li>
+<li>Sau khi tải, kiểm tra bằng <code>git status -sb</code> (sẽ thấy main đứng sau) và <code>git log --oneline main..origin/main</code>.</li>
+<li>Ôn bảng hai chấm, ba chấm ở trên cho câu hỏi.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git fetch</code> cập nhật remote-tracking ref, không đổi nhánh của bạn.</li>
+<li><code>git diff A...B</code> so B với merge base: đúng phần đề xuất thay đổi.</li>
+<li><code>git diff A..B</code> so trực tiếp hai snapshot, dễ gây hiểu nhầm khi đã phân kỳ.</li>
+<li><code>git log A..B</code> liệt kê commit của đề xuất.</li>
+<li>Chạy thử trên nhánh review riêng, xóa khi xong.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reviewing-pr-locally
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/husky-lint-staged.html" rel="prev"><small>Bài trước</small>Husky và lint-staged mô phỏng</a><a class="next" href="../daily-workflows/backporting.html" rel="next"><small>Bài sau</small>Đưa sửa lỗi về bản cũ</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 8/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

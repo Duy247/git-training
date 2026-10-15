@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tạo và chuyển nhánh - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 1/10</span></p>
+<h1>Tạo và chuyển nhánh</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>create-and-switch</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu nhánh là một ref nhẹ trỏ tới commit, và tạo nhánh tốn gần như không gì.</li>
+<li>Tạo nhánh, chuyển nhánh, và làm cả hai trong một lệnh.</li>
+<li>Biết chuyển nhánh thay đổi những gì: HEAD, index và working tree.</li>
+<li>Xử lý khi Git từ chối chuyển nhánh vì thay đổi local có thể bị ghi đè.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Ở track nền tảng, bạn đã thấy nhánh chỉ là một tên trong <code>refs/heads/</code> chứa object ID của một commit. Tạo nhánh mới nghĩa là ghi thêm một tên như vậy, mặc định trỏ vào đúng commit bạn đang đứng. Không có tệp nào bị chép, không có commit nào được tạo. Đó là lý do người dùng Git tạo nhánh thoải mái cho từng việc nhỏ: sửa một lỗi, thử một ý tưởng, viết bộ test cho một tính năng.</p>
+<p>Tạo nhánh và <strong>chuyển sang</strong> nhánh là hai việc khác nhau:</p>
+<ul>
+<li><code>git branch &lt;tên&gt;</code> chỉ tạo ref. HEAD vẫn ở nhánh cũ, commit tiếp theo vẫn vào nhánh cũ.</li>
+<li><code>git switch &lt;tên&gt;</code> chuyển sang nhánh đã có. Git đổi HEAD sang tên nhánh mới, rồi cập nhật index và working tree cho khớp với commit đầu nhánh đó.</li>
+<li><code>git switch -c &lt;tên&gt;</code> làm cả hai: tạo nhánh tại vị trí hiện tại (hoặc tại điểm bạn chỉ định) rồi chuyển sang ngay.</li>
+</ul>
+<p>Trước Git 2.23, mọi thứ đều dùng <code>git checkout</code>, và bạn sẽ còn gặp <code>git checkout -b &lt;tên&gt;</code> trong nhiều tài liệu. Lệnh này vẫn chạy tốt. Tuy nhiên <code>checkout</code> làm quá nhiều việc (chuyển nhánh, khôi phục tệp, vào detached HEAD), nên Git tách ra <code>switch</code> cho nhánh và <code>restore</code> cho tệp. Dùng lệnh chuyên dụng giúp ít gõ nhầm hơn.</p>
+<p>Khi chuyển nhánh, những thay đổi chưa commit của bạn <strong>đi theo</strong> sang nhánh mới nếu chúng không xung đột với khác biệt giữa hai nhánh. Git chỉ từ chối khi việc chuyển sẽ ghi đè thay đổi của bạn, ví dụ tệp bạn đang sửa khác nhau giữa hai nhánh, hoặc một tệp untracked trùng tên với tệp được theo dõi ở nhánh đích. Lúc đó bạn commit, stash, hoặc dọn tệp trước rồi mới chuyển.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot;
+  branch feature/otp
+  checkout feature/otp
+  commit id: &quot;Thêm OTP&quot;
+  checkout main</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;git branch tên&quot;] --&gt;|&quot;chỉ tạo ref&quot;| R[&quot;refs/heads/tên&quot;]
+  B[&quot;git switch tên&quot;] --&gt;|&quot;đổi HEAD, cập nhật tệp&quot;| H[&quot;HEAD trỏ nhánh tên&quot;]
+  C[&quot;git switch -c tên&quot;] --&gt;|&quot;tạo rồi chuyển&quot;| H</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch                     # liệt kê nhánh local, dấu * là nhánh hiện tại
+git branch &lt;tên&gt;               # tạo nhánh tại HEAD, không chuyển
+git branch &lt;tên&gt; &lt;điểm-bắt-đầu&gt;  # tạo nhánh tại commit, nhánh hoặc tag khác
+git switch &lt;tên&gt;               # chuyển sang nhánh có sẵn
+git switch -c &lt;tên&gt;            # tạo và chuyển
+git switch -c &lt;tên&gt; &lt;điểm&gt;     # tạo từ điểm khác rồi chuyển
+git switch -                   # quay về nhánh trước đó
+git checkout -b &lt;tên&gt;          # cú pháp cũ, tương đương switch -c
+git branch --show-current      # in tên nhánh hiện tại</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn <code>switch</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-c</code>, <code>--create</code></td>
+<td>Tạo nhánh mới rồi chuyển</td>
+</tr>
+<tr>
+<td><code>-C</code></td>
+<td>Tạo hoặc đặt lại nhánh nếu đã tồn tại (cẩn thận)</td>
+</tr>
+<tr>
+<td><code>--detach</code></td>
+<td>Chuyển tới commit ở trạng thái detached</td>
+</tr>
+<tr>
+<td><code>-</code></td>
+<td>Nhánh trước đó</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mới có một commit. Tạo nhánh cho tính năng OTP và chuyển sang:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch
+git switch -c feature/otp
+git branch</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">* main
+Switched to a new branch &#39;feature/otp&#39;
+* feature/otp
+  main</code></pre></div>
+<p>Commit một tệp trên nhánh mới (<code>otp.txt</code>), rồi qua lại giữa hai nhánh để thấy working tree thay đổi:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+ls
+git switch feature/otp
+ls
+git switch -</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to branch &#39;main&#39;
+README.md
+Switched to branch &#39;feature/otp&#39;
+README.md
+otp.txt
+Switched to branch &#39;main&#39;</code></pre></div>
+<p>Xem mỗi nhánh trỏ commit nào:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -v</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">  feature/otp 4cc3658 Thêm OTP
+* main        7e1e491 Khởi tạo</code></pre></div>
+<p>Giờ thử một tình huống bị chặn: trên <code>main</code>, bạn tạo tệp untracked <code>otp.txt</code> trùng tên với tệp ở nhánh kia.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch feature/otp</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: The following untracked working tree files would be overwritten by checkout:
+	otp.txt
+Please move or remove them before you switch branches.
+Aborting</code></pre></div>
+<p>Git bảo vệ dữ liệu của bạn và không chuyển. Dời hoặc xóa tệp đó rồi thử lại.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tạo nhánh mà quên chuyển.</strong> <code>git branch feature/x</code> rồi commit ngay, commit lại rơi vào nhánh cũ. Luôn liếc <code>git branch --show-current</code> hoặc dùng <code>switch -c</code>.</p>
+<p><strong>Switch sang nhánh chưa tồn tại.</strong> <code>git switch khong-co</code> báo <code>fatal: invalid reference: khong-co</code>. Thêm <code>-c</code> nếu bạn muốn tạo.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Nếu tồn tại nhánh remote-tracking <code>origin/&lt;tên&gt;</code> duy nhất trùng tên, <code>git switch &lt;tên&gt;</code> sẽ tự tạo nhánh local theo dõi nó. Đây là hành vi tiện lợi, không phải lỗi.</p>
+</aside>
+<p><strong>Mang thay đổi dở dang sang nhánh khác.</strong> Thay đổi chưa commit đi theo khi chuyển nhánh, nên dễ lỡ commit vào nhầm nhánh. Commit hoặc stash trước khi chuyển nếu việc đó thuộc nhánh cũ.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git switch -C &lt;tên&gt;</code> sẽ đặt lại nhánh đã có về vị trí mới. Commit chỉ có trên nhánh cũ có thể mất dấu (dù vẫn cứu được qua reflog).</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Sáng thứ hai, bạn nhận ticket viết test cho luồng nạp tiền điện thoại. Từ <code>main</code> mới nhất, bạn chạy <code>git switch -c test/nap-tien-dien-thoai</code>, viết test và commit trên nhánh đó. Giữa chừng có yêu cầu kiểm tra nhanh một lỗi khác: bạn commit dở dang (hoặc stash), <code>git switch main</code>, tạo nhánh khác cho lỗi đó. Mỗi việc một nhánh, không lẫn vào nhau.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu bạn kết thúc ở một nhánh mới có tên cụ thể, tạo từ vị trí hiện tại. Câu hỏi đi kèm hỏi về lệnh làm được cả việc tạo lẫn chuyển trong một bước. Hãy:</p>
+<ul>
+<li>Gõ đúng tên nhánh như đề, kể cả dấu gạch chéo.</li>
+<li>Sau khi làm, kiểm tra bằng <code>git branch --show-current</code>.</li>
+<li>Nhớ cả cú pháp mới với <code>switch</code> và cú pháp cũ với <code>checkout</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Nhánh là ref nhẹ; tạo nhánh không chép tệp hay commit.</li>
+<li><code>git branch</code> tạo, <code>git switch</code> chuyển, <code>git switch -c</code> làm cả hai.</li>
+<li>Chuyển nhánh đổi HEAD rồi cập nhật index và working tree.</li>
+<li>Git từ chối chuyển nếu thay đổi local sẽ bị ghi đè.</li>
+<li><code>git switch -</code> quay nhanh về nhánh trước.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open create-and-switch
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/file-modes.html" rel="prev"><small>Bài trước</small>Quyền thực thi và symlink (Nền tảng Git)</a><a class="next" href="../branching/merge-strategies.html" rel="next"><small>Bài sau</small>Chiến lược merge</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 1/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

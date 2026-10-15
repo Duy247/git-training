@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Nhật ký di chuyển ref - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 4/12</span></p>
+<h1>Nhật ký di chuyển ref</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>reflog</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu reflog ghi lại điều gì và nó khác <code>git log</code> ở chỗ nào.</li>
+<li>Đọc một dòng reflog và dùng cú pháp <code>HEAD@{n}</code>, <code>main@{n}</code>.</li>
+<li>Dùng reflog để tìm lại vị trí cũ sau reset, rebase, amend hay chuyển nhánh.</li>
+<li>Biết giới hạn: reflog chỉ ở local và có thời hạn.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git log</code> kể lịch sử <strong>của commit</strong>: commit này có cha là commit kia. Nhưng nó không kể <strong>bạn đã làm gì</strong> với repository. Nếu bạn reset nhánh lùi ba commit, <code>git log</code> chỉ còn thấy lịch sử ngắn hơn, như thể ba commit kia chưa từng tồn tại.</p>
+<p><strong>Reflog</strong> (reference log) lấp khoảng trống đó. Mỗi khi HEAD hoặc một nhánh <strong>đổi vị trí</strong> (commit mới, checkout, reset, merge, rebase, amend, cherry-pick, pull...), Git ghi một dòng vào nhật ký: vị trí mới là commit nào, và lý do. Mỗi ref có nhật ký riêng: <code>HEAD</code> có một, <code>main</code> có một, mỗi nhánh có một. Các tệp nằm trong <code>.git/logs/</code>.</p>
+<p>Một dòng reflog như:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">9b82b2e HEAD@{3}: commit: Thêm b</code></pre></div>
+<p>đọc là: &quot;ba lần di chuyển trước, HEAD ở commit <code>9b82b2e</code>, và lý do di chuyển tới đó là một commit với subject Thêm b&quot;. <code>HEAD@{0}</code> là hiện tại, <code>HEAD@{1}</code> là vị trí ngay trước, và cứ thế. Bạn dùng cú pháp này ở mọi chỗ cần một commit: <code>git show HEAD@{2}</code>, <code>git branch cuu HEAD@{1}</code>, <code>git reset --hard main@{1}</code>. Có cả dạng thời gian như <code>main@{yesterday}</code> hay <code>HEAD@{2.hours.ago}</code>.</p>
+<p>Khác biệt giữa reflog của <code>HEAD</code> và của một nhánh: reflog <code>HEAD</code> ghi <strong>mọi</strong> lần HEAD di chuyển, kể cả chuyển nhánh; reflog <code>main</code> chỉ ghi khi chính <code>main</code> đổi vị trí. Khi tìm &quot;vị trí trước khi mình làm hỏng nhánh&quot;, reflog của nhánh thường gọn hơn.</p>
+<p>Giới hạn cần nhớ:</p>
+<ul>
+<li>Reflog là <strong>local</strong>: không được push, không có trong bản clone. Máy của đồng nghiệp có reflog riêng.</li>
+<li>Có <strong>thời hạn</strong>: mặc định mục còn truy cập được giữ khoảng 90 ngày, mục không còn truy cập được khoảng 30 ngày, sau đó <code>git gc</code> có thể dọn.</li>
+<li>Reflog chỉ ghi <strong>vị trí ref</strong>, không ghi sửa đổi chưa commit. Thay đổi bị <code>reset --hard</code> xóa khỏi working tree không có trong reflog.</li>
+<li>Xóa nhánh thì reflog của nhánh đó cũng bị xóa; nhưng reflog <code>HEAD</code> vẫn còn dấu vết nếu bạn từng đứng trên nhánh.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant U as Bạn
+  participant H as HEAD
+  participant R as Reflog
+  U-&gt;&gt;H: commit Báo cáo test
+  H-&gt;&gt;R: ghi commit 2501553
+  U-&gt;&gt;H: commit Thêm b
+  H-&gt;&gt;R: ghi commit 9b82b2e
+  U-&gt;&gt;H: git reset --hard HEAD~2
+  H-&gt;&gt;R: ghi reset về 7e1e491
+  Note over R: 9b82b2e vẫn nằm trong nhật ký, tìm lại được</pre>
+<pre class="mermaid">flowchart LR
+  L[&quot;git log: theo parent&quot;] --&gt; A[&quot;Chỉ thấy commit còn trên nhánh&quot;]
+  F[&quot;git reflog: theo lần di chuyển&quot;] --&gt; B[&quot;Thấy cả vị trí cũ đã rời đi&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog                      # reflog của HEAD (= git reflog show HEAD)
+git reflog show &lt;nhánh&gt;         # reflog của một nhánh
+git reflog --date=iso           # hiện thời gian thay vì số thứ tự
+git log -g --oneline            # đọc reflog bằng định dạng của log
+git reflog --format=&quot;%h %gd %gs | %s&quot;   # tùy biến: hash, chỉ mục, lý do, subject
+git show HEAD@{1}               # xem commit ở vị trí trước
+git branch &lt;tên&gt; HEAD@{n}       # gắn tên nhánh vào vị trí cũ
+git reset --hard &lt;nhánh&gt;@{1}    # đưa nhánh về vị trí ngay trước</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cú pháp</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>HEAD@{0}</code></td>
+<td>Vị trí hiện tại của HEAD</td>
+</tr>
+<tr>
+<td><code>HEAD@{1}</code></td>
+<td>Vị trí ngay trước của HEAD</td>
+</tr>
+<tr>
+<td><code>main@{2}</code></td>
+<td>Vị trí thứ hai trước đây của nhánh main</td>
+</tr>
+<tr>
+<td><code>main@{yesterday}</code></td>
+<td>Nơi main ở vào hôm qua</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình tạo hai commit, chuyển qua lại một nhánh, rồi reset <code>main</code> lùi hai commit. <code>git log</code> chỉ còn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7e1e491 Khởi tạo</code></pre></div>
+<p>Reflog thì nhớ hết:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7e1e491 HEAD@{0}: reset: moving to HEAD~2
+9b82b2e HEAD@{1}: checkout: moving from feature to main
+9b82b2e HEAD@{2}: checkout: moving from main to feature
+9b82b2e HEAD@{3}: commit: Thêm b
+2501553 HEAD@{4}: commit: Báo cáo test
+7e1e491 HEAD@{5}: commit (initial): Khởi tạo</code></pre></div>
+<p>Reflog riêng của <code>main</code> gọn hơn vì không có các lần chuyển nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog show main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">7e1e491 main@{0}: reset: moving to HEAD~2
+9b82b2e main@{1}: commit: Thêm b
+2501553 main@{2}: commit: Báo cáo test
+7e1e491 main@{3}: commit (initial): Khởi tạo</code></pre></div>
+<p>Xem nhanh vị trí trước khi reset, và kèm thời gian:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --stat HEAD@{1}
+git reflog --date=iso -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit 9b82b2e90e0aec2076c4cbac4f5693377b300a2e
+Author: Duy Van &lt;duy@example.invalid&gt;
+Date:   Thu Oct 15 09:00:00 2026 +0700
+
+    Thêm b
+
+ b.txt | 1 +
+ 1 file changed, 1 insertion(+)
+7e1e491 HEAD@{2026-10-15 10:20:00 +0700}: reset: moving to HEAD~2</code></pre></div>
+<p>Gắn tên vào vị trí cũ để giữ lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch recovered HEAD@{1}
+git log --oneline recovered</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">9b82b2e Thêm b
+2501553 Báo cáo test
+7e1e491 Khởi tạo</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng chỉ số reflog sau khi đã làm thêm thao tác.</strong> <code>HEAD@{1}</code> thay đổi ý nghĩa sau mỗi lần HEAD di chuyển. Đọc lại reflog ngay trước khi dùng, hoặc dùng hash.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong một số shell (như PowerShell), dấu ngoặc nhọn có nghĩa đặc biệt. Đặt <code>&quot;HEAD@{1}&quot;</code> trong ngoặc kép cho chắc.</p>
+</aside>
+<p><strong>Tìm commit của đồng nghiệp trong reflog của mình.</strong> Reflog chỉ ghi những gì xảy ra trên máy bạn. Hỏi họ, hoặc tìm trên remote.</p>
+<p><strong>Chờ quá lâu.</strong> Sau khi hết hạn và <code>gc</code> chạy, commit không còn được tham chiếu có thể bị dọn. Cứu ngay khi phát hiện.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git reflog --format=&quot;%h %gd %gs | %s&quot;</code> thêm subject của commit vào mỗi dòng, giúp tìm theo thông điệp dễ hơn khi reflog dài.</p>
+</aside>
+<p><strong>Nghĩ reflog cứu được mọi thứ.</strong> Sửa đổi chưa commit bị ghi đè không bao giờ vào reflog. Commit thường xuyên, hoặc stash, trước thao tác rủi ro.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn rebase nhánh test lên <code>main</code> mới, giải quyết conflict hơi vội, và sau đó bộ test hỏng lung tung. Thay vì sửa tiếp trên kết quả rebase, bạn mở <code>git reflog show test/QA-77</code>, thấy dòng ngay trước &quot;rebase (start)&quot;, và đặt nhánh về đó bằng <code>git reset --hard test/QA-77@{1}</code>. Bạn rebase lại cẩn thận hơn, lần này đọc kỹ từng conflict.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi: bạn cần nêu lệnh xem lịch sử di chuyển của HEAD. Trong repository bài tập, hãy thử tạo vài commit, chuyển nhánh, reset lùi một bước, rồi so sánh output của <code>git log</code> với lệnh trong bài để thấy sự khác biệt. Thử thêm <code>git show HEAD@{1}</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Reflog ghi mỗi lần HEAD hoặc một nhánh đổi vị trí, kèm lý do.</li>
+<li><code>HEAD@{n}</code> và <code>&lt;nhánh&gt;@{n}</code> chỉ tới vị trí cũ; dùng được ở mọi lệnh.</li>
+<li>Reflog giúp tìm lại commit sau reset, rebase, amend.</li>
+<li>Reflog là local, có thời hạn, và không ghi sửa đổi chưa commit.</li>
+<li>Đọc lại reflog ngay trước khi dùng chỉ số.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reflog
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/clean-restore.html" rel="prev"><small>Bài trước</small>Dọn tệp và khôi phục</a><a class="next" href="../undo/amending-commits.html" rel="next"><small>Bài sau</small>Sửa commit cuối</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 4/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

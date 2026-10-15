@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Hai kiểu tag - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 5/10</span></p>
+<h1>Hai kiểu tag</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>annotated-vs-lightweight-tags</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Thấy tận mắt sự khác nhau về lưu trữ giữa annotated tag và lightweight tag.</li>
+<li>Kiểm tra một tag thuộc kiểu nào bằng <code>git cat-file</code> và <code>git for-each-ref</code>.</li>
+<li>Hiểu vì sao <code>git describe</code> và <code>git push --follow-tags</code> đối xử khác nhau với hai kiểu.</li>
+<li>Chọn đúng kiểu cho từng mục đích và chuyển một lightweight tag thành annotated.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Ở bài đánh dấu phiên bản, bạn đã biết tag là cái tên cố định cho một commit. Bài này nhìn vào bên trong để thấy hai kiểu tag được lưu khác nhau ra sao, vì sự khác nhau đó quyết định cách các lệnh khác dùng chúng.</p>
+<p><strong>Lightweight tag</strong> chỉ là một ref. Tệp (hoặc dòng trong <code>packed-refs</code>) <code>refs/tags/&lt;tên&gt;</code> chứa thẳng object ID của commit. Không có gì thêm: không ai ký tên, không có thời điểm gắn, không có lời giải thích. Về bản chất nó giống một branch không bao giờ di chuyển. Tạo bằng <code>git tag &lt;tên&gt;</code>.</p>
+<p><strong>Annotated tag</strong> là một <strong>object</strong> thật trong object database, loại <code>tag</code>, giống như commit, tree và blob là các loại object khác. Object tag chứa:</p>
+<ul>
+<li><code>object</code>: ID của thứ được gắn tag (thường là commit),</li>
+<li><code>type</code>: loại của thứ đó,</li>
+<li><code>tag</code>: tên tag,</li>
+<li><code>tagger</code>: tên, email và thời điểm của người gắn,</li>
+<li>một dòng trống rồi tới thông điệp (và chữ ký, nếu tag được ký).</li>
+</ul>
+<p>Ref <code>refs/tags/&lt;tên&gt;</code> khi đó trỏ tới object tag, và object tag mới trỏ tới commit. Tạo bằng <code>git tag -a</code> (hoặc <code>-s</code> để ký, bài sau).</p>
+<p>Vì có thêm một lớp, khi bạn cần commit thật sự đằng sau tag, Git phải &quot;bóc&quot; object tag. Cú pháp <code>&lt;tag&gt;^{}</code> hoặc <code>&lt;tag&gt;^{commit}</code> làm việc đó. Với lightweight tag, bóc hay không bóc đều ra cùng commit.</p>
+<p>Sự khác nhau này ảnh hưởng tới vài lệnh quen thuộc:</p>
+<ul>
+<li><code>git describe</code> mặc định chỉ dùng annotated tag. Lightweight tag bị bỏ qua trừ khi bạn thêm <code>--tags</code>.</li>
+<li><code>git push --follow-tags</code> chỉ đẩy annotated tag trỏ tới commit đang được đẩy. Lightweight tag ở lại máy bạn.</li>
+<li><code>git show &lt;tag&gt;</code> với annotated tag in phần đầu của object tag (người gắn, ngày, thông điệp) trước commit; với lightweight tag thì in thẳng commit.</li>
+</ul>
+<p>Vậy dùng kiểu nào? Quy ước được Git khuyến nghị: annotated tag cho mọi thứ được công bố, đặc biệt là bản phát hành, vì nó lưu được ai gắn, khi nào, tại sao. Lightweight tag hợp với dấu mốc tạm thời, riêng tư: đánh dấu commit để thử bisect, ghi nhớ &quot;chỗ này trước khi mình rebase&quot;, và những thứ bạn không định chia sẻ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph L[&quot;Lightweight tag&quot;]
+    L1[&quot;refs/tags/thu-nghiem&quot;] --&gt; L2[&quot;Commit 8e42abf&quot;]
+  end
+  subgraph A[&quot;Annotated tag&quot;]
+    A1[&quot;refs/tags/v2.3.0&quot;] --&gt; A2[&quot;Object tag abc4a7d&quot;]
+    A2 --&gt;|&quot;object, type&quot;| A3[&quot;Commit 3b92fab&quot;]
+    A2 -.-&gt;|&quot;tagger, thông điệp&quot;| A4[&quot;Thông tin người gắn&quot;]
+  end</pre>
+<pre class="mermaid">flowchart TD
+  Q{&quot;Tag sẽ được chia sẻ hoặc là bản phát hành?&quot;}
+  Q --&gt;|&quot;có&quot;| AN[&quot;Annotated tag, git tag -a&quot;]
+  Q --&gt;|&quot;không, chỉ là mốc tạm ở máy mình&quot;| LW[&quot;Lightweight tag, git tag tên&quot;]
+  AN --&gt; D[&quot;describe và follow-tags dùng được&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag &lt;tên&gt;                        # lightweight tag
+git tag -a &lt;tên&gt; -m &quot;Thông điệp&quot;     # annotated tag
+git cat-file -t &lt;tên&gt;                # in loại object mà ref trỏ tới
+git cat-file -p &lt;tên&gt;                # in nội dung object tag
+git rev-parse &lt;tên&gt;^{}               # commit thật sự đằng sau tag
+git for-each-ref refs/tags --format=&#39;%(refname:short) %(objecttype)&#39;
+git describe                         # chỉ dựa trên annotated tag
+git describe --tags                  # dùng cả lightweight tag
+git push --follow-tags               # đẩy kèm annotated tag liên quan
+git tag -a -f &lt;tên&gt; -m &quot;...&quot; &lt;tên&gt;   # chuyển lightweight thành annotated</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Đặc điểm</th>
+<th>Lightweight</th>
+<th>Annotated</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lưu ở đâu</td>
+<td>Chỉ một ref</td>
+<td>Ref và object tag riêng</td>
+</tr>
+<tr>
+<td><code>git cat-file -t</code></td>
+<td><code>commit</code></td>
+<td><code>tag</code></td>
+</tr>
+<tr>
+<td>Người gắn, thời điểm, thông điệp</td>
+<td>Không</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Có thể ký</td>
+<td>Không</td>
+<td>Có (<code>-s</code>)</td>
+</tr>
+<tr>
+<td><code>git describe</code> mặc định</td>
+<td>Bỏ qua</td>
+<td>Dùng</td>
+</tr>
+<tr>
+<td><code>git push --follow-tags</code></td>
+<td>Không đẩy</td>
+<td>Đẩy</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai commit. Commit đầu được gắn annotated tag <code>v2.3.0</code>, commit sau gắn lightweight tag <code>thu-nghiem</code> (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -t thu-nghiem
+git cat-file -t v2.3.0
+git cat-file -p v2.3.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit
+tag
+object 3b92fab092a854b02d9d0d99c82297787bb14bdf
+type commit
+tag v2.3.0
+tagger Lan QA &lt;lan@example.com&gt; 1792085778 +0700
+
+Bản phát hành 2.3.0</code></pre></div>
+<p>Con số sau email là thời điểm dạng Unix timestamp kèm múi giờ. Xem cả hai tag cùng lúc; cột cuối là commit sau khi bóc (chỉ annotated tag mới có giá trị):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git for-each-ref refs/tags --format=&#39;%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short)&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">thu-nghiem commit 8e42abf
+v2.3.0 tag abc4a7d 3b92fab</code></pre></div>
+<p><code>git describe</code> chọn tag nào:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git describe
+git describe --tags</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v2.3.0-1-g8e42abf
+thu-nghiem</code></pre></div>
+<p>Mặc định Git bỏ qua <code>thu-nghiem</code> dù nó nằm ngay HEAD, và mô tả HEAD theo <code>v2.3.0</code>. Đẩy lên một remote cục bộ với <code>--follow-tags</code> rồi xem remote có gì:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git push -q origin main --follow-tags
+git ls-remote --tags origin</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">abc4a7d2ece2beb2d507abe5b1a3288a834f4ae4	refs/tags/v2.3.0
+3b92fab092a854b02d9d0d99c82297787bb14bdf	refs/tags/v2.3.0^{}</code></pre></div>
+<p>Chỉ annotated tag đi theo. Dòng <code>^{}</code> là commit đã bóc mà remote quảng bá kèm. Nếu muốn mốc thử nghiệm trở thành tag chính thức, tạo lại nó dưới dạng annotated tại cùng commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -a -f thu-nghiem -m &quot;Bản thử cho QA&quot; thu-nghiem
+git tag -l --format=&#39;%(refname:short) %(objecttype) %(taggername) %(contents:subject)&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updated tag &#39;thu-nghiem&#39; (was 8e42abf)
+thu-nghiem tag Lan QA Bản thử cho QA
+v2.3.0 tag Lan QA Bản phát hành 2.3.0</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Phát hành bằng lightweight tag.</strong> <code>git describe</code> trong script build không thấy tag, số phiên bản in ra sai hoặc lệnh báo không tìm thấy tag. Kiểm tra bằng <code>git cat-file -t</code> và tạo lại dạng annotated khi tag chưa được chia sẻ.</p>
+<p><strong>So sánh ID của tag với ID của commit.</strong> Với annotated tag, <code>git rev-parse v2.3.0</code> ra ID của object tag, không phải commit. Script kiểm tra &quot;tag có trỏ vào HEAD không&quot; phải so <code>v2.3.0^{}</code> với HEAD.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>git push --follow-tags</code> bỏ qua lightweight tag là có chủ đích: Git coi lightweight tag là mốc riêng tư. Muốn đẩy một tag cụ thể bất kể kiểu nào, đẩy nó theo tên.</p>
+</aside>
+<p><strong>Dùng <code>-f</code> với tag đã chia sẻ.</strong> Chuyển kiểu hay dời tag bằng <code>-f</code> chỉ an toàn khi tag mới ở máy bạn. Người đã fetch tag cũ sẽ không tự nhận bản mới.</p>
+<p><strong>Thông điệp tag rỗng hoặc vô nghĩa.</strong> Annotated tag có giá trị nhờ thông điệp. &quot;v2&quot; hay &quot;release&quot; không giúp ai. Ghi phạm vi phát hành, môi trường, hoặc đường dẫn tới ghi chú phát hành.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt <code>git config --global push.followTags true</code> để <code>git push</code> thường luôn mang theo annotated tag của các commit được đẩy.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Khi chạy <code>git bisect</code> để tìm commit làm hỏng test thanh toán, bạn rải vài lightweight tag như <code>bisect-tot</code> và <code>bisect-hong</code> để nhớ mốc. Chúng không bao giờ rời máy bạn và không làm bẩn danh sách tag của nhóm. Còn khi bàn giao build cho UAT, bạn dùng annotated tag với thông điệp ghi phạm vi test, để pipeline đọc số phiên bản qua <code>git describe</code> và để ai cũng biết người nào gắn tag lúc nào.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành dùng lại kịch bản gắn tag: bạn cần tạo đúng tag phiên bản mà đề nêu tại HEAD, và trình kiểm tra yêu cầu ref đó trỏ tới một object tag, không phải trỏ thẳng vào commit. Câu hỏi kiến thức hỏi kiểu tag nào lưu thông điệp và thông tin người gắn. Hãy:</p>
+<ul>
+<li>Tự kiểm tra kiểu tag bằng <code>git cat-file -t</code> sau khi tạo.</li>
+<li>Xem nội dung object bằng <code>git cat-file -p</code> để thấy dòng <code>tagger</code>.</li>
+<li>So <code>git rev-parse &lt;tag&gt;^{}</code> với <code>git rev-parse HEAD</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Lightweight tag chỉ là ref trỏ vào commit; annotated tag là object riêng.</li>
+<li>Object tag lưu commit đích, tên tag, người gắn, thời điểm và thông điệp.</li>
+<li><code>git cat-file -t</code> cho biết kiểu: <code>commit</code> là lightweight, <code>tag</code> là annotated.</li>
+<li><code>git describe</code> và <code>--follow-tags</code> mặc định chỉ làm việc với annotated tag.</li>
+<li>Dùng annotated cho bản phát hành, lightweight cho mốc tạm riêng tư.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open annotated-vs-lightweight-tags
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/semver.html" rel="prev"><small>Bài trước</small>Quy tắc phiên bản ngữ nghĩa</a><a class="next" href="../release-ops/tag-signing.html" rel="next"><small>Bài sau</small>Ký tag</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 5/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

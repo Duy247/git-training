@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cấu trúc index - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 5/11</span></p>
+<h1>Cấu trúc index</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>index-format</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu index (staging area) thực chất là một tệp nhị phân <code>.git/index</code> chứa danh sách entry.</li>
+<li>Đọc từng entry bằng <code>git ls-files --stage</code>: mode, object ID, stage number, đường dẫn.</li>
+<li>Biết index lưu thêm thông tin stat để <code>git status</code> chạy nhanh.</li>
+<li>Nhận ra stage 1, 2, 3 khi đang có conflict.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn đã quen với câu &quot;thêm vào staging area&quot;. Về mặt kỹ thuật, staging area là tệp <code>.git/index</code>. Đây là bản nháp của tree cho commit kế tiếp: một danh sách phẳng, sắp theo đường dẫn, mỗi dòng (entry) gồm:</p>
+<ul>
+<li><strong>Mode</strong>: <code>100644</code>, <code>100755</code>, <code>120000</code> hoặc <code>160000</code>.</li>
+<li><strong>Object ID</strong> của blob (hoặc commit với submodule). Blob này đã nằm sẵn trong object database từ lúc bạn <code>git add</code>.</li>
+<li><strong>Stage number</strong>: 0 trong trạng thái bình thường; 1, 2, 3 khi có conflict.</li>
+<li><strong>Đường dẫn</strong> đầy đủ, ví dụ <code>src/app.txt</code>. Index không lưu thư mục như tree; thư mục chỉ là phần đầu của đường dẫn.</li>
+<li><strong>Thông tin stat</strong>: ctime, mtime, device, inode, uid, gid, kích thước tệp.</li>
+</ul>
+<p>Thông tin stat là bí quyết tốc độ. Khi bạn chạy <code>git status</code>, Git không băm lại mọi tệp. Nó so stat của tệp trên đĩa với stat ghi trong index. Khớp thì coi như không đổi; lệch thì mới đọc nội dung và so sánh.</p>
+<p>Tệp index bắt đầu bằng 12 byte header: chữ ký <code>DIRC</code> (viết tắt của &quot;dircache&quot;, tên cũ của index), số phiên bản (2, 3 hoặc 4) và số entry. Sau đó là các entry, các phần mở rộng tùy chọn (ví dụ cache tree, thông tin resolve-undo) và cuối cùng là checksum của toàn tệp. Phiên bản 4 nén tiền tố đường dẫn nên tệp nhỏ hơn với repository nhiều tệp.</p>
+<p>Khi merge gặp conflict ở một tệp, entry stage 0 của tệp đó biến mất và được thay bằng tối đa ba entry:</p>
+<ul>
+<li>Stage 1: phiên bản ở merge base (bản gốc chung).</li>
+<li>Stage 2: phiên bản &quot;ours&quot;, tức nhánh hiện tại.</li>
+<li>Stage 3: phiên bản &quot;theirs&quot;, tức nhánh đang được merge vào.</li>
+</ul>
+<p>Khi bạn sửa tệp rồi <code>git add</code>, ba entry này bị gộp lại thành một entry stage 0. Đó là lý do <code>git add</code> chính là cách đánh dấu &quot;đã giải quyết conflict&quot;.</p>
+<p><code>git commit</code> thực chất làm hai việc: biến index thành các tree (như <code>git write-tree</code>), rồi tạo commit trỏ tới tree gốc đó.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  WT[&quot;Working tree&quot;] --&gt;|&quot;git add: tạo blob, ghi entry&quot;| IDX[&quot;Tệp .git/index&quot;]
+  IDX --&gt;|&quot;git commit: write-tree&quot;| TR[&quot;Tree gốc&quot;]
+  TR --&gt; CM[&quot;Commit mới&quot;]
+  IDX --&gt;|&quot;git status: so stat&quot;| WT
+  ODB[&quot;Object database&quot;] -.-&gt;|&quot;blob đã có sẵn&quot;| IDX</pre>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; Stage0: Bình thường
+  Stage0 --&gt; Stage123: merge gặp conflict
+  Stage123 --&gt; Stage0: sửa tệp rồi git add
+  Stage0 --&gt; [*]: git commit</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Mọi entry: mode, ID, stage, đường dẫn
+git ls-files --stage
+
+# Thông tin stat của một entry
+git ls-files --debug README.md
+
+# Chỉ các entry đang conflict
+git ls-files -u
+
+# Nội dung của một stage cụ thể
+git show :1:f.txt
+git show :2:f.txt
+git show :3:f.txt
+
+# Tự chọn cột hiển thị
+git ls-files --format=&#39;%(objectmode) %(objectname) %(path)&#39;
+
+# Đổi phiên bản định dạng index
+git update-index --index-version 4</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>Bình thường, sẵn sàng commit</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Bản ở merge base</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Bản ours, nhánh hiện tại</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Bản theirs, nhánh được merge vào</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có <code>README.md</code>, <code>run.sh</code> thực thi và <code>src/app.txt</code> (ID trên máy bạn có thể khác nếu nội dung khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git ls-files --stage</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 3f01b4f03f3a2193f92a57add2627ce240056f0f 0	README.md
+100755 4163036efa65bd4a469e752267498f01ea36a55c 0	run.sh
+100644 b80f0bd60822d4fa4893de455958ef32f6c521bf 0	src/app.txt</code></pre></div>
+<p>Nhìn 12 byte đầu của tệp index:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">head -c 12 .git/index | od -A d -t x1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">0000000 44 49 52 43 00 00 00 02 00 00 00 03
+0000012</code></pre></div>
+<p><code>44 49 52 43</code> là chữ <code>DIRC</code>, tiếp theo là phiên bản 2 và 3 entry. Xem phần stat:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git ls-files --debug README.md</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">README.md
+  ctime: 1792084242:245667124
+  mtime: 1792084242:245667124
+  dev: 65040	ino: 1803601
+  uid: 1000	gid: 1000
+  size: 15	flags: 0</code></pre></div>
+<p>Sửa <code>README.md</code> rồi <code>git add</code>. Entry đổi sang blob mới; <code>git restore --staged</code> đưa entry về blob cũ, còn thay đổi vẫn ở working tree:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add README.md
+git ls-files --stage README.md
+git restore --staged README.md
+git ls-files --stage README.md
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 5cc51ae23833d577dc57e7c7719271255762d644 0	README.md
+100644 3f01b4f03f3a2193f92a57add2627ce240056f0f 0	README.md
+ M README.md</code></pre></div>
+<p>Giờ tạo conflict ở <code>f.txt</code> (gốc &quot;goc&quot;, main sửa thành &quot;main&quot;, topic sửa thành &quot;topic&quot;):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git merge topic
+git ls-files --stage
+git show :1:f.txt
+git show :2:f.txt
+git show :3:f.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">CONFLICT (content): Merge conflict in f.txt
+Automatic merge failed; fix conflicts and then commit the result.
+100644 3f01b4f03f3a2193f92a57add2627ce240056f0f 0	README.md
+100644 79db34f0bbce5feaa37b3cc006763afe7760d4a4 1	f.txt
+100644 ba2906d0666cf726c7eaadd2cd3db615dedfdf3a 2	f.txt
+100644 0f62d67e76ce1255a098942495a846df0f8a2c11 3	f.txt
+goc
+main
+topic</code></pre></div>
+<p>Sửa <code>f.txt</code> thành nội dung mong muốn rồi <code>git add f.txt</code>; ba entry gộp lại:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 c6a058ed171406dc733f0892888294ef9c1716ba 0	f.txt</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trong lúc conflict, <code>git checkout --theirs f.txt</code> hay <code>git checkout --ours f.txt</code> thực chất là lấy nội dung từ stage 3 hoặc stage 2 ghi ra working tree.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ index chỉ chứa tệp đã sửa.</strong> Index chứa toàn bộ tệp sẽ có trong commit kế tiếp, kể cả tệp không đổi.</p>
+<p><strong>Mở <code>.git/index</code> bằng trình soạn thảo.</strong> Tệp nhị phân có checksum; sửa tay sẽ làm hỏng nó. Dùng <code>git ls-files</code>, <code>git update-index</code>.</p>
+<p><strong>Commit khi vẫn còn entry stage 1-3.</strong> Git từ chối commit khi còn path chưa merge. Kiểm tra bằng <code>git ls-files -u</code>.</p>
+<p><strong>Ngạc nhiên vì <code>git status</code> báo đổi dù nội dung y nguyên.</strong> Có thể quyền tệp (mode) đã đổi, hoặc kiểu xuống dòng bị chuyển đổi.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Khi xóa tệp index (ví dụ trong lúc thử nghiệm), working tree và commit không mất gì, nhưng staging area mất. <code>git reset</code> sẽ dựng lại index từ HEAD.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Một kỹ sư kiểm thử than rằng thư mục test có hàng chục nghìn tệp dữ liệu mẫu và <code>git status</code> trên máy ảo chạy chậm. Bạn xem <code>git ls-files --debug</code> và thấy mtime của tệp liên tục đổi do công cụ đồng bộ thư mục chạm vào tệp, khiến Git phải đọc lại nội dung. Tắt việc chạm mtime, <code>git status</code> nhanh trở lại.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi lệnh plumbing nào liệt kê các entry trong index. Ôn lại phần lệnh cần biết, chú ý lệnh in ra cả mode, object ID và stage number.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Index là tệp nhị phân <code>.git/index</code>, header bắt đầu bằng <code>DIRC</code>, phiên bản và số entry.</li>
+<li>Mỗi entry gồm mode, object ID, stage number, đường dẫn và thông tin stat.</li>
+<li>Stat giúp <code>git status</code> nhanh mà không phải băm lại mọi tệp.</li>
+<li>Conflict tạo stage 1 (base), 2 (ours), 3 (theirs); <code>git add</code> gộp về stage 0.</li>
+<li><code>git commit</code> biến index thành tree rồi tạo commit.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open index-format
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/refs-and-symbolic-refs.html" rel="prev"><small>Bài trước</small>Ref và symbolic ref</a><a class="next" href="../internals/packfiles.html" rel="next"><small>Bài sau</small>Tệp đóng gói packfile</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 5/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

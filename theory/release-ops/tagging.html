@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đánh dấu phiên bản - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 1/10</span></p>
+<h1>Đánh dấu phiên bản</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>tagging</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu tag là gì và vì sao nó khác branch: tag đứng yên, branch di chuyển.</li>
+<li>Tạo, liệt kê, xem và xóa tag ở máy mình.</li>
+<li>Gắn tag vào HEAD hoặc vào một commit cũ hơn.</li>
+<li>Dùng tag để quay lại đúng mã đã phát hành và so sánh hai bản phát hành.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Mỗi commit đã có một object ID dài 40 ký tự, nhưng không ai muốn nói với đồng nghiệp &quot;bản đang chạy trên UAT là <code>1cb8426f8d...</code>&quot;. Thứ mình cần là một cái tên dễ nhớ, gắn chặt vào đúng commit đó và không tự đổi theo thời gian. Đó là việc của <strong>tag</strong>.</p>
+<p>Hãy so sánh với branch. Branch cũng là một cái tên trỏ tới commit, nhưng mỗi lần bạn commit trên branch, cái tên đó dời lên commit mới. Branch giống như dấu trang trong cuốn sổ bạn đang viết dở: nó luôn đi theo trang mới nhất. Tag thì giống cái nhãn dán lên một trang cụ thể: viết thêm bao nhiêu trang nữa, nhãn vẫn nằm ở đó. Vì vậy tag hợp để đánh dấu những thời điểm quan trọng: bản phát hành, bản giao cho đội test, mốc trước một đợt refactor lớn.</p>
+<p>Về mặt lưu trữ, tag nằm trong không gian tên <code>refs/tags/</code>, tách biệt với branch ở <code>refs/heads/</code>. Git có hai kiểu tag:</p>
+<ul>
+<li><strong>Annotated tag</strong>: Git tạo hẳn một object loại <code>tag</code> chứa người gắn tag, thời điểm và thông điệp, rồi ref <code>refs/tags/&lt;tên&gt;</code> trỏ tới object đó. Bạn tạo nó bằng <code>git tag -a &lt;tên&gt; -m &quot;&lt;thông điệp&gt;&quot;</code>.</li>
+<li><strong>Lightweight tag</strong>: chỉ là một ref trỏ thẳng vào commit, không có thông tin gì thêm. Tạo bằng <code>git tag &lt;tên&gt;</code> không kèm tùy chọn.</li>
+</ul>
+<p>Với bản phát hành, quy ước phổ biến là dùng annotated tag, vì nó ghi lại ai đánh dấu, lúc nào và tại sao. Bài sau trong track sẽ đào sâu sự khác nhau giữa hai kiểu này; ở bài này bạn chỉ cần nhớ: muốn tag có thông điệp và thông tin người gắn, hãy dùng <code>-a</code>.</p>
+<p>Nếu không truyền commit, tag được gắn vào HEAD, tức commit bạn đang đứng. Muốn gắn vào commit khác, thêm tên commit hoặc ref vào cuối lệnh, ví dụ <code>HEAD~1</code> hoặc một object ID.</p>
+<p>Một điểm quan trọng: tag mặc định <strong>chỉ ở máy bạn</strong>. <code>git push</code> thông thường không đẩy tag. Việc chia sẻ tag lên remote có bài riêng trong track remote; ở đây mình làm mọi thứ tại chỗ.</p>
+<p>Cuối cùng, tag được coi là bất biến theo quy ước của nhóm. Git cho phép xóa và gắn lại (<code>git tag -d</code>, <code>git tag -f</code>), nhưng khi tag đã được người khác lấy về, đổi tag là gây rối. Nếu phát hành nhầm, hãy ra bản mới với số phiên bản mới thay vì dời tag cũ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<p>Tag đứng yên trong khi <code>main</code> tiến lên:</p>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Khởi tạo&quot; tag: &quot;v2.2.0&quot;
+  commit id: &quot;Thêm màn hình chuyển khoản&quot; tag: &quot;v2.3.0&quot;
+  commit id: &quot;Sửa lỗi làm tròn số dư&quot;</pre>
+<p>Annotated tag có thêm một object ở giữa ref và commit:</p>
+<pre class="mermaid">flowchart LR
+  R1[&quot;refs/tags/v2.3.0&quot;] --&gt; T[&quot;Object tag: người gắn, thời điểm, thông điệp&quot;]
+  T --&gt; C[&quot;Commit 1cb8426&quot;]
+  R2[&quot;refs/tags/thu-nghiem&quot;] --&gt; C
+  B[&quot;refs/heads/main&quot;] --&gt;|&quot;di chuyển khi commit mới&quot;| C2[&quot;Commit 787ce99&quot;]
+  C2 --&gt; C</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag                          # liệt kê tag theo thứ tự chữ cái
+git tag -l &quot;v2.*&quot;                # lọc tag theo mẫu
+git tag -n                       # liệt kê kèm dòng đầu của thông điệp
+git tag -a v2.3.0 -m &quot;Thông điệp&quot;   # annotated tag tại HEAD
+git tag -a v2.2.0 -m &quot;...&quot; HEAD~1   # annotated tag tại một commit khác
+git tag thu-nghiem               # lightweight tag tại HEAD
+git show v2.3.0                  # xem object tag và commit đích
+git rev-parse v2.3.0^{}          # lấy commit mà tag trỏ tới
+git describe                     # mô tả HEAD dựa trên annotated tag gần nhất
+git tag -d v2.3.0                # xóa tag ở máy mình</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-a</code></td>
+<td>Tạo annotated tag (object tag riêng)</td>
+</tr>
+<tr>
+<td><code>-m &quot;&lt;msg&gt;&quot;</code></td>
+<td>Thông điệp của tag, không mở editor</td>
+</tr>
+<tr>
+<td><code>-l &quot;&lt;mẫu&gt;&quot;</code></td>
+<td>Liệt kê tag khớp mẫu</td>
+</tr>
+<tr>
+<td><code>-n</code></td>
+<td>Hiện dòng thông điệp khi liệt kê</td>
+</tr>
+<tr>
+<td><code>-d</code></td>
+<td>Xóa tag cục bộ</td>
+</tr>
+<tr>
+<td><code>-f</code></td>
+<td>Ghi đè tag đã có (tránh dùng với tag đã chia sẻ)</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai commit. Mình gắn annotated tag cho commit mới nhất và cho commit trước nó (object ID ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git tag -a v2.3.0 -m &quot;Phát hành 2.3.0 cho UAT&quot;
+git tag -a v2.2.0 -m &quot;Phát hành 2.2.0&quot; HEAD~1
+git tag -n
+git log --oneline --decorate</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">v2.2.0          Phát hành 2.2.0
+v2.3.0          Phát hành 2.3.0 cho UAT
+1cb8426 (HEAD -&gt; main, tag: v2.3.0) Thêm màn hình chuyển khoản
+4a365fe (tag: v2.2.0) Khởi tạo</code></pre></div>
+<p>Kiểm tra tag thật sự trỏ về HEAD. Cú pháp <code>^{}</code> &quot;bóc&quot; object tag để lấy commit bên trong:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-parse v2.3.0^{} HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1cb8426f8defc7f334c4a4e9016ada3cae3ff134
+1cb8426f8defc7f334c4a4e9016ada3cae3ff134</code></pre></div>
+<p>Commit thêm một bản sửa. Branch <code>main</code> dời đi, tag thì không:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -qam &quot;Sửa lỗi làm tròn số dư&quot;
+git log --oneline --decorate -3
+git describe</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">787ce99 (HEAD -&gt; main) Sửa lỗi làm tròn số dư
+1cb8426 (tag: v2.3.0) Thêm màn hình chuyển khoản
+4a365fe (tag: v2.2.0) Khởi tạo
+v2.3.0-1-g787ce99</code></pre></div>
+<p><code>git describe</code> đọc là: cách tag <code>v2.3.0</code> một commit, commit hiện tại là <code>787ce99</code>. Thử tạo lại tag trùng tên thì Git từ chối:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: tag &#39;v2.3.0&#39; already exists</code></pre></div>
+<p>Muốn xem lại mã của bản cũ, checkout tag. HEAD sẽ ở trạng thái detached, vì tag không phải branch:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git checkout v2.2.0
+git status | head -1
+git switch main
+git diff --stat v2.2.0 v2.3.0</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 4a365fe Khởi tạo
+HEAD detached at v2.2.0
+ app.txt | 1 +
+ 1 file changed, 1 insertion(+)</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Quên <code>-a</code> và <code>-m</code>, tạo ra lightweight tag.</strong> <code>git tag v2.3.0</code> chạy êm, nhưng tag không có thông điệp hay người gắn. Kiểm tra bằng <code>git cat-file -t v2.3.0</code>: kết quả <code>commit</code> nghĩa là lightweight, <code>tag</code> nghĩa là annotated. Sửa bằng cách xóa (<code>git tag -d</code>) rồi tạo lại với <code>-a</code>, khi tag chưa được chia sẻ.</p>
+<p><strong>Gắn tag nhầm commit.</strong> Bạn đang đứng sai branch hoặc chưa commit bản sửa cuối. Luôn xem <code>git log --oneline --decorate -3</code> trước khi gắn tag. Nếu nhầm và chưa push, xóa rồi gắn lại vào đúng commit.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đừng dời hay xóa tag đã đẩy lên remote mà người khác đã lấy về. Máy họ vẫn giữ tag cũ và Git không tự cập nhật tag đã có. Hãy phát hành số phiên bản mới.</p>
+</aside>
+<p><strong>Tưởng <code>git push</code> đã mang tag lên server.</strong> Mặc định không. Tag cần được đẩy riêng; xem bài về đẩy tag trong track remote.</p>
+<p><strong>Commit trên tag đã checkout.</strong> Ở trạng thái detached HEAD, commit mới không thuộc branch nào và dễ thất lạc. Nếu cần sửa từ một bản cũ, tạo branch từ tag (track này có bài hotfix).</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git tag -n</code> cho bạn xem nhanh thông điệp của mọi tag, rất tiện khi cần trả lời &quot;bản UAT tuần trước là bản nào&quot;.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Đội QA nhận build mới cho UAT mỗi thứ năm. Trước khi bàn giao, bạn gắn annotated tag kiểu <code>v2.3.0</code> với thông điệp ghi rõ môi trường và phạm vi test. Khi có bug report từ UAT, người sửa checkout đúng tag đó để tái hiện, thay vì đoán xem lúc đó <code>main</code> đang ở commit nào. Hai tuần sau, <code>git diff --stat v2.2.0 v2.3.0</code> cho bạn danh sách tệp thay đổi giữa hai đợt test để khoanh vùng regression.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành cho bạn một repository có sẵn commit. Bạn cần gắn một annotated tag với tên phiên bản mà đề bài nêu, trỏ đúng vào HEAD, kèm thông điệp. Trình kiểm tra sẽ xác nhận tag là object loại tag (không phải lightweight) và đích của nó trùng HEAD. Câu hỏi kiến thức hỏi về lệnh tạo kiểu tag này. Trước khi làm:</p>
+<ul>
+<li>Chạy <code>git log --oneline --decorate</code> để biết HEAD đang ở đâu.</li>
+<li>Sau khi tạo, tự kiểm tra bằng <code>git cat-file -t &lt;tên tag&gt;</code> và <code>git rev-parse &lt;tên tag&gt;^{}</code>.</li>
+<li>Nhớ rằng thiếu thông điệp thì Git sẽ mở editor; dùng <code>-m</code> để tránh.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Tag là tên cố định cho một commit, không di chuyển khi branch tiến lên.</li>
+<li>Annotated tag (<code>git tag -a ... -m ...</code>) có object riêng với người gắn, thời điểm và thông điệp.</li>
+<li>Không ghi commit đích thì tag gắn vào HEAD.</li>
+<li><code>git tag -n</code>, <code>git show</code>, <code>git describe</code> giúp đọc và dùng tag.</li>
+<li>Tag chỉ ở máy bạn cho tới khi đẩy riêng; đừng dời tag đã chia sẻ.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open tagging
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/branch-protection.html" rel="prev"><small>Bài trước</small>Quy tắc bảo vệ nhánh (Remote và GitHub mô phỏng)</a><a class="next" href="../release-ops/file-operations.html" rel="next"><small>Bài sau</small>Thao tác tệp bằng Git</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 1/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

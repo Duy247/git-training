@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>GitHub CLI cơ bản - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 11/12</span></p>
+<h1>GitHub CLI cơ bản</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>github-cli</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu <code>gh</code> là gì và nó khác <code>git</code> ở chỗ nào.</li>
+<li>Biết nhóm lệnh <code>gh pr</code> để tạo, xem, review và merge pull request từ terminal.</li>
+<li>Đọc help của <code>gh</code> để tự tìm tùy chọn cần thiết.</li>
+<li>Biết bài này được mô phỏng offline và không gọi tới GitHub.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git</code> chỉ biết về repository: commit, nhánh, remote. Những thứ như pull request, issue, review, kết quả CI là của <strong>GitHub</strong>, và bình thường bạn thao tác chúng trên trình duyệt. <strong>GitHub CLI</strong>, chạy bằng lệnh <code>gh</code>, đưa các thao tác đó ra terminal.</p>
+<p>Hai công cụ bổ sung cho nhau chứ không thay thế:</p>
+<ul>
+<li><code>git</code> lo phần Git: commit, push nhánh, fetch.</li>
+<li><code>gh</code> gọi API của GitHub: tạo PR từ nhánh đã push, xem trạng thái CI, gửi review, merge PR, tạo release.</li>
+</ul>
+<p><code>gh</code> đọc remote trong repository hiện tại để đoán bạn đang làm việc với repository nào trên GitHub, và dùng thông tin đăng nhập riêng của nó (thiết lập bằng <code>gh auth login</code>, hoặc biến môi trường <code>GH_TOKEN</code> trong CI). Chưa đăng nhập thì các lệnh gọi API sẽ dừng và nhắc bạn đăng nhập.</p>
+<p>Lệnh <code>gh</code> có cấu trúc <code>gh &lt;nhóm&gt; &lt;hành-động&gt; [tùy chọn]</code>. Nhóm <code>pr</code> là nhóm bạn dùng nhiều nhất:</p>
+<ul>
+<li><code>gh pr create</code>: tạo PR từ nhánh hiện tại. Nếu nhánh chưa được push đầy đủ, <code>gh</code> sẽ hỏi nơi push. Có thể truyền <code>--title</code>, <code>--body</code>, <code>--base</code>, <code>--reviewer</code>, <code>--draft</code>, hoặc <code>--fill</code> để lấy tiêu đề và nội dung từ commit.</li>
+<li><code>gh pr list</code>, <code>gh pr status</code>, <code>gh pr view</code>: xem danh sách và chi tiết.</li>
+<li><code>gh pr checkout &lt;số&gt;</code>: lấy nhánh của một PR về máy để thử.</li>
+<li><code>gh pr checks</code>: xem trạng thái CI.</li>
+<li><code>gh pr review</code>, <code>gh pr merge</code>: review và merge.</li>
+</ul>
+<p>Viết &quot;Fixes #123&quot; hay &quot;Closes #123&quot; trong nội dung PR sẽ tự đóng issue tương ứng khi PR được merge (theo tài liệu help của chính <code>gh</code>).</p>
+<p><strong>Phần mô phỏng trong ứng dụng.</strong> Bài tập chạy offline và không gọi GitHub; bạn chỉ cần nắm cú pháp. Khi viết bài này, mình chỉ chạy các lệnh <strong>không cần mạng</strong> (<code>gh --version</code>, <code>gh pr --help</code>, và một lệnh để thấy thông báo khi chưa đăng nhập), với thư mục cấu hình tạm và không đăng nhập. Các lệnh tạo hay merge PR bên dưới chỉ để tham khảo, không có output vì không được chạy thật.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  subgraph M[&quot;Máy bạn&quot;]
+    G[&quot;git: commit, push&quot;]
+    H[&quot;gh: pr, issue, release&quot;]
+  end
+  G -- &quot;giao thức Git&quot; --&gt; R[&quot;Repository trên GitHub&quot;]
+  H -- &quot;API của GitHub&quot; --&gt; P[&quot;PR, review, CI&quot;]
+  P --- R</pre>
+<pre class="mermaid">sequenceDiagram
+  participant U as Bạn
+  participant Git as git
+  participant Gh as gh
+  participant GH as GitHub
+  U-&gt;&gt;Git: git push -u origin test/QA-21
+  Git-&gt;&gt;GH: Nhánh lên server
+  U-&gt;&gt;Gh: gh pr create --fill --base main
+  Gh-&gt;&gt;GH: Tạo PR qua API
+  U-&gt;&gt;Gh: gh pr checks
+  Gh-&gt;&gt;GH: Hỏi trạng thái CI</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">gh auth login                      # đăng nhập, một lần trên mỗi máy
+gh pr create --base main --title &quot;...&quot; --body &quot;...&quot;
+gh pr create --fill --draft        # lấy nội dung từ commit, mở dạng nháp
+gh pr list                         # PR đang mở của repository
+gh pr status                       # PR liên quan tới bạn
+gh pr view &lt;số&gt; --web              # mở PR trên trình duyệt
+gh pr checkout &lt;số&gt;                # lấy nhánh của PR về máy
+gh pr checks &lt;số&gt;                  # trạng thái CI
+gh pr merge &lt;số&gt; --squash          # merge kiểu squash
+gh &lt;lệnh&gt; --help                   # help chi tiết, không cần mạng</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Việc cần làm</th>
+<th>Công cụ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Commit, push nhánh</td>
+<td><code>git</code></td>
+</tr>
+<tr>
+<td>Mở PR, gán reviewer</td>
+<td><code>gh pr create</code></td>
+</tr>
+<tr>
+<td>Xem CI của PR</td>
+<td><code>gh pr checks</code></td>
+</tr>
+<tr>
+<td>Merge PR trên GitHub</td>
+<td><code>gh pr merge</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Phiên bản đang có trong môi trường thử:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">gh --version</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gh version 2.46.0 (2025-01-13 Debian 2.46.0-3)
+https://github.com/cli/cli/releases/tag/v2.46.0</code></pre></div>
+<p>Xem các hành động trong nhóm <code>pr</code> (trích một phần):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">gh pr --help</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">GENERAL COMMANDS
+  create:      Create a pull request
+  list:        List pull requests in a repository
+  status:      Show status of relevant pull requests
+
+TARGETED COMMANDS
+  checkout:    Check out a pull request in git
+  checks:      Show CI status for a single pull request
+  merge:       Merge a pull request
+  review:      Add a review to a pull request
+  view:        View a pull request</code></pre></div>
+<p>Tùy chọn của lệnh tạo PR (trích):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">  -B, --base branch          The branch into which you want your code merged
+  -b, --body string          Body for the pull request
+  -d, --draft                Mark pull request as a draft
+      --dry-run              Print details instead of creating the PR. May still push git changes.
+  -f, --fill                 Use commit info for title and body
+  -r, --reviewer handle      Request reviews from people or teams by their handle
+  -t, --title string         Title for the pull request</code></pre></div>
+<p>Chạy một lệnh cần API khi chưa đăng nhập, <code>gh</code> dừng ngay:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">To get started with GitHub CLI, please run:  gh auth login
+Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ <code>gh</code> thay thế <code>git</code>.</strong> <code>gh</code> không commit hay quản lý index. Bạn vẫn dùng <code>git</code> cho công việc với repository.</p>
+<p><strong>Tạo PR khi nhánh chưa push.</strong> <code>gh pr create</code> sẽ hỏi nơi push; trong script không có người trả lời, lệnh có thể treo hoặc lỗi. Push trước bằng <code>git push -u</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Help ghi rõ <code>--dry-run</code> &quot;may still push git changes&quot;: chạy thử vẫn có thể push nhánh. Đừng coi nó là hoàn toàn vô hại.</p>
+</aside>
+<p><strong>Dùng token cá nhân cho <code>gh</code> trong CI.</strong> Hãy dùng token riêng có quyền tối thiểu, lưu trong secret của CI và đưa vào qua <code>GH_TOKEN</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Không nhớ tùy chọn? <code>gh &lt;nhóm&gt; &lt;hành-động&gt; --help</code> chạy offline và có phần EXAMPLES rất sát thực tế.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Cuối mỗi ngày, bạn push nhánh test và mở PR nháp bằng <code>gh pr create --fill --draft</code> để trưởng nhóm QA xem tiến độ bộ kiểm thử chuyển tiền nhanh. Sáng hôm sau, <code>gh pr checks</code> cho biết pipeline đêm có đạt không. Khi đủ ca, bạn chuyển PR sang trạng thái sẵn sàng review mà không cần mở trình duyệt.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài câu hỏi, được mô phỏng và không gọi GitHub. Câu hỏi hỏi lệnh <code>gh</code> dùng để tạo pull request. Hãy ôn lại cấu trúc <code>gh &lt;nhóm&gt; &lt;hành-động&gt;</code> và các hành động chính trong nhóm <code>pr</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>gh</code> đưa các tính năng của GitHub như PR, CI, release ra terminal; <code>git</code> vẫn lo repository.</li>
+<li>Lệnh có dạng <code>gh &lt;nhóm&gt; &lt;hành-động&gt;</code>, nhóm <code>pr</code> là hay dùng nhất.</li>
+<li><code>gh pr create</code> tạo PR từ nhánh hiện tại; nên push nhánh trước.</li>
+<li>Đăng nhập bằng <code>gh auth login</code>, hoặc <code>GH_TOKEN</code> trong CI.</li>
+<li>Trong ứng dụng, bài này chỉ yêu cầu nắm cú pháp, không gọi GitHub.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open github-cli
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../remote/force-with-lease.html" rel="prev"><small>Bài trước</small>Force push có kiểm tra</a><a class="next" href="../remote/branch-protection.html" rel="next"><small>Bài sau</small>Quy tắc bảo vệ nhánh</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 11/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

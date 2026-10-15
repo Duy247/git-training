@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Bisect cơ bản - Điều tra lịch sử - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Điều tra lịch sử</span><span class="badge" title="Vị trí bài trong track">Bài 1/8</span></p>
+<h1>Bisect cơ bản</h1>
+<p class="meta">Track: Điều tra lịch sử &middot; Mã bài: <code>bisect-basics</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu ý tưởng tìm kiếm nhị phân trên lịch sử commit của <code>git bisect</code>.</li>
+<li>Chạy một phiên bisect thủ công: chọn mốc tốt, mốc xấu, kiểm tra và đánh dấu từng bước.</li>
+<li>Đọc kết quả &quot;first bad commit&quot; và kết thúc phiên an toàn bằng <code>git bisect reset</code>.</li>
+<li>Xem lại và sửa phiên bisect khi lỡ đánh dấu sai.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Một lỗi xuất hiện ở bản hiện tại, nhưng tuần trước mọi thứ vẫn ổn. Ở giữa có hàng chục, có khi hàng trăm commit. Kiểm tra lần lượt từng cái thì quá lâu.</p>
+<p><code>git bisect</code> áp dụng tìm kiếm nhị phân. Bạn cho Git biết một commit <strong>bad</strong> (có lỗi, thường là HEAD) và một commit <strong>good</strong> (chưa có lỗi). Git checkout commit nằm khoảng giữa và hỏi: commit này tốt hay xấu? Mỗi câu trả lời loại đi khoảng một nửa số ứng viên. Với 100 commit, chỉ cần khoảng 7 bước; với 1000 commit, khoảng 10 bước.</p>
+<p>Kết quả cuối cùng là <strong>first bad commit</strong>: commit xấu đầu tiên mà parent của nó còn tốt. Đó là nơi lỗi được đưa vào, và thường là nơi tốt nhất để đọc diff, hiểu nguyên nhân.</p>
+<p>Bisect dựa trên một giả định: lỗi xuất hiện một lần và tồn tại từ đó về sau. Nếu lỗi lúc có lúc không (flaky), hoặc bị sửa rồi lại xuất hiện, kết quả có thể gây hiểu lầm.</p>
+<p>Trong lúc bisect, repository ở trạng thái detached HEAD. Đừng commit lúc này. Khi xong, <code>git bisect reset</code> đưa bạn về nhánh ban đầu.</p>
+<p>Một vài tiện ích:</p>
+<ul>
+<li><code>git bisect start &lt;bad&gt; &lt;good&gt;</code>: khai báo luôn hai mốc khi bắt đầu.</li>
+<li><code>git bisect skip</code>: bỏ qua commit không kiểm tra được (ví dụ không build được).</li>
+<li><code>git bisect log</code> và <code>git bisect replay</code>: ghi lại phiên và chạy lại, dùng khi lỡ đánh dấu sai.</li>
+<li><code>git bisect start ... -- &lt;đường dẫn&gt;</code>: chỉ xét commit chạm vào đường dẫn đó, rút ngắn đáng kể.</li>
+<li><code>--term-old</code> và <code>--term-new</code>: đổi tên &quot;good, bad&quot; khi bạn đang tìm thứ không phải lỗi, ví dụ commit làm một tính năng chạy nhanh hơn.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  G[&quot;good: Thêm biểu phí&quot;] --- C3[&quot;3 commit&quot;] --- M[&quot;Làm gọn biểu phí&quot;] --- C4[&quot;4 commit&quot;] --- B[&quot;bad: HEAD&quot;]</pre>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; BatDau: git bisect start bad good
+  BatDau --&gt; KiemTra: Git checkout commit giữa
+  KiemTra --&gt; KiemTra: good hoặc bad, loại một nửa
+  KiemTra --&gt; TimThay: còn một ứng viên
+  TimThay --&gt; [*]: git bisect reset</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect start
+git bisect bad              # commit hiện tại có lỗi
+git bisect good &lt;commit&gt;    # commit chưa có lỗi
+
+# Hoặc gọn trong một lệnh
+git bisect start HEAD &lt;commit-tốt&gt;
+
+# Sau mỗi lần kiểm tra
+git bisect good
+git bisect bad
+git bisect skip
+
+# Xem lại, chạy lại, kết thúc
+git bisect log &gt; bisect.log
+git bisect replay bisect.log
+git bisect reset</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository dịch vụ tính phí có 10 commit. Script <code>tinh-phi.sh</code> lẽ ra in <code>3300</code> nhưng ở HEAD in <code>330</code>. Commit &quot;Thêm biểu phí&quot; được biết là còn đúng (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect start HEAD dd02f86
+./tinh-phi.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Bisecting: 3 revisions left to test after this (roughly 2 steps)
+[ab0765bdad0d5f91a91319a329bd2ae49fc5a427] Làm gọn biểu phí
+330</code></pre></div>
+<p>Sai, đánh dấu bad:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect bad
+./tinh-phi.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Bisecting: 1 revision left to test after this (roughly 1 step)
+[a29f00a690a12574bbd4d69c8a87682d8a4f6ab6] Thêm cấu hình môi trường
+3300</code></pre></div>
+<p>Đúng, đánh dấu good. Git đưa ra ứng viên cuối:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect good
+./tinh-phi.sh
+git bisect good</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[f044cf7cba38612a1f6c9b2fdc2c0b1e58e320cf] Cập nhật README
+3300
+ab0765bdad0d5f91a91319a329bd2ae49fc5a427 is the first bad commit
+commit ab0765bdad0d5f91a91319a329bd2ae49fc5a427
+Author: Chi &lt;chi@example.invalid&gt;
+Date:   Sun Sep 6 09:00:00 2026 +0700
+
+    Làm gọn biểu phí
+
+ bieu-phi.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</code></pre></div>
+<p>Chỉ ba lần kiểm tra cho tám commit ứng viên. Xem lại phiên rồi kết thúc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect log
+git bisect reset</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"># bad: [240ca079f2fc1cb27642043c773cd22f7ffe434e] Thêm liên hệ
+# good: [dd02f8691bc01686cc10c5d4f39b2b1750e001bb] Thêm biểu phí
+git bisect start &#39;HEAD&#39; &#39;dd02f86&#39;
+# bad: [ab0765bdad0d5f91a91319a329bd2ae49fc5a427] Làm gọn biểu phí
+git bisect bad ab0765bdad0d5f91a91319a329bd2ae49fc5a427
+# good: [a29f00a690a12574bbd4d69c8a87682d8a4f6ab6] Thêm cấu hình môi trường
+git bisect good a29f00a690a12574bbd4d69c8a87682d8a4f6ab6
+# good: [f044cf7cba38612a1f6c9b2fdc2c0b1e58e320cf] Cập nhật README
+git bisect good f044cf7cba38612a1f6c9b2fdc2c0b1e58e320cf
+# first bad commit: [ab0765bdad0d5f91a91319a329bd2ae49fc5a427] Làm gọn biểu phí
+Previous HEAD position was f044cf7 Cập nhật README
+Switched to branch &#39;main&#39;</code></pre></div>
+<p>Vì lỗi nằm ở <code>bieu-phi.txt</code>, bạn có thể thu hẹp ngay từ đầu bằng <code>git bisect start HEAD dd02f86 -- bieu-phi.txt</code>. Trong repository này, Git chỉ còn hỏi đúng các commit chạm vào tệp đó.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Một lần đánh dấu nhầm là cả phiên đi sai hướng, và Git vẫn tự tin báo một &quot;first bad commit&quot; không liên quan. Khi viết bài này, mình đã lỡ gõ <code>good</code> cho một commit in ra <code>330</code>, và bisect kết luận lỗi nằm ở &quot;Bỏ khóa khỏi cấu hình&quot;, một commit chỉ sửa tệp cấu hình. Nếu kết quả không hợp lý, hãy lưu <code>git bisect log</code> ra tệp, xóa các dòng sai, rồi <code>git bisect reset</code> và <code>git bisect replay</code> tệp đó.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Chọn mốc good mà thật ra đã có lỗi.</strong> Bisect sẽ báo lỗi hoặc ra kết quả vô nghĩa. Kiểm tra mốc good trước.</p>
+<p><strong>Kiểm tra không nhất quán.</strong> Lúc chạy test, lúc nhìn bằng mắt. Dùng cùng một cách kiểm tra cho mọi bước.</p>
+<p><strong>Commit trong lúc bisect.</strong> Bạn đang ở detached HEAD; commit sẽ lạc. Kết thúc bằng <code>git bisect reset</code> trước.</p>
+<p><strong>Quên reset.</strong> Lần sau mở repository, bạn vẫn đang ở giữa phiên bisect và không hiểu vì sao HEAD lạ.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu thao tác kiểm tra lặp lại được bằng một lệnh, hãy chuyển sang <code>git bisect run</code> (bài tiếp theo) để Git tự làm mọi bước.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bộ test hồi quy đêm báo phí chuyển khoản liên ngân hàng sai trên môi trường test, trong khi bản phát hành tháng trước vẫn đúng. Bạn bisect giữa tag phát hành và HEAD, giới hạn vào thư mục cấu hình biểu phí. Sau bốn bước, bạn có commit gây lỗi, tác giả và diff, đủ để mở ticket chính xác thay vì một mô tả mơ hồ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Repository bài tập có một tệp ứng dụng và vài commit của hai người; ở HEAD, tệp có một dòng đánh dấu lỗi. Bạn cần tìm commit đầu tiên đưa dòng đó vào và trả lời bằng subject của commit. Hãy chọn mốc good là một commit mà tệp chưa có dòng lỗi, mốc bad là HEAD, rồi bisect. Với lịch sử ngắn, bạn cũng có thể kiểm chứng kết quả bằng <code>git show</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git bisect</code> tìm commit gây lỗi bằng tìm kiếm nhị phân giữa mốc good và bad.</li>
+<li>Mỗi bước loại khoảng một nửa ứng viên; 1000 commit cần khoảng 10 bước.</li>
+<li>Kết quả là first bad commit: commit xấu đầu tiên có parent còn tốt.</li>
+<li>Giới hạn bằng đường dẫn để rút ngắn; dùng <code>skip</code> cho commit không kiểm tra được.</li>
+<li>Luôn kết thúc bằng <code>git bisect reset</code>; đánh dấu sai thì sửa bằng log và replay.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start forensics</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open bisect-basics
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/documentation-conventions.html" rel="prev"><small>Bài trước</small>Quy ước tài liệu (Làm việc nhóm và review)</a><a class="next" href="../forensics/bisect-automated.html" rel="next"><small>Bài sau</small>Bisect tự động</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Điều tra lịch sử, bài 1/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

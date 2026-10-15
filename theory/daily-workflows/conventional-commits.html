@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Thông điệp commit có cấu trúc - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 5/12</span></p>
+<h1>Thông điệp commit có cấu trúc</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>conventional-commits</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Nắm cấu trúc subject theo quy ước Conventional Commits: type, scope tùy chọn, dấu hai chấm, mô tả.</li>
+<li>Chọn type phù hợp cho từng loại thay đổi.</li>
+<li>Đánh dấu thay đổi phá vỡ tương thích bằng dấu chấm than hoặc footer.</li>
+<li>Hiểu vì sao công cụ cần cấu trúc này để phân nhóm thay đổi và sinh changelog.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Message commit tự do như &quot;update&quot;, &quot;fix&quot;, &quot;sửa tí&quot; không nói được gì cho người đọc sau này, và máy càng không hiểu. Conventional Commits là một quy ước phổ biến giúp subject vừa dễ đọc vừa máy đọc được. Dạng cơ bản:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">&lt;type&gt;[(scope)][!]: &lt;mô tả ngắn&gt;
+
+[phần thân tùy chọn]
+
+[footer tùy chọn]</code></pre></div>
+<ul>
+<li><strong>type</strong> cho biết loại thay đổi. Hai type cốt lõi của quy ước là <code>feat</code> (tính năng mới) và <code>fix</code> (sửa lỗi). Nhiều nhóm dùng thêm <code>docs</code>, <code>test</code>, <code>refactor</code>, <code>chore</code>, <code>ci</code>, <code>perf</code>, <code>build</code>, <code>style</code>.</li>
+<li><strong>scope</strong> (tùy chọn) đặt trong ngoặc đơn, chỉ phạm vi: <code>feat(chuyen-khoan): ...</code>.</li>
+<li><strong>dấu chấm than</strong> trước dấu hai chấm đánh dấu thay đổi phá vỡ tương thích: <code>fix!: ...</code>.</li>
+<li><strong>dấu hai chấm và một khoảng trắng</strong> ngăn cách tiền tố với mô tả. Thiếu hai thứ này, công cụ không nhận ra cấu trúc.</li>
+<li><strong>mô tả</strong> ngắn gọn, nói thay đổi làm gì.</li>
+</ul>
+<p>Footer <code>BREAKING CHANGE: &lt;giải thích&gt;</code> ở cuối phần thân là cách khác (hoặc bổ sung) để đánh dấu thay đổi phá vỡ, kèm lời giải thích.</p>
+<p>Lợi ích lớn nhất đến từ công cụ. Khi mọi subject có type, bạn có thể lọc lịch sử bằng <code>git log</code> với regex, sinh changelog tự động nhóm theo &quot;Tính năng&quot; và &quot;Sửa lỗi&quot;, và các công cụ phát hành có thể suy ra nên tăng phiên bản semver ở mức nào: <code>fix</code> tăng patch, <code>feat</code> tăng minor, có breaking change thì tăng major.</p>
+<p>Quy ước không thay thế nội dung tốt. <code>feat: thêm</code> đúng dạng nhưng nghèo thông tin; <code>feat(otp): cho phép gửi lại mã sau 60 giây</code> mới thật sự hữu ích. Giữ subject ngắn (nhiều nhóm đặt giới hạn khoảng 72 ký tự) để hiển thị gọn trong <code>git log --oneline</code> và giao diện web.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  T[&quot;type: feat&quot;] --&gt; S[&quot;scope tùy chọn: chuyen-khoan&quot;]
+  S --&gt; B[&quot;dấu chấm than tùy chọn&quot;]
+  B --&gt; C[&quot;dấu hai chấm và khoảng trắng&quot;]
+  C --&gt; D[&quot;mô tả ngắn&quot;]</pre>
+<pre class="mermaid">flowchart LR
+  L[&quot;Lịch sử có cấu trúc&quot;] --&gt; F[&quot;Lọc theo type&quot;]
+  L --&gt; G[&quot;Sinh changelog&quot;]
+  L --&gt; V[&quot;Gợi ý mức tăng phiên bản&quot;]
+  V --&gt;|&quot;fix&quot;| P[&quot;patch&quot;]
+  V --&gt;|&quot;feat&quot;| M[&quot;minor&quot;]
+  V --&gt;|&quot;breaking&quot;| J[&quot;major&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Commit với subject có type và scope
+git commit -m &quot;feat(chuyen-khoan): thêm kiểm tra hạn mức ngày&quot;
+
+# Thay đổi phá vỡ: dấu chấm than và footer giải thích (mỗi -m là một đoạn)
+git commit -m &quot;fix!: đổi định dạng mã lỗi&quot; -m &quot;BREAKING CHANGE: mã lỗi trả về dạng chuỗi&quot;
+
+# Xem subject commit cuối
+git log -1 --format=%s
+
+# Lọc các commit tính năng bằng regex
+git log --format=%s | grep -E &#39;^feat(\(.+\))?!?: &#39;
+
+# Sửa subject commit cuối nếu viết sai (chỉ khi chưa push)
+git commit --amend -m &quot;feat: mô tả đúng&quot;</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feat</code></td>
+<td>Thêm tính năng cho người dùng</td>
+</tr>
+<tr>
+<td><code>fix</code></td>
+<td>Sửa lỗi</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>Chỉ đổi tài liệu</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>Thêm hoặc sửa test</td>
+</tr>
+<tr>
+<td><code>refactor</code></td>
+<td>Đổi cấu trúc mã, không đổi hành vi</td>
+</tr>
+<tr>
+<td><code>chore</code></td>
+<td>Việc lặt vặt: cấu hình, phụ thuộc</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>Đổi pipeline CI</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Commit một tính năng có scope (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add bai.txt
+git commit -m &quot;feat(chuyen-khoan): thêm kiểm tra hạn mức ngày&quot;
+git log -1 --format=%s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main c04c765] feat(chuyen-khoan): thêm kiểm tra hạn mức ngày
+ 1 file changed, 1 insertion(+)
+ create mode 100644 bai.txt
+feat(chuyen-khoan): thêm kiểm tra hạn mức ngày</code></pre></div>
+<p>Một thay đổi phá vỡ, kèm footer:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit --allow-empty -m &quot;fix!: đổi định dạng mã lỗi&quot; -m &quot;BREAKING CHANGE: mã lỗi trả về dạng chuỗi&quot;
+git log -1 --format=%B</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 423e465] fix!: đổi định dạng mã lỗi
+fix!: đổi định dạng mã lỗi
+
+BREAKING CHANGE: mã lỗi trả về dạng chuỗi</code></pre></div>
+<p>Lọc các commit tính năng bằng regex chấp nhận scope và dấu chấm than tùy chọn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --format=%s | grep -E &#39;^feat(\(.+\))?!?: &#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">feat(chuyen-khoan): thêm kiểm tra hạn mức ngày</code></pre></div>
+<p>Commit <code>fix!</code> không khớp vì type khác, đúng như mong muốn.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Regex trên cũng là cách ứng dụng luyện tập kiểm tra subject của bạn. Hiểu nó giúp bạn tự soát trước khi commit.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Thiếu khoảng trắng sau dấu hai chấm.</strong> <code>feat:thêm</code> trông gần đúng nhưng nhiều công cụ không nhận. Luôn có một khoảng trắng.</p>
+<p><strong>Viết hoa type hoặc dùng type lạ.</strong> <code>Feat:</code> hay <code>feature:</code> có thể không được nhận, tùy công cụ. Thống nhất danh sách type trong nhóm.</p>
+<p><strong>Subject chỉ có từ chung chung.</strong> &quot;update&quot;, &quot;fix bug&quot; không có type đúng dạng và không có thông tin. Viết rõ cái gì thay đổi.</p>
+<p><strong>Subject quá dài.</strong> Bị cắt trong giao diện, khó đọc. Đưa chi tiết xuống phần thân.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Conventional Commits là quy ước, Git không bắt buộc. Muốn ép buộc, nhóm thường thêm hook <code>commit-msg</code> cục bộ và kiểm tra lại ở CI.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Repository bộ test tự động của dự án thẻ tín dụng dùng Conventional Commits với scope theo module: <code>test(sao-ke): thêm case kỳ sao kê cuối tháng</code>, <code>fix(login): tăng timeout chờ OTP</code>. Trước mỗi đợt phát hành bộ test, trưởng nhóm QA lọc <code>git log</code> theo type để viết ghi chú thay đổi gửi đội phát triển: thêm bao nhiêu case mới, sửa bao nhiêu test không ổn định.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có tệp <code>bai.txt</code> chưa commit. Bạn cần commit nó với một subject theo quy ước, loại tính năng mới (có thể kèm scope hoặc dấu chấm than), ngắn hơn giới hạn độ dài cho trước, và giữ working tree sạch. Câu hỏi kiến thức đưa ra hai subject và hỏi cái nào đúng dạng cho tính năng mới.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Ôn lại cấu trúc type, scope, dấu chấm than, dấu hai chấm, mô tả.</li>
+<li>Tự kiểm tra subject bằng regex ở phần ví dụ.</li>
+<li>Đếm sơ độ dài subject trước khi commit.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Subject có dạng type, scope tùy chọn, dấu chấm than tùy chọn, dấu hai chấm, khoảng trắng, mô tả.</li>
+<li><code>feat</code> cho tính năng, <code>fix</code> cho sửa lỗi; nhóm có thể thêm type khác.</li>
+<li>Breaking change đánh dấu bằng dấu chấm than hoặc footer <code>BREAKING CHANGE:</code>.</li>
+<li>Cấu trúc giúp lọc lịch sử, sinh changelog, gợi ý tăng phiên bản.</li>
+<li>Đúng dạng vẫn cần mô tả có thông tin.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open conventional-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/maintenance.html" rel="prev"><small>Bài trước</small>Bảo trì repository</a><a class="next" href="../daily-workflows/pre-commit-hooks.html" rel="next"><small>Bài sau</small>Hook trước commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 5/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

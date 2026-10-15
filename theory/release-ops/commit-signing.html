@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ký commit - Phát hành và vận hành - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Phát hành và vận hành</span><span class="badge" title="Vị trí bài trong track">Bài 10/10</span></p>
+<h1>Ký commit</h1>
+<p class="meta">Track: Phát hành và vận hành &middot; Mã bài: <code>commit-signing</code> &middot; Đọc khoảng 6 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao tên và email trong commit không chứng minh ai đã tạo commit.</li>
+<li>Ký commit bằng khóa SSH hoặc GPG, và bật ký mặc định cho một repository.</li>
+<li>Hiển thị và kiểm tra chữ ký trong lịch sử, đọc mã trạng thái chữ ký.</li>
+<li>Biết kết quả kiểm tra phụ thuộc vào thiết lập khóa ở máy chạy lệnh.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Mở một commit bất kỳ, bạn thấy dòng <code>Author: Lan QA &lt;lan@example.com&gt;</code>. Dòng đó đến từ đâu? Từ cấu hình <code>user.name</code> và <code>user.email</code> ở máy người tạo commit. Git không hỏi mật khẩu, không gọi server nào. Bất kỳ ai cũng có thể chạy <code>git -c user.name=&quot;Trưởng nhóm&quot; -c user.email=lead@example.com commit</code> và tạo ra một commit trông như của trưởng nhóm. Khi push lên hosting, dịch vụ xác thực <strong>người push</strong> chứ không xác thực tác giả ghi trong từng commit.</p>
+<p><strong>Chữ ký commit</strong> lấp chỗ trống đó. Khi bạn commit với <code>-S</code> (hoặc bật <code>commit.gpgSign</code>), Git nhờ chương trình ký (<code>gpg</code> cho OpenPGP, <code>ssh-keygen</code> cho khóa SSH) ký nội dung commit bằng khóa riêng của bạn, rồi lưu chữ ký vào header <code>gpgsig</code> của chính object commit. Vì chữ ký nằm trong object, nó là một phần của object ID: sửa bất kỳ thứ gì (nội dung, tác giả, thông điệp) đều làm chữ ký không còn khớp.</p>
+<p>Giống ký tag ở bài trước, chữ ký chứng minh <strong>người nắm khóa riêng</strong> đã tạo đúng nội dung này. Nó không tự nói khóa đó của ai. Việc gắn khóa với một người do keyring GPG đã xác minh, tệp allowed signers cho SSH, hoặc hosting lưu khóa của tài khoản đảm nhận. Và lại giống ký tag: <strong>cùng một commit, máy khác nhau có thể cho kết quả kiểm tra khác nhau</strong> tùy có khóa công khai và có tin khóa đó không.</p>
+<p>Để xem chữ ký trong lịch sử, <code>git log --show-signature</code> chạy kiểm tra cho từng commit và in kết quả ngay dưới dòng <code>commit</code>. Muốn kiểm tra một commit cụ thể và lấy mã thoát cho script, dùng <code>git verify-commit</code>. Muốn gọn trong một dòng, placeholder <code>%G?</code> của <code>--format</code> in một chữ cái trạng thái:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>%G?</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>G</code></td>
+<td>Chữ ký hợp lệ, khóa tin cậy</td>
+</tr>
+<tr>
+<td><code>U</code></td>
+<td>Chữ ký hợp lệ nhưng độ tin cậy của khóa chưa rõ</td>
+</tr>
+<tr>
+<td><code>B</code></td>
+<td>Chữ ký sai</td>
+</tr>
+<tr>
+<td><code>E</code></td>
+<td>Không kiểm tra được, ví dụ thiếu khóa công khai</td>
+</tr>
+<tr>
+<td><code>X</code>, <code>Y</code>, <code>R</code></td>
+<td>Chữ ký hết hạn, khóa hết hạn, khóa đã bị thu hồi</td>
+</tr>
+<tr>
+<td><code>N</code></td>
+<td>Không có chữ ký</td>
+</tr>
+</tbody></table></div>
+<p>Một vài lưu ý thực tế. Rebase, amend, cherry-pick đều tạo commit mới, nên chữ ký cũ không đi theo; commit mới chỉ được ký nếu máy bạn đang bật ký. Commit do hosting tạo khi merge trên giao diện web được ký bằng khóa của hosting (nếu họ hỗ trợ), không phải khóa của bạn. Và chữ ký không thay được review: nó chứng minh nguồn gốc, không chứng minh code đúng.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong ứng dụng luyện tập, bài này được <strong>mô phỏng</strong>: đây là bài câu hỏi, không tạo hay dùng khóa thật. Ví dụ dưới đây chạy bằng khóa dùng một lần trong <code>/tmp</code> để bạn thấy đầu ra thật.</p>
+</aside>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  C[&quot;Nội dung commit: tree, parent, author, message&quot;] --&gt;|&quot;git commit -S&quot;| K[&quot;Ký bằng khóa riêng&quot;]
+  K --&gt; O[&quot;Object commit có header gpgsig&quot;]
+  O --&gt;|&quot;git log --show-signature&quot;| V{&quot;Máy kiểm tra có khóa công khai được tin?&quot;}
+  V --&gt;|&quot;có&quot;| G[&quot;Good signature&quot;]
+  V --&gt;|&quot;không&quot;| E[&quot;Không kiểm tra được&quot;]
+  O2[&quot;Commit không ký&quot;] --&gt; N[&quot;Không có dòng chữ ký, mã N&quot;]</pre>
+<pre class="mermaid">sequenceDiagram
+  participant A as Người viết
+  participant R as Repository
+  participant B as Người review
+  A-&gt;&gt;R: commit ký bằng khóa SSH
+  Note over R: chữ ký nằm trong object commit
+  B-&gt;&gt;R: git log --show-signature
+  R--&gt;&gt;B: kết quả theo allowed signers của máy B</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -S -m &quot;...&quot;                 # ký commit này
+git config commit.gpgSign true         # ký mọi commit trong repository
+git config user.signingKey &lt;key&gt;       # GPG key ID hoặc đường dẫn khóa SSH công khai
+git config gpg.format ssh              # dùng khóa SSH để ký
+git config gpg.ssh.allowedSignersFile &lt;tệp&gt;   # danh sách khóa SSH được tin khi kiểm tra
+git log --show-signature               # hiện kết quả kiểm tra chữ ký từng commit
+git log --format=&#39;%h %G? %an %s&#39;       # trạng thái chữ ký dạng một chữ cái
+git verify-commit &lt;commit&gt;             # kiểm tra một commit, mã thoát khác 0 nếu không đạt
+git cat-file -p &lt;commit&gt;               # xem header gpgsig thô</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Chuẩn bị môi trường tạm, không đụng <code>~/.ssh</code>, <code>~/.gnupg</code> hay <code>~/.gitconfig</code> thật:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">export GIT_CONFIG_GLOBAL=/tmp/rx-gitconfig
+ssh-keygen -q -t ed25519 -N &#39;&#39; -C &quot;lan@example.com&quot; -f /tmp/rx-ssh-key
+echo &quot;lan@example.com $(cat /tmp/rx-ssh-key.pub)&quot; &gt; /tmp/rx-allowed-signers
+git config gpg.format ssh
+git config user.signingKey /tmp/rx-ssh-key.pub
+git config gpg.ssh.allowedSignersFile /tmp/rx-allowed-signers</code></pre></div>
+<p>Một commit có ký, rồi một commit &quot;mạo danh&quot; chỉ bằng cách đổi tên và email (object ID và dấu vân tay ở máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -qS -am &quot;Thêm kiểm tra hạn mức&quot;
+git -c user.name=&quot;Trưởng nhóm&quot; -c user.email=lead@example.com commit -qam &quot;Commit mạo danh&quot;
+git log --show-signature -2</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit 68bac1f1ec33259a28137b986091b20fdbcfb7cf
+Author: Trưởng nhóm &lt;lead@example.com&gt;
+Date:   Fri Oct 16 00:35:31 2026 +0700
+
+    Commit mạo danh
+
+commit 977b7a0221b804c02d1f8873f6f43ecd946ba64e
+Good &quot;git&quot; signature for lan@example.com with ED25519 key SHA256:JHZEkXBT+f6I4e9Jyw/fTEZ94AHobqHwjOTxTFhae4w
+Author: Lan QA &lt;lan@example.com&gt;
+Date:   Fri Oct 16 00:35:31 2026 +0700
+
+    Thêm kiểm tra hạn mức</code></pre></div>
+<p>Commit mạo danh trông hoàn toàn bình thường, chỉ khác là không có dòng chữ ký. Dạng một dòng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --format=&#39;%h %G? %an %s&#39;
+git verify-commit HEAD~1; echo &quot;exit $?&quot;
+git verify-commit HEAD; echo &quot;exit $?&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">68bac1f N Trưởng nhóm Commit mạo danh
+977b7a0 G Lan QA Thêm kiểm tra hạn mức
+54cba83 N Lan QA Khởi tạo
+Good &quot;git&quot; signature for lan@example.com with ED25519 key SHA256:JHZEkXBT+f6I4e9Jyw/fTEZ94AHobqHwjOTxTFhae4w
+exit 0
+exit 1</code></pre></div>
+<p>Chữ ký nằm ngay trong object commit (đã lược):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p HEAD~1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">tree a38e8ab7e857af7a7ac6f49fa3d3821f26fedca8
+parent 54cba8396d18f318a5fb7c0e8714f10aae1a1b0b
+author Lan QA &lt;lan@example.com&gt; 1792085731 +0700
+committer Lan QA &lt;lan@example.com&gt; 1792085731 +0700
+gpgsig -----BEGIN SSH SIGNATURE-----
+ U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg+IgZUEmlfe7PbudsnijV/MA2Af
+ ...</code></pre></div>
+<p>Với GPG, cách làm tương tự: bỏ <code>gpg.format ssh</code>, đặt <code>user.signingKey</code> là key ID của khóa tạm trong <code>GNUPGHOME=/tmp/...</code> (xem bài ký tag), và bật <code>commit.gpgSign true</code>. Trên máy có khóa:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gpg: Signature made Fri Oct 16 00:35:35 2026 +07
+gpg:                using EDDSA key 56114CE12742BEF5B8BDBC1893A0E043482C8D29
+gpg: Good signature from &quot;Lan QA &lt;lan@example.com&gt;&quot; [ultimate]</code></pre></div>
+<p>Cùng commit đó, kiểm tra với một keyring trống:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">gpg: Can&#39;t check signature: No public key</code></pre></div>
+<p>và <code>%G?</code> in ra <code>E</code>. Đây chính là điều cần nhớ: kết quả phụ thuộc vào khóa có trên máy chạy lệnh, không chỉ vào commit.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tin vào dòng <code>Author</code>.</strong> Như ví dụ trên, đổi tên và email là đủ để giả. Khi nguồn gốc quan trọng, kiểm tra chữ ký, không đọc tên.</p>
+<p><strong>Bật <code>commit.gpgSign</code> mà khóa không dùng được.</strong> Commit thất bại với lỗi từ <code>gpg</code> hoặc <code>ssh-keygen</code>. Kiểm tra <code>user.signingKey</code> trỏ đúng, khóa còn hạn, agent đang chạy nếu khóa có passphrase.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Khi thử nghiệm, sinh khóa tạm trong <code>/tmp</code> và dùng <code>GIT_CONFIG_GLOBAL</code>, <code>GNUPGHOME</code> tạm. Đừng đặt <code>commit.gpgSign</code> vào <code>~/.gitconfig</code> thật với một khóa thử, vì mọi repository khác sẽ bị ảnh hưởng.</p>
+</aside>
+<p><strong>Thấy &quot;No public key&quot; hoặc lỗi allowed signers và nghĩ commit bị giả.</strong> Đó là máy kiểm tra thiếu thiết lập. Thêm khóa công khai của đồng nghiệp từ nguồn tin cậy, hoặc cấu hình <code>gpg.ssh.allowedSignersFile</code>, rồi kiểm tra lại.</p>
+<p><strong>Rebase xong chữ ký biến mất.</strong> Commit mới là commit khác. Bật ký mặc định để commit phát lại cũng được ký bằng khóa của bạn.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Trong CI, <code>git log --format=&#39;%h %G?&#39; &lt;phạm vi&gt;</code> cộng một dòng <code>grep -v &#39; G$&#39;</code> là cách đơn giản để phát hiện commit không ký hoặc ký bằng khóa lạ, với điều kiện máy CI có đúng danh sách khóa tin cậy.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Repository chứa cấu hình hạn mức giao dịch được kiểm toán định kỳ. Nhóm quyết định mọi commit vào branch phát hành phải ký bằng khóa SSH đã đăng ký. Pipeline kiểm tra trước khi build: chạy <code>git log --format=&#39;%h %G? %an %s&#39;</code> trên các commit mới với tệp allowed signers do nhóm quản lý; dòng nào không phải <code>G</code> thì dừng và báo người phụ trách. Khi kiểm toán hỏi &quot;ai đã đổi hạn mức ngày 12&quot;, câu trả lời dựa trên chữ ký, không chỉ dựa trên dòng <code>Author</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này là bài câu hỏi được mô phỏng: không cần tạo khóa hay ký commit thật. Câu hỏi hỏi lệnh <code>git log</code> nào hiển thị kết quả kiểm tra chữ ký của commit. Ôn lại phần lệnh cần biết, phân biệt cách xem chữ ký trong log, cách kiểm tra một commit riêng lẻ, và cách in mã trạng thái gọn. Nếu muốn tự thử, làm theo ví dụ với khóa tạm trong <code>/tmp</code>.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Tên và email trong commit chỉ là cấu hình, ai cũng đặt được.</li>
+<li>Chữ ký nằm trong object commit và chứng minh người nắm khóa riêng đã tạo commit.</li>
+<li><code>git commit -S</code> hoặc <code>commit.gpgSign</code> để ký; <code>gpg.format ssh</code> để dùng khóa SSH.</li>
+<li><code>git log --show-signature</code>, <code>git verify-commit</code> và <code>%G?</code> để kiểm tra.</li>
+<li>Kết quả kiểm tra phụ thuộc vào khóa công khai và allowed signers ở máy chạy lệnh.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start release-ops</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open commit-signing
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../release-ops/changelog-generation.html" rel="prev"><small>Bài trước</small>Tạo CHANGELOG</a><a class="next" href="../advanced/interactive-rebase.html" rel="next"><small>Bài sau</small>Rebase tương tác (Kỹ thuật Git nâng cao)</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Phát hành và vận hành, bài 10/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

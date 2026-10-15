@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tính năng dài với cờ bật tắt - Quy trình hằng ngày - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quy trình hằng ngày</span><span class="badge" title="Vị trí bài trong track">Bài 10/12</span></p>
+<h1>Tính năng dài với cờ bật tắt</h1>
+<p class="meta">Track: Quy trình hằng ngày &middot; Mã bài: <code>long-running-features</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu feature flag là gì và vì sao nó thay thế được nhánh sống lâu.</li>
+<li>Tách hai khái niệm: mã đã merge (deploy) và tính năng đã bật (release).</li>
+<li>Commit mã tính năng mới mà vẫn giữ cờ ở trạng thái tắt.</li>
+<li>Biết những rủi ro của cờ và cách dọn cờ cũ.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Một tính năng lớn, như luồng mở tài khoản trực tuyến mới, có thể mất vài tuần. Nếu giữ toàn bộ trên một nhánh riêng tới khi xong, bạn gặp đúng các vấn đề của nhánh sống lâu: lệch xa main, xung đột lớn, review một cục khổng lồ, và lỗi tích hợp lộ ra muộn.</p>
+<p>Feature flag (cờ tính năng) tách việc &quot;mã có trong trunk&quot; khỏi việc &quot;người dùng thấy tính năng&quot;. Bạn merge từng phần nhỏ của tính năng vào main ngay khi phần đó đã có test, nhưng toàn bộ đường đi vào tính năng được bọc trong một điều kiện:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">nếu cờ &quot;mo-tai-khoan-moi&quot; bật: dùng luồng mới
+ngược lại: dùng luồng cũ</code></pre></div>
+<p>Cờ được đọc từ cấu hình (một tệp, biến môi trường, hoặc dịch vụ quản lý cờ). Ở production, cờ tắt, nên mã mới nằm im. Ở môi trường test, QA bật cờ để kiểm thử luồng mới bất cứ lúc nào. Khi đã sẵn sàng, bật cờ ở production, có thể bật dần cho một nhóm người dùng. Nếu có sự cố, tắt cờ là quay về luồng cũ, không cần deploy lại.</p>
+<p>Từ góc độ Git, điều quan trọng là: cờ là một phần của mã và cấu hình được commit. Giá trị mặc định của cờ trong repository nên là tắt. Mỗi commit đưa phần mã mới vào phải giữ nguyên giá trị đó, để main luôn ở trạng thái phát hành được.</p>
+<p>Cờ không miễn phí. Mỗi cờ là một nhánh logic trong mã, nhân đôi số trường hợp cần test. Cờ quên dọn tích tụ thành nợ kỹ thuật. Thực hành tốt: đặt tên cờ rõ ràng, ghi người chịu trách nhiệm, và khi tính năng đã bật ổn định, xóa cờ cùng luồng cũ trong một commit riêng.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">gitGraph
+  commit id: &quot;Thêm cờ tắt&quot;
+  commit id: &quot;Phần 1 sau cờ&quot;
+  commit id: &quot;Phần 2 sau cờ&quot;
+  commit id: &quot;Bật cờ ở test&quot;
+  commit id: &quot;Bật cờ production&quot;
+  commit id: &quot;Xóa cờ và luồng cũ&quot;</pre>
+<pre class="mermaid">flowchart LR
+  R[&quot;Request của người dùng&quot;] --&gt; F{&quot;Cờ tính năng bật&quot;}
+  F --&gt;|&quot;tắt&quot;| O[&quot;Luồng cũ&quot;]
+  F --&gt;|&quot;bật&quot;| N[&quot;Luồng mới&quot;]
+  C[&quot;flags.json trong repository&quot;] --&gt; F</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Xem giá trị cờ trong commit hiện tại, không phụ thuộc working tree
+git show HEAD:flags.json
+
+# Xem commit này đổi những tệp nào, chắc rằng cờ không bị đổi
+git show --stat HEAD
+
+# So sánh với commit trước, chỉ riêng tệp cờ
+git diff HEAD~1 -- flags.json
+
+# Tìm commit nào đã đổi tệp cờ
+git log --oneline -- flags.json</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Deploy</td>
+<td>Mã đã nằm trên môi trường chạy</td>
+</tr>
+<tr>
+<td>Release</td>
+<td>Người dùng thấy tính năng</td>
+</tr>
+<tr>
+<td>Cờ mặc định</td>
+<td>Giá trị trong repository, thường là tắt</td>
+</tr>
+<tr>
+<td>Dọn cờ</td>
+<td>Xóa điều kiện và luồng cũ khi tính năng ổn định</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có sẵn <code>flags.json</code> với cờ tắt. Mình thêm mã tính năng mà không đụng tới cờ (object ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">echo &quot;Tính năng mới&quot; &gt; feature.txt
+git add feature.txt
+git commit -m &quot;Thêm tính năng sau cờ&quot;
+git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">058ecfe Thêm tính năng sau cờ
+459a04a Thêm cờ
+abe34ca Khởi tạo</code></pre></div>
+<p>Xác nhận commit chỉ thêm tệp tính năng và cờ vẫn tắt:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git diff HEAD~1 --stat
+git show HEAD:flags.json</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> feature.txt | 1 +
+ 1 file changed, 1 insertion(+)
+{&quot;enabled&quot;:false}</code></pre></div>
+<p>Lệnh <code>git show HEAD:flags.json</code> đọc nội dung đã commit, nên nó đáng tin hơn mở tệp trong editor (có thể bạn đang sửa dở mà chưa commit).</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đừng bật cờ trong commit &quot;cho tiện test&quot;. Hãy bật bằng cấu hình môi trường test hoặc biến môi trường. Một lần lỡ merge cờ bật là tính năng chưa xong lên production.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Commit luôn cờ đã bật.</strong> Main không còn an toàn để phát hành. Sửa bằng một commit đặt lại cờ tắt (hoặc revert), và thêm kiểm tra trong CI rằng cờ mặc định là tắt.</p>
+<p><strong>Mã mới chạy dù cờ tắt.</strong> Có đường đi không qua điều kiện cờ, ví dụ một cron job hoặc một API endpoint mới. Review mọi điểm vào của tính năng.</p>
+<p><strong>Không test cả hai trạng thái.</strong> Chỉ test với cờ bật, rồi luồng cũ bị hỏng. Bộ test cần chạy ở cả hai trạng thái trong thời gian cờ tồn tại.</p>
+<p><strong>Quên dọn cờ.</strong> Sau vài tháng, không ai dám xóa vì không biết cờ còn dùng không. Ghi hạn dọn cờ ngay khi tạo.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Feature flag là kỹ thuật ở tầng ứng dụng, không phải tính năng của Git. Git chỉ giúp bạn kiểm soát giá trị mặc định của cờ qua lịch sử commit.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Đội phát triển làm luồng eKYC mới bằng nhận diện khuôn mặt trong sáu tuần. Mỗi phần nhỏ được merge vào main sau cờ <code>ekyc-v2</code>, mặc định tắt. Môi trường UAT bật cờ, nên QA kiểm thử dần từng bước thay vì nhận cả khối vào tuần cuối. CI chạy bộ test đăng ký tài khoản hai lần: cờ tắt và cờ bật. Sau khi bật production ổn định hai tuần, một commit riêng xóa cờ và luồng eKYC cũ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn tệp cờ với giá trị tắt. Bạn cần tạo tệp tính năng với nội dung cho trước và commit, trong khi tệp cờ trong commit vẫn giữ nguyên trạng thái tắt, và working tree sạch. Câu hỏi kiến thức hỏi tên cơ chế giữ tính năng mới ở trạng thái tắt trên production.</p>
+<p>Hãy chuẩn bị:</p>
+<ul>
+<li>Đọc nội dung tệp cờ trước khi làm, đừng sửa nó.</li>
+<li>Ghi đúng nội dung tệp tính năng như đề bài.</li>
+<li>Sau khi commit, kiểm tra bằng <code>git show HEAD:flags.json</code> và <code>git status</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Feature flag tách việc merge mã khỏi việc bật tính năng cho người dùng.</li>
+<li>Cờ cho phép merge sớm từng phần, tránh nhánh sống lâu.</li>
+<li>Giá trị cờ mặc định trong repository nên là tắt.</li>
+<li>Test cả hai trạng thái cờ trong thời gian cờ tồn tại.</li>
+<li>Dọn cờ và luồng cũ khi tính năng đã ổn định.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start daily-workflows</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open long-running-features
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../daily-workflows/backporting.html" rel="prev"><small>Bài trước</small>Đưa sửa lỗi về bản cũ</a><a class="next" href="../daily-workflows/rebasing-long-lived.html" rel="next"><small>Bài sau</small>Cập nhật nhánh sống lâu</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quy trình hằng ngày, bài 10/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

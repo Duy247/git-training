@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ghi công đồng tác giả - Làm việc nhóm và review - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Làm việc nhóm và review</span><span class="badge" title="Vị trí bài trong track">Bài 5/8</span></p>
+<h1>Ghi công đồng tác giả</h1>
+<p class="meta">Track: Làm việc nhóm và review &middot; Mã bài: <code>co-authoring</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu trailer là gì và vị trí đúng của nó trong commit message.</li>
+<li>Ghi đồng tác giả bằng trailer <code>Co-authored-by:</code> mà không thay đổi author chính.</li>
+<li>Tạo trailer bằng nhiều <code>-m</code> hoặc bằng <code>git commit --trailer</code>.</li>
+<li>Đọc và thống kê trailer bằng <code>git log --format</code> và <code>git shortlog</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Mỗi commit chỉ có một author (và một committer). Nhưng thực tế nhiều thay đổi được viết chung: hai người cùng ngồi một máy, hoặc một người viết khung còn người kia hoàn thiện. Để ghi công đầy đủ, cộng đồng dùng <strong>trailer</strong>: các dòng dạng <code>Khóa: giá trị</code> đặt ở <strong>đoạn cuối cùng</strong> của commit message, cách phần trên bằng một dòng trống.</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Thêm kịch bản đăng nhập
+
+Mô tả chi tiết (tùy chọn).
+
+Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;</code></pre></div>
+<p>Một số điểm cần nắm:</p>
+<ul>
+<li><code>Co-authored-by:</code> là quy ước được nhiều nền tảng hosting nhận ra để hiển thị nhiều tác giả. Bản thân Git coi nó như mọi trailer khác: không đổi trường author, không đổi object ID theo cách đặc biệt nào.</li>
+<li>Trailer phải nằm ở đoạn cuối, mỗi trailer một dòng, đúng dạng <code>Khóa: giá trị</code>. Viết lẫn vào subject hoặc giữa đoạn văn thì Git không coi là trailer.</li>
+<li>Định dạng giá trị theo kiểu <code>Tên &lt;email&gt;</code>. Nền tảng hosting thường dựa vào email để liên kết với tài khoản, nên hãy dùng email mà người đó dùng cho Git.</li>
+<li>Có thể có nhiều trailer <code>Co-authored-by:</code>, mỗi người một dòng.</li>
+</ul>
+<p>Cách tạo:</p>
+<ul>
+<li><code>git commit -m &quot;Subject&quot; -m &quot;Co-authored-by: ...&quot;</code>: mỗi <code>-m</code> là một đoạn, Git tự chèn dòng trống giữa các đoạn.</li>
+<li><code>git commit --trailer &quot;Co-authored-by: ...&quot;</code>: Git tự đặt trailer vào đúng chỗ, kể cả khi message nhiều đoạn.</li>
+<li>Viết trong editor, nhớ dòng trống trước khối trailer.</li>
+</ul>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  subgraph &quot;Commit message&quot;
+    S[&quot;Subject: Thêm kịch bản đăng nhập&quot;]
+    BL1[&quot;Dòng trống&quot;]
+    B[&quot;Thân: mô tả, tùy chọn&quot;]
+    BL2[&quot;Dòng trống&quot;]
+    T[&quot;Trailer: Co-authored-by: Lan Nguyen&quot;]
+  end
+  S --&gt; BL1 --&gt; B --&gt; BL2 --&gt; T
+  A[&quot;Trường author: Duy&quot;] -.-&gt;|&quot;không đổi&quot;| S</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Hai đoạn: subject và trailer
+git commit -m &quot;Thêm kịch bản đăng nhập&quot; -m &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot;
+
+# Để Git tự đặt trailer
+git commit -m &quot;Thêm kịch bản đăng xuất&quot; --trailer &quot;Co-authored-by: Minh Tran &lt;minh@example.invalid&gt;&quot;
+
+# Đọc message đầy đủ
+git log -1 --format=%B
+
+# Chỉ đọc trailer
+git log -1 --format=&#39;%(trailers)&#39;
+git log -1 --format=&#39;%(trailers:key=Co-authored-by,valueonly)&#39;
+
+# Thống kê theo author và đồng tác giả
+git shortlog -s -n --group=author --group=trailer:co-authored-by</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có commit &quot;Khởi tạo&quot;; bạn (Duy) và Lan cùng viết kịch bản đăng nhập (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add login.txt
+git commit -m &quot;Thêm kịch bản đăng nhập&quot; -m &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot;
+git log -1 --format=%B
+git log -1 --format=&#39;%(trailers:key=Co-authored-by,valueonly)&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 739f159] Thêm kịch bản đăng nhập
+ 1 file changed, 1 insertion(+)
+ create mode 100644 login.txt
+Thêm kịch bản đăng nhập
+
+Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;
+
+Lan Nguyen &lt;lan@example.invalid&gt;</code></pre></div>
+<p>Git nhận đúng đoạn cuối là trailer. Commit tiếp theo có hai đồng tác giả, dùng <code>--trailer</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Thêm kịch bản đăng xuất&quot; \
+  --trailer &quot;Co-authored-by: Minh Tran &lt;minh@example.invalid&gt;&quot; \
+  --trailer &quot;Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot;
+git log -1 --format=&#39;%an | %(trailers:key=Co-authored-by,valueonly,separator=%x2C )&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 20e586d] Thêm kịch bản đăng xuất
+ 1 file changed, 1 insertion(+)
+ create mode 100644 logout.txt
+Duy | Minh Tran &lt;minh@example.invalid&gt;, Lan Nguyen &lt;lan@example.invalid&gt;</code></pre></div>
+<p>Author vẫn là Duy; hai đồng tác giả nằm trong trailer. Giờ xem điều gì xảy ra nếu viết sai chỗ, nhét trailer vào subject:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Thêm bad Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;&quot;
+git log -1 --format=&#39;[%(trailers)]&#39;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 3890168] Thêm bad Co-authored-by: Lan Nguyen &lt;lan@example.invalid&gt;
+[]</code></pre></div>
+<p>Không có trailer nào: Git chỉ thấy một subject dài. Đây là lý do cần đoạn riêng.</p>
+<p>Thống kê đóng góp, gộp cả author và đồng tác giả (chạy trên lịch sử có hai commit hợp lệ ở trên và commit &quot;Khởi tạo&quot;):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog -s -n --group=author --group=trailer:co-authored-by HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">     3	Duy
+     2	Lan Nguyen
+     1	Minh Tran</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi thiếu trailer ở commit vừa tạo, thêm bằng <code>git commit --amend --no-edit --trailer &quot;Co-authored-by: ...&quot;</code>. Chỉ làm với commit chưa push, vì amend đổi object ID.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Viết trailer trong subject.</strong> Như ví dụ trên, Git không nhận.</p>
+<p><strong>Quên dòng trống trước trailer.</strong> Khi viết trong editor, nếu trailer dính vào đoạn mô tả, Git có thể không coi đó là khối trailer.</p>
+<p><strong>Sai chính tả khóa.</strong> <code>Co-Author:</code> hay <code>Coauthored-by:</code> không phải quy ước; nền tảng hosting sẽ không nhận ra.</p>
+<p><strong>Đổi author thay vì thêm trailer.</strong> <code>--author</code> thay hẳn người viết chính, mất ghi công của bạn.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trailer chỉ là văn bản; Git không xác minh người được ghi có thật sự tham gia. Hãy hỏi trước khi ghi tên ai đó, và dùng đúng email người đó muốn công khai.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn và một QA mới cùng viết bộ kịch bản kiểm thử đăng nhập ngân hàng số trong buổi kèm cặp. Bạn commit với trailer <code>Co-authored-by:</code> ghi tên đồng nghiệp. Cuối quý, khi tổng hợp đóng góp, <code>git shortlog --group=trailer:co-authored-by</code> cho thấy công sức của người mới, dù họ chưa tự commit lần nào.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn một tệp chưa commit. Bạn cần commit tệp đó với subject và một trailer đồng tác giả đúng như đề bài ghi, đặt ở đoạn riêng. Kiểm tra lại bằng <code>git log -1 --format=%B</code> trước khi nộp. Câu hỏi kiến thức hỏi chuỗi mở đầu của trailer chuẩn để ghi đồng tác giả.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Trailer là dòng <code>Khóa: giá trị</code> ở đoạn cuối của commit message.</li>
+<li><code>Co-authored-by: Tên &lt;email&gt;</code> ghi đồng tác giả, không đổi author chính.</li>
+<li>Tạo bằng nhiều <code>-m</code> hoặc <code>git commit --trailer</code>.</li>
+<li>Đọc bằng <code>%(trailers)</code>, thống kê bằng <code>git shortlog --group=trailer:...</code>.</li>
+<li>Trailer viết sai chỗ hoặc sai khóa sẽ không được nhận.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start teamwork</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open co-authoring
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../teamwork/resolving-conflicts-team.html" rel="prev"><small>Bài trước</small>Cùng giải quyết xung đột</a><a class="next" href="../teamwork/pair-workflows.html" rel="next"><small>Bài sau</small>Làm việc cặp</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Làm việc nhóm và review, bài 5/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

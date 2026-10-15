@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Remote, push và pull - Remote và GitHub mô phỏng - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Remote và GitHub mô phỏng</span><span class="badge" title="Vị trí bài trong track">Bài 1/12</span></p>
+<h1>Remote, push và pull</h1>
+<p class="meta">Track: Remote và GitHub mô phỏng &middot; Mã bài: <code>remotes-push-pull</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu remote là gì: một cái tên gắn với địa chỉ của repository khác.</li>
+<li>Gửi nhánh lên remote bằng push và hiểu khi nào push bị từ chối.</li>
+<li>Phân biệt fetch với pull, và biết pull thực ra gồm hai bước.</li>
+<li>Xử lý tình huống hai người cùng push vào một nhánh.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Mọi repository Git đều đầy đủ và độc lập: lịch sử, nhánh, tag đều nằm trong <code>.git</code> trên máy bạn. Để làm việc nhóm, các repository cần trao đổi commit với nhau. <strong>Remote</strong> là một cái tên ngắn (thường là <code>origin</code>) mà bạn gắn với địa chỉ của repository khác. Địa chỉ đó có thể là URL HTTPS, SSH, hoặc chỉ là đường dẫn thư mục trên máy, như các bài tập trong ứng dụng này dùng.</p>
+<p>Khi clone, Git tự tạo remote <code>origin</code> trỏ về nơi bạn clone. Khi <code>git init</code> một repository mới, chưa có remote nào; bạn tự thêm bằng <code>git remote add &lt;tên&gt; &lt;địa chỉ&gt;</code>. Cấu hình remote nằm trong <code>.git/config</code> của riêng repository bạn.</p>
+<p>Ba lệnh trao đổi dữ liệu:</p>
+<ul>
+<li><strong><code>git fetch</code></strong> tải commit và ref mới từ remote về, rồi cập nhật các <strong>nhánh remote-tracking</strong> như <code>origin/main</code>. Nó <strong>không</strong> đụng tới nhánh local hay working tree của bạn. Đây là thao tác an toàn, có thể chạy bất cứ lúc nào.</li>
+<li><strong><code>git pull</code></strong> là fetch <strong>cộng với</strong> một bước tích hợp: merge (hoặc rebase, nếu cấu hình) nhánh upstream vào nhánh hiện tại.</li>
+<li><strong><code>git push &lt;remote&gt; &lt;nhánh&gt;</code></strong> gửi commit của nhánh local lên remote và yêu cầu remote dời nhánh cùng tên tới đó.</li>
+</ul>
+<p>Remote chỉ chấp nhận push nếu nó là <strong>fast-forward</strong>: commit mới phải nối tiếp lên commit mà nhánh trên server đang trỏ. Nếu ai đó đã push trước bạn, server có commit mà bạn chưa có; nhận push của bạn sẽ làm mất commit đó, nên server từ chối. Cách xử lý đúng là tích hợp trước (fetch rồi merge, hoặc <code>pull --rebase</code>), rồi mới push lại.</p>
+<p>Push lần đầu thường kèm <code>-u</code> để đặt upstream (bài upstream ở track branching đã nói chi tiết). Sau đó, <code>git push</code> và <code>git pull</code> không cần ghi tên remote và nhánh nữa.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">sequenceDiagram
+  participant A as Máy A
+  participant S as server.git
+  participant B as Máy B
+  A-&gt;&gt;S: git push -u origin main
+  S-&gt;&gt;B: git clone
+  B-&gt;&gt;S: git push, có commit mới
+  A-&gt;&gt;S: git fetch
+  S--&gt;&gt;A: Cập nhật origin/main, main local chưa đổi
+  A-&gt;&gt;A: git merge hoặc rebase</pre>
+<pre class="mermaid">flowchart LR
+  subgraph L[&quot;Repository local&quot;]
+    M[&quot;main&quot;]
+    T[&quot;origin/main&quot;]
+  end
+  R[&quot;Remote origin: main&quot;]
+  R -- &quot;fetch&quot; --&gt; T
+  T -- &quot;merge hoặc rebase&quot; --&gt; M
+  M -- &quot;push&quot; --&gt; R</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add &lt;tên&gt; &lt;địa chỉ&gt;    # gắn tên cho repository khác
+git remote -v                     # liệt kê remote và URL
+git push -u &lt;remote&gt; &lt;nhánh&gt;      # push lần đầu, đặt upstream
+git push                          # push nhánh hiện tại lên upstream
+git fetch [&lt;remote&gt;]              # tải về, chỉ cập nhật remote-tracking
+git pull                          # fetch rồi tích hợp
+git pull --rebase                 # fetch rồi rebase commit local lên trên
+git log --oneline main..origin/main   # commit trên remote mà local chưa có</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Mạng</th>
+<th>Đổi nhánh local</th>
+<th>Đổi working tree</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fetch</code></td>
+<td>Tải về</td>
+<td>Không</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>pull</code></td>
+<td>Tải về</td>
+<td>Có</td>
+<td>Có</td>
+</tr>
+<tr>
+<td><code>push</code></td>
+<td>Gửi lên</td>
+<td>Không</td>
+<td>Không</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mới tạo chưa có remote, nên push báo lỗi:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: &#39;origin&#39; does not appear to be a git repository
+fatal: Could not read from remote repository.</code></pre></div>
+<p>Thêm remote (ở đây là một bare repository cạnh bên) và push lần đầu:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git remote add origin ../server.git
+git remote -v
+git push -u origin main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">origin	../server.git (fetch)
+origin	../server.git (push)
+To ../server.git
+ * [new branch]      main -&gt; main
+branch &#39;main&#39; set up to track &#39;origin/main&#39;.</code></pre></div>
+<p>Một đồng nghiệp clone và push thêm commit. Ở máy A, <code>fetch</code> cho thấy nhánh remote đã đi trước:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fetch
+git status -sb
+git log --oneline main..origin/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">From ../server
+   c1dc3ec..a74e9e2  main       -&gt; origin/main
+## main...origin/main [behind 1]
+a74e9e2 Thêm ca kiểm thử</code></pre></div>
+<p><code>git pull</code> lúc này chỉ là fast-forward:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Updating c1dc3ec..a74e9e2
+Fast-forward
+ ca.txt | 1 +</code></pre></div>
+<p>Giờ cả hai cùng commit. Đồng nghiệp push trước, nên push của mình bị từ chối (hint rút gọn):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> ! [rejected]        main -&gt; main (fetch first)
+error: failed to push some refs to &#39;../server.git&#39;
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally.</code></pre></div>
+<p><code>git pull</code> không tùy chọn cũng dừng, vì hai nhánh đã phân kỳ và chưa cấu hình cách tích hợp:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: Need to specify how to reconcile divergent branches.</code></pre></div>
+<p>Mình chọn rebase, rồi push lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git pull --rebase
+git push
+git log --oneline --graph -4</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Successfully rebased and updated refs/heads/main.
+To ../server.git
+   4a85dfb..deba360  main -&gt; main
+* deba360 Sửa README trên máy A
+* 4a85dfb Thêm y
+* a74e9e2 Thêm ca kiểm thử
+* c1dc3ec Khởi tạo</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Push khi chưa có remote, hoặc gõ sai tên remote.</strong> Kiểm tra bằng <code>git remote -v</code>.</p>
+<p><strong>Nghĩ fetch đã cập nhật code.</strong> Fetch chỉ cập nhật <code>origin/main</code>; nhánh <code>main</code> của bạn đứng yên cho tới khi merge hoặc rebase.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Khi push bị từ chối, đừng thêm <code>--force</code> cho &quot;qua&quot;. Force push sẽ xóa commit của đồng nghiệp trên server. Tích hợp trước, rồi push.</p>
+</aside>
+<p><strong>Pull khi working tree đang dở dang.</strong> Pull có thể dừng vì sửa đổi local sẽ bị ghi đè. Commit hoặc stash trước.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Thói quen <code>git fetch</code> rồi <code>git status -sb</code> trước mỗi lần bắt đầu làm việc cho bạn biết ngay mình đang ahead hay behind bao nhiêu commit.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA có repository chung chứa kịch bản kiểm thử cho ứng dụng ví điện tử. Buổi sáng bạn fetch để xem đồng nghiệp đã đẩy thêm những ca nào, pull khi nhánh của mình sạch, và cuối ngày push các ca mới. Khi push bị từ chối vì ai đó vừa đẩy, bạn <code>pull --rebase</code> để lịch sử thẳng, chạy lại test nhanh rồi push.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài tập có một repository chưa có remote và một bare repository nằm trong thư mục bài tập. Bạn cần gắn bare repository đó làm remote với tên được yêu cầu, rồi đưa nhánh chính lên. Sau khi làm, so sánh hash nhánh local với nhánh trên remote (ví dụ bằng <code>git ls-remote</code>) để chắc chúng trùng.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Remote là tên ngắn trỏ tới repository khác; <code>origin</code> là tên mặc định khi clone.</li>
+<li>Fetch chỉ cập nhật nhánh remote-tracking; pull là fetch cộng merge hoặc rebase.</li>
+<li>Push chỉ được chấp nhận khi là fast-forward trên server.</li>
+<li>Push bị từ chối thì tích hợp trước, không force.</li>
+<li><code>-u</code> ở lần push đầu giúp các lần sau chỉ cần <code>git push</code> và <code>git pull</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start remote</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open remotes-push-pull
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/hard-reset-to-origin.html" rel="prev"><small>Bài trước</small>Đồng bộ cứng với origin (Hoàn tác và cứu hộ)</a><a class="next" href="../remote/pull-request-workflow.html" rel="next"><small>Bài sau</small>Quy trình pull request</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Remote và GitHub mô phỏng, bài 1/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Cứu commit thất lạc - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 6/12</span></p>
+<h1>Cứu commit thất lạc</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>recovering-lost-commits</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao commit &quot;biến mất&quot; sau reset nhưng chưa bị xóa thật.</li>
+<li>Tìm object ID của commit thất lạc bằng reflog và <code>git fsck</code>.</li>
+<li>Gắn lại commit đó vào một nhánh để giữ an toàn.</li>
+<li>Biết khi nào commit thật sự không còn cứu được.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Một commit &quot;tồn tại&quot; trong Git theo hai nghĩa khác nhau:</p>
+<ul>
+<li><strong>Object tồn tại</strong>: dữ liệu commit còn nằm trong <code>.git/objects</code>.</li>
+<li><strong>Commit có thể truy cập (reachable)</strong>: đi từ một ref nào đó (nhánh, tag, HEAD, stash) theo chuỗi parent sẽ tới được nó.</li>
+</ul>
+<p><code>git log</code>, <code>git log --all</code> và hầu hết công cụ chỉ cho bạn thấy commit reachable. Khi bạn <code>git reset --hard HEAD~1</code>, nhánh lùi một bước; commit cuối không còn ref nào trỏ tới, nên nó biến khỏi mọi log. Nhưng <strong>object vẫn còn đó</strong>. Git chỉ xóa object không truy cập được khi chạy dọn rác (<code>git gc</code>, đôi khi tự chạy ngầm), và kể cả khi đó, object còn được reflog nhắc tới sẽ được giữ cho tới khi mục reflog hết hạn.</p>
+<p>Vậy quy trình cứu luôn gồm hai bước:</p>
+<ol>
+<li><strong>Tìm object ID</strong> của commit thất lạc.</li>
+<li><strong>Gắn một ref</strong> vào nó, thường là một nhánh mới, để nó trở lại thành reachable và không bị dọn.</li>
+</ol>
+<p>Nguồn thứ nhất để tìm là <strong>reflog</strong>: mỗi lần HEAD đổi vị trí đều được ghi, nên commit bạn đã từng đứng trên sẽ có ở đó, kèm subject. Đây là cách nhanh và phổ biến nhất.</p>
+<p>Nguồn thứ hai là <strong><code>git fsck</code></strong>, dùng khi reflog không giúp được (ví dụ commit chưa bao giờ được HEAD trỏ tới, như một stash đã drop, hoặc reflog đã bị xóa). <code>git fsck --lost-found</code> bỏ qua reflog, liệt kê các commit &quot;dangling&quot; (không có ref hay commit nào trỏ tới) và chép ID của chúng vào <code>.git/lost-found/</code>. <code>git fsck --unreachable --no-reflogs</code> liệt kê mọi object không truy cập được, kể cả tree và blob.</p>
+<p>Commit không cứu được khi: object đã bị <code>gc</code> dọn sau khi hết hạn, hoặc nó chưa bao giờ được tạo (sửa đổi chưa commit bị <code>reset --hard</code> xóa). Trường hợp thứ hai rất hay bị nhầm.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  A[&quot;Commit biến khỏi git log&quot;] --&gt; B{&quot;Có trong git reflog?&quot;}
+  B -- &quot;Có&quot; --&gt; D[&quot;Lấy object ID&quot;]
+  B -- &quot;Không&quot; --&gt; C[&quot;git fsck --lost-found&quot;]
+  C -- &quot;Thấy dangling commit&quot; --&gt; D
+  C -- &quot;Không thấy&quot; --&gt; E[&quot;Đã bị dọn hoặc chưa từng commit&quot;]
+  D --&gt; F[&quot;git branch tên-mới ID&quot;]
+  F --&gt; G[&quot;Commit lại reachable, an toàn&quot;]</pre>
+<pre class="mermaid">gitGraph
+  commit id: &quot;71d35a4 Khởi tạo&quot;
+  branch cuu-bao-cao
+  commit id: &quot;a65d4c7 Báo cáo hồi quy&quot;
+  checkout main</pre>
+<p>Sơ đồ thứ hai là trạng thái sau khi cứu: <code>main</code> vẫn ở chỗ đã reset, còn commit thất lạc có nhánh riêng giữ lại.</p>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog                           # tìm vị trí HEAD từng đứng
+git log -g --format=&quot;%h %gd %s&quot;      # reflog kèm subject, tiện tìm theo tên
+git show --stat &lt;id&gt;                 # kiểm tra đúng commit chưa
+git fsck --lost-found                # tìm commit dangling, bỏ qua reflog
+git fsck --unreachable --no-reflogs  # mọi object không truy cập được
+git branch &lt;tên&gt; &lt;id&gt;                # gắn nhánh vào commit tìm được
+git cherry-pick &lt;id&gt;                 # hoặc chép thay đổi đó sang nhánh hiện tại</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Công cụ</th>
+<th>Thấy gì</th>
+<th>Khi nào dùng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git reflog</code></td>
+<td>Vị trí HEAD/nhánh từng đi qua</td>
+<td>Hầu hết trường hợp</td>
+</tr>
+<tr>
+<td><code>git fsck --lost-found</code></td>
+<td>Commit dangling</td>
+<td>Reflog không có, ví dụ stash đã drop</td>
+</tr>
+<tr>
+<td><code>git log --all</code></td>
+<td>Chỉ commit reachable</td>
+<td>Không giúp tìm commit thất lạc</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Mình có commit &quot;Báo cáo hồi quy&quot; rồi reset nhầm:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --hard HEAD~1
+git log --oneline --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 71d35a4 Khởi tạo
+71d35a4 Khởi tạo</code></pre></div>
+<p>Ngay cả <code>--all</code> cũng không thấy. Reflog thì có:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">71d35a4 HEAD@{0}: reset: moving to HEAD~1
+a65d4c7 HEAD@{1}: commit: Báo cáo hồi quy
+71d35a4 HEAD@{2}: commit (initial): Khởi tạo</code></pre></div>
+<p>Cách thứ hai, không dựa vào reflog:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git fsck --lost-found
+git fsck --unreachable --no-reflogs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">dangling commit a65d4c75c8d6cfde2e5f416a0ef76aef0d4ffef0
+unreachable commit a65d4c75c8d6cfde2e5f416a0ef76aef0d4ffef0
+unreachable tree f5257b7e0b2c1f1c9af48cb026d8e29fba9da7b5
+unreachable blob 38da85c80fd745cda3be0bfda3ba8f5a17a56cfe</code></pre></div>
+<p>Lưu ý <code>git fsck</code> không có tùy chọn sẽ không in gì ở đây, vì nó coi các mục reflog là còn được tham chiếu.</p>
+<p>Kiểm tra trước khi cứu, rồi gắn nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --stat --format=%s a65d4c7
+git branch cuu-bao-cao a65d4c7
+git log --oneline cuu-bao-cao
+git branch --show-current</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Báo cáo hồi quy
+
+ bao-cao.txt | 1 +
+ 1 file changed, 1 insertion(+)
+a65d4c7 Báo cáo hồi quy
+71d35a4 Khởi tạo
+main</code></pre></div>
+<p>Bạn vẫn đứng ở <code>main</code>; commit đã an toàn trên <code>cuu-bao-cao</code>. Sau đó bạn tự chọn merge, cherry-pick hay chỉ giữ để tham khảo.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tìm bằng <code>git log --all</code>.</strong> Lệnh này chỉ đi từ các ref hiện có, nên không bao giờ thấy commit thất lạc.</p>
+<p><strong>Cứu bằng cách reset nhánh hiện tại.</strong> <code>git reset --hard &lt;id&gt;</code> có thể cứu được, nhưng cũng có thể xóa thêm công việc đang làm. Tạo nhánh mới an toàn hơn và không đụng tới working tree.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Ngay khi phát hiện mất commit, đừng chạy <code>git gc</code> hay <code>git prune</code>. Gắn nhánh trước, phân tích sau.</p>
+</aside>
+<p><strong>Mong cứu được sửa đổi chưa commit.</strong> Reflog và fsck chỉ làm việc với object đã được tạo. Ngoại lệ hiếm: tệp bạn đã <code>git add</code> có blob trong kho, và <code>git fsck --lost-found</code> có thể tìm thấy blob đó trong <code>.git/lost-found/other/</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Khi reflog dài, dùng <code>git log -g --format=&quot;%h %gd %s&quot;</code> rồi tìm theo subject commit; nhanh hơn đọc từng dòng.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Cuối ngày, bạn reset nhánh test thanh toán thẻ về <code>origin</code> để làm lại cho sạch, rồi nhớ ra commit cuối có bộ kịch bản kiểm thử hoàn tiền chưa push. Không cần hoảng: tìm subject trong reflog, gắn nhánh <code>cuu/hoan-tien</code> vào đó, rồi cherry-pick commit vào nhánh mới. Toàn bộ chỉ mất một phút nếu bạn làm ngay.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập đã bị reset, làm mất một commit có subject đặc trưng. Bạn cần tìm object ID của commit đó và tạo một nhánh với tên được yêu cầu trỏ vào nó, trong khi vẫn đứng ở <code>main</code>. Sau khi làm, hãy xác nhận bằng <code>git show</code> rằng tệp của commit đó có mặt trên nhánh mới.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Reset làm commit mất khỏi log, nhưng object vẫn còn cho tới khi bị dọn.</li>
+<li>Tìm ID bằng reflog trước, <code>git fsck --lost-found</code> khi reflog không giúp được.</li>
+<li>Gắn nhánh mới vào ID để giữ commit an toàn, không đụng working tree.</li>
+<li>Sửa đổi chưa từng commit thì gần như không cứu được.</li>
+<li>Cứu ngay, đừng chạy <code>gc</code> trước khi gắn ref.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open recovering-lost-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/amending-commits.html" rel="prev"><small>Bài trước</small>Sửa commit cuối</a><a class="next" href="../undo/fix-last-message.html" rel="next"><small>Bài sau</small>Sửa thông điệp cuối</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 6/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Quy ước tên nhánh - Nhánh và hợp nhất - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nhánh và hợp nhất</span><span class="badge" title="Vị trí bài trong track">Bài 7/10</span></p>
+<h1>Quy ước tên nhánh</h1>
+<p class="meta">Track: Nhánh và hợp nhất &middot; Mã bài: <code>branch-naming</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Biết những ký tự và dạng tên mà Git không cho phép trong tên nhánh.</li>
+<li>Xây dựng quy ước tên nhánh dạng <code>loại/mô-tả</code> dễ đọc và dễ lọc.</li>
+<li>Tránh xung đột tên kiểu <code>feature</code> và <code>feature/login</code> cùng tồn tại.</li>
+<li>Kiểm tra một tên có hợp lệ trước khi dùng trong script.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Git cho bạn khá nhiều tự do khi đặt tên nhánh, nhưng tự do ấy dễ biến thành hỗn loạn: <code>tmp1</code>, <code>test</code>, <code>duy-new</code>, <code>fix-final-2</code>. Ba tuần sau không ai biết nhánh nào làm gì, nhánh nào bỏ được. Một quy ước tên nhánh nhất quán giải quyết vấn đề này với chi phí gần như bằng không.</p>
+<p><strong>Quy tắc kỹ thuật của Git</strong> (kiểm tra bằng <code>git check-ref-format --branch</code>). Một số điểm chính:</p>
+<ul>
+<li>Không chứa dấu cách, không chứa <code>~</code>, <code>^</code>, <code>:</code>, <code>?</code>, <code>*</code>, <code>[</code>, dấu gạch chéo ngược.</li>
+<li>Không chứa hai dấu chấm liền nhau <code>..</code>, không kết thúc bằng <code>.lock</code>, không kết thúc bằng <code>/</code>.</li>
+<li>Không bắt đầu bằng <code>-</code> (sẽ bị hiểu thành tùy chọn).</li>
+<li>Dấu <code>/</code> được phép và rất hữu ích: nó tạo &quot;thư mục&quot; cho tên.</li>
+</ul>
+<p>Vì Git có thể lưu ref như tệp trong thư mục, bạn <strong>không thể</strong> có cùng lúc nhánh <code>feature</code> và nhánh <code>feature/login</code>: một bên là &quot;tệp&quot;, một bên cần &quot;thư mục&quot; cùng tên. Git báo <code>cannot lock ref</code>.</p>
+<p><strong>Quy ước của nhóm.</strong> Dạng phổ biến nhất là <code>loại/mô-tả-ngắn</code>, có thể kèm mã ticket:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tiền tố</th>
+<th>Mục đích</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feature/</code></td>
+<td>Tính năng mới</td>
+</tr>
+<tr>
+<td><code>fix/</code> hoặc <code>bugfix/</code></td>
+<td>Sửa lỗi thông thường</td>
+</tr>
+<tr>
+<td><code>hotfix/</code></td>
+<td>Sửa lỗi khẩn trên bản đang chạy</td>
+</tr>
+<tr>
+<td><code>release/</code></td>
+<td>Chuẩn bị phát hành</td>
+</tr>
+<tr>
+<td><code>test/</code></td>
+<td>Bổ sung hoặc sửa test</td>
+</tr>
+<tr>
+<td><code>docs/</code>, <code>chore/</code></td>
+<td>Tài liệu, việc vặt</td>
+</tr>
+</tbody></table></div>
+<p>Phần mô tả nên viết thường, nối bằng gạch ngang, không dấu tiếng Việt để tránh rắc rối với công cụ và terminal: <code>feature/login-otp</code>, <code>fix/QA-123-lam-tron-so-du</code>.</p>
+<p>Lợi ích không chỉ là dễ đọc. Tiền tố cho phép lọc (<code>git branch --list &quot;fix/*&quot;</code>), cấu hình CI chạy pipeline khác nhau theo mẫu tên, và đặt quy tắc bảo vệ theo mẫu như <code>release/*</code> trên dịch vụ hosting. Track phát hành sẽ dùng lại các tiền tố <code>release/</code> và <code>hotfix/</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  N[&quot;Tên nhánh&quot;] --&gt; T[&quot;Tiền tố loại: feature, fix, test&quot;]
+  N --&gt; S[&quot;Dấu gạch chéo phân tách&quot;]
+  N --&gt; D[&quot;Mô tả ngắn, chữ thường, gạch ngang&quot;]
+  N --&gt; K[&quot;Mã ticket nếu có&quot;]
+  T --&gt; E[&quot;Ví dụ: feature/login-otp&quot;]
+  D --&gt; E</pre>
+<pre class="mermaid">flowchart TD
+  R[&quot;refs/heads&quot;] --&gt; F1[&quot;feature: là tệp&quot;]
+  R --&gt; F2[&quot;feature/: là thư mục&quot;]
+  F2 --&gt; L[&quot;login&quot;]
+  F1 -.-&gt;|&quot;xung đột, không thể cùng tồn tại&quot;| F2</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git check-ref-format --branch &quot;&lt;tên&gt;&quot;   # in tên nếu hợp lệ, lỗi nếu không
+git switch -c &lt;loại&gt;/&lt;mô-tả&gt;             # tạo nhánh theo quy ước
+git branch --list &quot;&lt;loại&gt;/*&quot;             # lọc theo tiền tố
+git branch -m &lt;tên-mới&gt;                  # sửa tên chưa đúng quy ước</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Kiểm tra nhanh một loạt tên bằng vòng lặp Bash:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">for n in feature/login &quot;feature login&quot; &quot;fix..x&quot; &quot;test/smoke.lock&quot; &quot;-bad&quot; \
+         &quot;release/2.0&quot; &quot;hotfix/1.0.1&quot; &quot;feature/&quot; &quot;a~b&quot; &quot;Feature/Login&quot;; do
+  printf &#39;%-20s &#39; &quot;$n&quot;
+  git check-ref-format --branch &quot;$n&quot; &gt;/dev/null 2&gt;&amp;1 &amp;&amp; echo hợp-lệ || echo không-hợp-lệ
+done</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">feature/login        hợp-lệ
+feature login        không-hợp-lệ
+fix..x               không-hợp-lệ
+test/smoke.lock      không-hợp-lệ
+-bad                 không-hợp-lệ
+release/2.0          hợp-lệ
+hotfix/1.0.1         hợp-lệ
+feature/             không-hợp-lệ
+a~b                  không-hợp-lệ
+Feature/Login        hợp-lệ</code></pre></div>
+<p><code>Feature/Login</code> hợp lệ về kỹ thuật, nhưng chữ hoa dễ gây rắc rối trên hệ thống tệp không phân biệt hoa thường. Thử tạo nhánh tên có dấu cách:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch &quot;feature login&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: &#39;feature login&#39; is not a valid branch name
+hint: See `man git check-ref-format`
+hint: Disable this message with &quot;git config advice.refSyntax false&quot;</code></pre></div>
+<p>Và xung đột &quot;tệp với thư mục&quot;, khi đã có nhánh <code>feature/dung</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch feature</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: cannot lock ref &#39;refs/heads/feature&#39;: &#39;refs/heads/feature/dung&#39; exists; cannot create &#39;refs/heads/feature&#39;</code></pre></div>
+<p>Cuối cùng, tạo nhánh đúng quy ước:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch -c feature/login-otp</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Switched to a new branch &#39;feature/login-otp&#39;</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Tên chung chung.</strong> <code>test</code>, <code>new</code>, <code>tmp1</code> không nói gì. Đổi sớm bằng <code>git branch -m</code> trước khi push.</p>
+<p><strong>Trộn kiểu viết.</strong> <code>Feature/Login</code>, <code>feature_login</code>, <code>feat-login</code> cùng tồn tại khiến lọc theo mẫu thất bại. Ghi quy ước vào CONTRIBUTING hoặc README của dự án.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Tên nhánh có dấu tiếng Việt là hợp lệ với Git, nhưng một số công cụ CI, shell trên Windows hay URL có thể hiển thị sai. Chữ không dấu an toàn hơn.</p>
+</aside>
+<p><strong>Tạo nhánh trùng tên với tiền tố.</strong> Nhánh <code>release</code> chặn mọi nhánh <code>release/...</code>. Đừng dùng tên tiền tố làm tên nhánh.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Ghép mã ticket vào tên (<code>fix/QA-123-...</code>) giúp nhiều công cụ quản lý công việc tự liên kết nhánh với ticket.</p>
+</aside>
+<p><strong>Tên quá dài.</strong> Mô tả cả câu trong tên nhánh khó gõ và bị cắt trên giao diện. Ba đến năm từ là đủ.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA thống nhất: nhánh test bắt đầu bằng <code>test/</code>, kèm mã ticket, mô tả không dấu. Pipeline CI được cấu hình để nhánh khớp <code>test/*</code> chạy bộ smoke nhanh, còn <code>release/*</code> chạy toàn bộ hồi quy. Khi người mới tạo <code>tmp-duy</code>, pipeline không nhận diện được loại nhánh và nhắc đổi tên. Quy ước nhỏ, nhưng tiết kiệm nhiều cuộc hỏi đáp.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành yêu cầu tạo và chuyển sang một nhánh tính năng có tên theo đúng quy ước <code>loại/mô-tả</code> mà đề đưa ra. Câu hỏi đi kèm cho bạn chọn giữa một tên đúng quy ước và một tên tùy tiện. Hãy:</p>
+<ul>
+<li>Ôn bảng tiền tố ở trên và lý do dùng chúng.</li>
+<li>Nếu muốn chắc tên hợp lệ, chạy <code>git check-ref-format --branch</code>.</li>
+<li>Sau khi tạo, kiểm tra bằng <code>git branch --show-current</code>.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Git cấm dấu cách, <code>..</code>, <code>~</code>, <code>^</code>, <code>:</code>, đuôi <code>.lock</code> và một số ký tự khác trong tên nhánh.</li>
+<li>Dấu <code>/</code> tạo nhóm tên; không thể có cùng lúc <code>x</code> và <code>x/...</code>.</li>
+<li>Quy ước <code>loại/mô-tả</code> giúp đọc, lọc, cấu hình CI và quy tắc bảo vệ.</li>
+<li>Viết thường, gạch ngang, không dấu, có thể kèm mã ticket.</li>
+<li><code>git check-ref-format --branch</code> kiểm tra tên trước khi dùng.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start branching</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open branch-naming
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/renaming-branches.html" rel="prev"><small>Bài trước</small>Đổi tên nhánh</a><a class="next" href="../branching/upstream-tracking.html" rel="next"><small>Bài sau</small>Nhánh upstream</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nhánh và hợp nhất, bài 7/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

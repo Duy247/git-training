@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Dọn rác Git - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 7/11</span></p>
+<h1>Dọn rác Git</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>gc-internals</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu <code>git gc</code> làm những việc gì: gom pack, dọn reflog cũ, xóa object không còn được tham chiếu.</li>
+<li>Biết vì sao object vừa &quot;mất&quot; vẫn chưa bị xóa ngay: reflog và thời gian ân hạn.</li>
+<li>Nhận ra cruft pack và tệp <code>.mtimes</code>.</li>
+<li>Biết các mặc định quan trọng và khi nào nên, không nên chạy gc thủ công.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Git gần như không bao giờ xóa dữ liệu ngay lập tức. Khi bạn xóa nhánh, amend commit hay rebase, các commit cũ không bị xóa mà chỉ không còn được ref nào trỏ tới. Chúng vẫn nằm trong object database cho tới khi bộ dọn rác (garbage collection) quyết định xóa.</p>
+<p><code>git gc</code> là lệnh porcelain điều phối nhiều bước nhỏ:</p>
+<ol>
+<li>Gom ref rời vào <code>packed-refs</code> (<code>git pack-refs</code>).</li>
+<li>Dọn các mục reflog quá hạn (<code>git reflog expire</code>).</li>
+<li>Gom object được tham chiếu vào packfile (<code>git repack</code>).</li>
+<li>Xử lý object không được tham chiếu: chúng được đưa vào một <strong>cruft pack</strong> riêng, kèm tệp <code>.mtimes</code> ghi thời điểm của từng object. Khi một object đã đủ cũ so với ngưỡng <code>gc.pruneExpire</code>, lần gc sau sẽ xóa thật.</li>
+<li>Cập nhật các tệp phụ trợ như commit-graph.</li>
+</ol>
+<p>Ba mốc thời gian mặc định nên nhớ:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Thiết lập</th>
+<th>Mặc định</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gc.reflogExpire</code></td>
+<td>90 ngày</td>
+<td>Mục reflog của commit còn reachable</td>
+</tr>
+<tr>
+<td><code>gc.reflogExpireUnreachable</code></td>
+<td>30 ngày</td>
+<td>Mục reflog của commit không còn reachable từ ref hiện tại</td>
+</tr>
+<tr>
+<td><code>gc.pruneExpire</code></td>
+<td>2 tuần</td>
+<td>Object không còn được tham chiếu, cũ hơn mốc này mới bị xóa</td>
+</tr>
+</tbody></table></div>
+<p>Như vậy, một commit &quot;mất&quot; sau khi bạn xóa nhánh vẫn được reflog giữ khoảng 30 ngày; sau khi mục reflog hết hạn, object còn có thêm khoảng 2 tuần ân hạn. Đây là lưới an toàn giúp bạn cứu lại công việc.</p>
+<p>Bạn hiếm khi cần gọi gc bằng tay. Nhiều lệnh (commit, merge, fetch) tự gọi <code>git gc --auto</code>, lệnh này chỉ thật sự làm việc khi số loose object vượt <code>gc.auto</code> (mặc định 6700) hoặc số pack vượt <code>gc.autoPackLimit</code> (mặc định 50). Ngoài ra <code>git maintenance</code> có thể lên lịch dọn dẹp định kỳ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  G[&quot;git gc&quot;] --&gt; PR[&quot;Gom ref vào packed-refs&quot;]
+  G --&gt; RE[&quot;Dọn reflog quá hạn&quot;]
+  G --&gt; RP[&quot;Repack object reachable&quot;]
+  G --&gt; CR[&quot;Object không được tham chiếu&quot;]
+  CR --&gt;|&quot;còn mới&quot;| CP[&quot;Cruft pack kèm .mtimes&quot;]
+  CR --&gt;|&quot;cũ hơn gc.pruneExpire&quot;| DEL[&quot;Xóa thật&quot;]</pre>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; TrenNhanh: commit trên nhánh
+  TrenNhanh --&gt; ChiReflog: xóa nhánh
+  ChiReflog --&gt; TrenNhanh: tạo lại nhánh từ reflog
+  ChiReflog --&gt; KhongThamChieu: mục reflog hết hạn
+  KhongThamChieu --&gt; DaXoa: gc sau mốc pruneExpire
+  DaXoa --&gt; [*]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Dọn dẹp thông thường
+git gc
+
+# Xóa ngay object không được tham chiếu (cẩn thận)
+git gc --prune=now
+
+# Chỉ chạy khi đủ ngưỡng
+git gc --auto
+
+# Liệt kê object không reachable (bỏ qua reflog để thấy rõ hơn)
+git fsck --unreachable
+git fsck --unreachable --no-reflogs
+
+# Cho mục reflog hết hạn ngay (phá lưới an toàn)
+git reflog expire --expire-unreachable=now --all
+
+# Chạy tác vụ gc qua maintenance
+git maintenance run --task=gc</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tạo nhánh <code>thu</code>, commit &quot;Thử nghiệm&quot;, quay về main rồi xóa nhánh (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git branch -D thu
+git cat-file -t fb3dead6ccfef6c862a5391d1b0eb5d140ebcf3c
+git fsck --unreachable
+git fsck --unreachable --no-reflogs</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Deleted branch thu (was fb3dead).
+commit
+unreachable tree 499c3600f8d127a5a79aa0a59f6c1627d95e82fd
+unreachable blob 4d17ce38c5110199fd18d8a8d2f05fa60d17538c
+unreachable commit fb3dead6ccfef6c862a5391d1b0eb5d140ebcf3c</code></pre></div>
+<p>Commit vẫn còn. <code>git fsck --unreachable</code> không in gì vì reflog của HEAD vẫn nhắc tới commit đó; khi bỏ qua reflog thì mới thấy commit, tree và blob của nó không còn ref nào trỏ tới. Chạy gc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git gc
+git cat-file -t fb3dead6ccfef6c862a5391d1b0eb5d140ebcf3c
+git config --get gc.pruneExpire</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit</code></pre></div>
+<p>Commit vẫn sống sót. <code>gc.pruneExpire</code> chưa được đặt, tức đang dùng mặc định 2 tuần. Giờ phá lưới an toàn một cách có chủ đích (chỉ làm trong repository thử nghiệm):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog expire --expire-unreachable=now --all
+git gc --prune=now
+git cat-file -t fb3dead6ccfef6c862a5391d1b0eb5d140ebcf3c</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: git cat-file: could not get object info</code></pre></div>
+<p>Lần này object đã thật sự biến mất.</p>
+<p>Cruft pack: trong một repository khác, ghi một blob không ai tham chiếu bằng <code>git hash-object -w</code>, rồi chạy <code>git gc</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git gc
+ls .git/objects/pack/
+git fsck --unreachable</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">pack-5983188dff02f8f50dead909a2ea3860ec79d73e.idx
+pack-5983188dff02f8f50dead909a2ea3860ec79d73e.pack
+pack-5983188dff02f8f50dead909a2ea3860ec79d73e.rev
+pack-723c23d15ce84f40a8e3ca7ff02667fb668d8b01.idx
+pack-723c23d15ce84f40a8e3ca7ff02667fb668d8b01.mtimes
+pack-723c23d15ce84f40a8e3ca7ff02667fb668d8b01.pack
+pack-723c23d15ce84f40a8e3ca7ff02667fb668d8b01.rev
+unreachable blob 2c4cde9ccf69c726e306a4a47ee2ce84961e33b2</code></pre></div>
+<p>Pack thứ hai có <code>.mtimes</code>: đó là cruft pack chứa blob không được tham chiếu, chờ đủ hạn để xóa.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p><code>git gc --prune=now</code> kết hợp <code>git reflog expire --expire-unreachable=now</code> xóa vĩnh viễn những commit bạn có thể còn cần. Chỉ dùng khi chắc chắn, ví dụ sau khi đã viết lại lịch sử để loại dữ liệu nhạy cảm và đã có bản sao lưu.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ xóa nhánh là xóa commit.</strong> Commit còn trong reflog và object database ít nhất vài tuần.</p>
+<p><strong>Nghĩ <code>git gc</code> giải phóng ngay dung lượng của tệp lớn vừa gỡ khỏi lịch sử.</strong> Reflog, cruft pack, và các bản clone khác vẫn giữ nó.</p>
+<p><strong>Đặt <code>gc.auto=0</code> rồi quên.</strong> Repository tích tụ loose object, chậm dần.</p>
+<p><strong>Chạy gc song song với một lệnh Git khác trên cùng repository.</strong> Git có khóa để tránh, nhưng tốt nhất là để việc dọn dẹp chạy khi rảnh.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn cứu một commit vừa mất, đừng chạy gc. Tìm ID trong <code>git reflog</code> rồi tạo nhánh ngay: <code>git branch cuu-ho &lt;ID&gt;</code>.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Máy chủ CI của nhóm kiểm thử giữ một clone lâu năm để chạy bộ test hồi quy, ổ đĩa đầy dần. Bạn kiểm tra bằng <code>git count-objects -v</code> và thấy hàng trăm pack nhỏ do fetch liên tục. Thay vì xóa thư mục <code>.git/objects</code> (rất nguy hiểm), bạn bật <code>git maintenance start</code> cho repository đó để việc gom pack chạy định kỳ.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi lệnh nào chạy bảo trì gom object. Ôn lại phần lệnh cần biết và nhớ lệnh porcelain điều phối các bước dọn dẹp.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git gc</code> gom ref và object, dọn reflog hết hạn, xử lý object không được tham chiếu.</li>
+<li>Object không được tham chiếu vào cruft pack có <code>.mtimes</code>, bị xóa khi cũ hơn <code>gc.pruneExpire</code> (mặc định 2 tuần).</li>
+<li>Reflog giữ commit &quot;mất&quot; khoảng 30 ngày, là lưới an toàn để cứu dữ liệu.</li>
+<li><code>git gc --auto</code> và <code>git maintenance</code> thường đủ; ít khi cần gc thủ công.</li>
+<li>Xóa ngay bằng <code>--prune=now</code> là thao tác không thể hoàn tác.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open gc-internals
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/packfiles.html" rel="prev"><small>Bài trước</small>Tệp đóng gói packfile</a><a class="next" href="../internals/reachability.html" rel="next"><small>Bài sau</small>Khả năng truy cập object</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 7/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stage và commit - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 2/10</span></p>
+<h1>Stage và commit</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>stage-and-commit</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu vì sao Git cần một bước trung gian (staging, hay index) trước khi commit.</li>
+<li>Biết cách chọn chính xác tệp hoặc phần thay đổi sẽ đi vào commit kế tiếp.</li>
+<li>Tạo commit với thông điệp rõ ràng và kiểm tra lại kết quả ngay sau đó.</li>
+<li>Đọc được các ký hiệu ngắn của <code>git status --short</code> như <code>??</code>, <code>A</code>, <code>M</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Commit trong Git là một <strong>snapshot</strong>: ảnh chụp toàn bộ dự án tại một thời điểm, kèm tên người viết, thời gian, thông điệp và liên kết đến commit trước đó. Nhưng Git không chụp thẳng thư mục làm việc của bạn. Nó chụp <strong>index</strong>, còn gọi là staging area.</p>
+<p>Hãy hình dung index như một khay chuẩn bị hàng trước khi đóng thùng. Bạn sửa năm tệp, nhưng chỉ ba tệp liên quan đến một lỗi cụ thể. Bạn đặt ba tệp đó lên khay bằng <code>git add</code>, xem lại khay, rồi mới đóng thùng bằng <code>git commit</code>. Hai tệp còn lại vẫn nằm trên bàn, chưa bị đưa vào đâu cả. Nhờ đó mỗi commit gọn, đúng một mục đích, dễ review và dễ đảo ngược khi cần.</p>
+<p>Một vài điều quan trọng về <code>git add</code>:</p>
+<ul>
+<li>Nó chép <strong>nội dung tại thời điểm chạy lệnh</strong> vào index. Nếu bạn sửa tiếp tệp sau khi add, phần sửa mới chưa được stage. <code>git status</code> sẽ hiện tệp đó ở cả hai mục &quot;Changes to be committed&quot; và &quot;Changes not staged for commit&quot;.</li>
+<li>Nó dùng được cho tệp mới (untracked), tệp đã sửa, và cả việc ghi nhận tệp đã xóa.</li>
+<li>Với <code>-p</code>, bạn có thể chọn từng đoạn thay đổi (hunk) trong một tệp, thay vì cả tệp.</li>
+</ul>
+<p>Còn <code>git commit</code> lấy đúng những gì trong index, tạo snapshot mới, rồi dời nhánh hiện tại tới commit đó. Commit không đụng vào working tree. Sau commit, nếu mọi thay đổi đều đã được stage, <code>git status</code> báo &quot;working tree clean&quot;.</p>
+<p>Thông điệp commit nên trả lời câu hỏi &quot;commit này làm gì&quot;. Dòng đầu (subject) ngắn gọn; có thể thêm đoạn thân để giải thích lý do. Bài sau về thông điệp commit sẽ đi sâu hơn.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  W[&quot;Working tree: tệp đang sửa&quot;] --&gt;|&quot;git add&quot;| I[&quot;Index: nội dung đã chọn&quot;]
+  I --&gt;|&quot;git commit&quot;| C[&quot;Commit mới trên nhánh&quot;]
+  I --&gt;|&quot;git restore --staged&quot;| W</pre>
+<pre class="mermaid">sequenceDiagram
+  participant W as Working tree
+  participant I as Index
+  participant R as Lịch sử
+  W-&gt;&gt;W: tạo bai.txt
+  W-&gt;&gt;I: git add bai.txt
+  Note over I: bai.txt đã stage
+  I-&gt;&gt;R: git commit -m
+  Note over R: snapshot mới, nhánh tiến lên</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status                 # trạng thái đầy đủ, có gợi ý lệnh
+git status --short         # dạng gọn, mỗi tệp một dòng
+git add &lt;tệp&gt;              # stage một tệp
+git add .                  # stage mọi thay đổi trong thư mục hiện tại trở xuống
+git add -p &lt;tệp&gt;           # chọn từng hunk để stage
+git diff --staged          # xem chính xác những gì sẽ vào commit
+git commit -m &quot;Thông điệp&quot; # tạo commit từ index
+git restore --staged &lt;tệp&gt; # bỏ tệp khỏi index, giữ thay đổi trong working tree</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Ký hiệu <code>status --short</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>??</code></td>
+<td>Tệp chưa được theo dõi (untracked)</td>
+</tr>
+<tr>
+<td><code>A </code></td>
+<td>Tệp mới đã stage</td>
+</tr>
+<tr>
+<td><code>M </code> (cột trái)</td>
+<td>Đã sửa và đã stage</td>
+</tr>
+<tr>
+<td><code> M</code> (cột phải)</td>
+<td>Đã sửa nhưng chưa stage</td>
+</tr>
+<tr>
+<td><code>MM</code></td>
+<td>Đã stage một phần, rồi sửa tiếp</td>
+</tr>
+</tbody></table></div>
+<p>Cột trái mô tả index so với HEAD, cột phải mô tả working tree so với index.</p>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository đã có commit &quot;Khởi tạo&quot;. Bạn tạo tệp mới <code>bai.txt</code> rồi xem trạng thái:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status
+git status --short</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">On branch main
+Untracked files:
+  (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
+	bai.txt
+
+nothing added to commit but untracked files present (use &quot;git add&quot; to track)
+?? bai.txt</code></pre></div>
+<p>Stage và xem lại khay trước khi đóng thùng:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add bai.txt
+git status --short
+git diff --staged</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">A  bai.txt
+diff --git a/bai.txt b/bai.txt
+new file mode 100644
+index 0000000..5607ae0
+--- /dev/null
++++ b/bai.txt
+@@ -0,0 +1 @@
++Nội dung bài tập</code></pre></div>
+<p>Commit và kiểm tra:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git commit -m &quot;Thêm bài tập&quot;
+git log --oneline
+git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 6942fd1] Thêm bài tập
+ 1 file changed, 1 insertion(+)
+ create mode 100644 bai.txt
+6942fd1 Thêm bài tập
+7f10498 Khởi tạo
+On branch main
+nothing to commit, working tree clean</code></pre></div>
+<p>Hash commit trên máy bạn sẽ khác, vì nó phụ thuộc vào tên, email và thời gian.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Commit mà quên add.</strong> <code>git commit</code> báo &quot;no changes added to commit&quot; hoặc tạo commit thiếu tệp. Hãy luôn nhìn <code>git status</code> trước khi commit. Nếu đã commit thiếu và chưa push, có thể bổ sung bằng amend (track hoàn tác có bài riêng).</p>
+<p><strong>Sửa tiếp sau khi add.</strong> Bạn add, rồi sửa thêm một dòng, rồi commit. Dòng mới không có trong commit. Dấu hiệu là <code>MM</code> trong <code>status --short</code>. Chạy lại <code>git add</code> cho tệp đó trước khi commit.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Tập thói quen chạy <code>git diff --staged</code> ngay trước <code>git commit</code>. Đó là lần cuối bạn nhìn thấy chính xác nội dung sắp được ghi vào lịch sử.</p>
+</aside>
+<p><strong><code>git add .</code> gom cả rác.</strong> Tệp log, tệp cấu hình chứa mật khẩu demo, thư mục build bị stage theo. Gỡ ra bằng <code>git restore --staged &lt;tệp&gt;</code> và bổ sung <code>.gitignore</code> (bài sau).</p>
+<p><strong>Thông điệp vô nghĩa.</strong> &quot;update&quot;, &quot;fix&quot;, &quot;abc&quot; khiến người khác (và chính bạn sau ba tháng) không hiểu commit làm gì. Viết subject mô tả thay đổi cụ thể.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn vừa sửa một test case đăng nhập bị flaky, đồng thời tiện tay đổi cấu hình timeout trong tệp môi trường local để chạy thử. Chỉ phần sửa test nên vào commit. Bạn stage riêng tệp test, kiểm tra bằng <code>git diff --staged</code>, commit với thông điệp nêu rõ test nào được sửa. Tệp cấu hình local vẫn ở working tree, không lẫn vào lịch sử chung của nhóm.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có sẵn một tệp mới chưa được theo dõi. Bạn cần đưa nó qua đủ hai bước để nó nằm trong một commit mới, và working tree phải sạch khi kiểm tra. Đi kèm là một câu hỏi về lệnh dùng ở bước trung gian. Hãy:</p>
+<ul>
+<li>Mở <code>git status</code> để xem tệp đang ở trạng thái nào.</li>
+<li>Nhớ thứ tự: chọn nội dung vào index, xem lại, rồi mới tạo commit.</li>
+<li>Sau khi xong, <code>git status</code> phải báo working tree sạch và <code>git log --oneline</code> có thêm một dòng.</li>
+</ul>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trình kiểm tra đếm số commit, nên đừng tạo thêm commit thử nghiệm ngoài yêu cầu.</p>
+</aside>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Commit là snapshot của index, không phải của working tree.</li>
+<li><code>git add</code> chép nội dung hiện tại của tệp vào index; sửa tiếp thì phải add lại.</li>
+<li><code>git diff --staged</code> cho biết chính xác những gì sắp được commit.</li>
+<li><code>git status --short</code> dùng hai cột: trái là index, phải là working tree.</li>
+<li>Mỗi commit nên phục vụ một mục đích, với thông điệp nói rõ thay đổi.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open stage-and-commit
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/repository-init.html" rel="prev"><small>Bài trước</small>Khởi tạo kho Git</a><a class="next" href="../foundations/status-log-diff.html" rel="next"><small>Bài sau</small>Quan sát trạng thái và lịch sử</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 2/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

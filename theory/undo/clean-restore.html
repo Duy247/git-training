@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Dọn tệp và khôi phục - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 3/12</span></p>
+<h1>Dọn tệp và khôi phục</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>clean-restore</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Khôi phục tệp đã theo dõi về bản trong index hoặc trong một commit bằng <code>git restore</code>.</li>
+<li>Xóa tệp chưa được theo dõi bằng <code>git clean</code>, luôn xem trước bằng <code>-n</code>.</li>
+<li>Phân biệt các cờ <code>-d</code>, <code>-x</code>, <code>-X</code>, <code>-i</code> của clean.</li>
+<li>Hiểu vì sao hai lệnh này nguy hiểm hơn phần lớn lệnh Git khác.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Working tree &quot;bẩn&quot; có hai loại rác khác nhau, và mỗi loại cần một công cụ.</p>
+<p><strong>Tệp đã theo dõi bị sửa</strong> (hiện <code> M</code> trong <code>git status -s</code>): bạn sửa thử, chạy test, giờ muốn trả về như cũ. Đây là việc của <strong><code>git restore</code></strong>. Mặc định, <code>git restore &lt;tệp&gt;</code> chép nội dung từ <strong>index</strong> ra working tree. Nếu bạn chưa stage gì, index giống HEAD, nên tệp trở về bản trong commit cuối. Thêm <code>--staged</code> thì hướng khác: chép từ HEAD vào index, tức là bỏ stage. Thêm <code>--source=&lt;commit&gt;</code> để lấy bản từ một commit bất kỳ. Kết hợp <code>--staged --worktree</code> để đặt cả hai vùng.</p>
+<p><strong>Tệp chưa được theo dõi</strong> (hiện <code>??</code>): log, báo cáo test, ảnh chụp màn hình, tệp tạm. Git không có bản nào của chúng để &quot;khôi phục&quot;; chỉ có thể <strong>xóa</strong>. Đây là việc của <strong><code>git clean</code></strong>. Vì lý do an toàn, Git mặc định (cấu hình <code>clean.requireForce=true</code>) từ chối chạy clean nếu bạn không truyền <code>-f</code> (force) hoặc <code>-n</code> (dry run, xem trước).</p>
+<p>Các cờ của clean:</p>
+<ul>
+<li><code>-n</code>: chỉ liệt kê &quot;Would remove ...&quot;, không xóa gì. Luôn chạy trước.</li>
+<li><code>-f</code>: thực sự xóa.</li>
+<li><code>-d</code>: tính cả thư mục chưa theo dõi. Không có <code>-d</code>, clean chỉ xóa tệp ở các thư mục mà Git đang theo dõi.</li>
+<li><code>-x</code>: xóa cả tệp bị <code>.gitignore</code> bỏ qua (ví dụ <code>.env</code> local). Rất mạnh.</li>
+<li><code>-X</code>: <strong>chỉ</strong> xóa tệp bị bỏ qua, giữ tệp untracked khác. Hợp để dọn sản phẩm build.</li>
+<li><code>-i</code>: chế độ tương tác, hỏi từng nhóm.</li>
+</ul>
+<p>Điểm chung đáng sợ: cả hai lệnh đều <strong>không có cơ chế hoàn tác</strong>. Nội dung working tree bị <code>restore</code> ghi đè, hay tệp bị <code>clean</code> xóa, không nằm trong reflog hay trong object nào (trừ khi trước đó bạn đã add). Đó là lý do mọi lần dùng đều nên bắt đầu bằng <code>git status</code> và <code>git clean -n</code>.</p>
+<p><code>git checkout -- &lt;tệp&gt;</code> là cú pháp cũ của <code>git restore &lt;tệp&gt;</code>; bạn sẽ gặp nó trong tài liệu cũ.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  D[&quot;Working tree bẩn&quot;] --&gt; T[&quot;Tệp tracked bị sửa: M&quot;]
+  D --&gt; U[&quot;Tệp untracked: hai dấu hỏi&quot;]
+  T --&gt;|&quot;git restore tệp&quot;| T1[&quot;Lấy lại bản trong index&quot;]
+  T --&gt;|&quot;git restore --source=commit&quot;| T2[&quot;Lấy bản từ commit&quot;]
+  U --&gt;|&quot;git clean -n&quot;| U1[&quot;Xem trước danh sách&quot;]
+  U1 --&gt;|&quot;git clean -f&quot;| U2[&quot;Xóa thật, không hoàn tác&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore &lt;tệp&gt;                     # working tree lấy lại bản trong index
+git restore --staged &lt;tệp&gt;            # bỏ stage (index lấy lại bản HEAD)
+git restore --staged --worktree &lt;tệp&gt; # cả hai vùng về HEAD
+git restore --source=&lt;commit&gt; &lt;tệp&gt;   # lấy bản từ commit cụ thể
+git restore .                         # mọi tệp tracked trong thư mục hiện tại
+git clean -n                          # xem trước tệp untracked sẽ xóa
+git clean -f                          # xóa tệp untracked
+git clean -nd / -fd                   # tính cả thư mục
+git clean -ndx                        # xem trước kể cả tệp bị ignore
+git clean -fX                         # chỉ xóa tệp bị ignore
+git clean -i                          # tương tác</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Cờ clean</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-n</code></td>
+<td>Dry run, chỉ liệt kê</td>
+</tr>
+<tr>
+<td><code>-f</code></td>
+<td>Thực sự xóa</td>
+</tr>
+<tr>
+<td><code>-d</code></td>
+<td>Gồm thư mục untracked</td>
+</tr>
+<tr>
+<td><code>-x</code></td>
+<td>Gồm cả tệp bị ignore</td>
+</tr>
+<tr>
+<td><code>-X</code></td>
+<td>Chỉ tệp bị ignore</td>
+</tr>
+<tr>
+<td><code>-i</code></td>
+<td>Hỏi tương tác</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Working tree có <code>README.md</code> bị sửa sai, một tệp rác, một thư mục tạm, và <code>local.env</code> bị ignore:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text"> M README.md
+?? tep-rac.txt
+?? tmp/</code></pre></div>
+<p>Khôi phục tệp tracked:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore README.md</code></pre></div>
+<p>Xem trước rác với các mức khác nhau:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clean -n
+git clean -nd
+git clean -ndx</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Would remove tep-rac.txt
+Would remove tep-rac.txt
+Would remove tmp/
+Would remove local.env
+Would remove tep-rac.txt
+Would remove tmp/</code></pre></div>
+<p>Mức <code>-x</code> sẽ xóa cả <code>local.env</code>, có lẽ không phải điều mình muốn. Xóa tệp rác, rồi thư mục:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clean -f
+git clean -fd
+git status -s --ignored</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Removing tep-rac.txt
+Removing tmp/
+!! local.env</code></pre></div>
+<p><code>local.env</code> an toàn vì không dùng <code>-x</code>. Thử chạy clean không cờ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git clean</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: clean.requireForce is true and -f not given: refusing to clean</code></pre></div>
+<p>Một bẫy với restore: khi tệp đã được stage bản sai, <code>git restore README.md</code> chép từ index ra, nên tệp vẫn sai. Phải bỏ stage trước:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git restore README.md
+git status -s
+git restore --staged README.md
+git restore README.md
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">M  README.md</code></pre></div>
+<p>Lần <code>status</code> cuối không in gì: sạch hẳn.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Chạy <code>git clean -fdx</code> theo thói quen.</strong> Bạn mất tệp <code>.env</code> local, cấu hình IDE, dữ liệu test tự tạo. Chạy <code>-n</code> trước, và chỉ thêm <code>-x</code> khi thật sự muốn.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Tệp bị <code>git clean -f</code> xóa không vào thùng rác và không có trong Git. Không có lệnh nào lấy lại được.</p>
+</aside>
+<p><strong>Restore mà tệp đã stage.</strong> Như ví dụ, kết quả không đổi. Nhớ hướng: restore mặc định lấy từ index.</p>
+<p><strong><code>git restore .</code> trong thư mục sai.</strong> Nó tác động mọi tệp tracked dưới thư mục hiện tại. Chỉ định tệp cụ thể khi có thể.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nếu sợ mất phần sửa, <code>git stash push -u</code> cất cả thay đổi tracked lẫn untracked; xong việc có thể <code>git stash drop</code> nếu không cần.</p>
+</aside>
+<p><strong>Nghĩ <code>clean</code> xóa tệp tracked.</strong> Clean chỉ đụng tệp untracked (và ignored nếu có <code>-x</code>/<code>-X</code>). Muốn bỏ sửa đổi tệp tracked, dùng restore.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Sau một buổi chạy test end-to-end cục bộ, thư mục dự án đầy ảnh chụp màn hình, video và báo cáo HTML, đồng thời bạn lỡ sửa vài tệp fixture để thử. Bạn <code>git restore</code> các fixture, rồi <code>git clean -nd</code> để xem danh sách, xác nhận không có gì cần giữ, và <code>git clean -fd</code>. Tệp <code>.env.local</code> được giữ lại vì bạn không thêm <code>-x</code>.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có một tệp tracked bị sửa sai và một tệp rác chưa được theo dõi. Bạn cần đưa working tree về sạch hoàn toàn. Câu hỏi hỏi lệnh xóa tệp untracked sau khi đã xem trước. Hãy:</p>
+<ul>
+<li>Chạy <code>git status -s</code> để phân loại từng tệp.</li>
+<li>Dùng đúng công cụ cho tệp tracked và cho tệp untracked.</li>
+<li>Luôn xem trước bằng chế độ dry run trước khi xóa thật.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git restore</code> đưa tệp tracked về bản trong index, HEAD hoặc một commit.</li>
+<li><code>git clean</code> xóa tệp untracked; cần <code>-f</code>, nên xem trước bằng <code>-n</code>.</li>
+<li><code>-d</code> gồm thư mục, <code>-x</code> gồm tệp ignored, <code>-X</code> chỉ tệp ignored.</li>
+<li>Cả hai lệnh không thể hoàn tác; kiểm tra trước khi chạy.</li>
+<li>Tệp đã stage cần <code>restore --staged</code> trước khi restore working tree.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open clean-restore
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/reset-variations.html" rel="prev"><small>Bài trước</small>Các kiểu reset</a><a class="next" href="../undo/reflog.html" rel="next"><small>Bài sau</small>Nhật ký di chuyển ref</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 3/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

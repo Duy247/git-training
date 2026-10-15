@@ -4,3 +4,5 @@ export { courses, registerCourse, getCourse, getExercise } from './courses.js';
 export type { Course, Exercise, ExerciseMode, Finding } from './courses.js';
 export { roadmap, ROADMAP_LESSON_COUNT } from './curriculum.js';
 export { git, init, commit, write, read, status, isAncestor, existsRef, GitError } from './git.js';
+export { theoryPagePath, openTheory, theoryMessage } from './theory.js';
+export type { OpenTheoryOptions, OpenTheoryResult } from './theory.js';

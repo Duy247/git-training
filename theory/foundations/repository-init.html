@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Khởi tạo kho Git - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 1/10</span></p>
+<h1>Khởi tạo kho Git</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>repository-init</code> &middot; Đọc khoảng 7 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu repository Git thực chất là gì và thư mục <code>.git</code> giữ những thứ nào.</li>
+<li>Phân biệt thư mục làm việc (working tree) với phần dữ liệu Git cất bên trong <code>.git</code>.</li>
+<li>Biết cách khởi tạo repository và chọn tên nhánh đầu tiên ngay từ lúc tạo.</li>
+<li>Kiểm tra được mình đang đứng trong repository nào, nhánh nào, trước khi gõ lệnh khác.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Khi bạn chạy <code>git init</code> trong một thư mục, Git không chép hay di chuyển tệp nào của bạn cả. Nó chỉ tạo thêm một thư mục ẩn tên <code>.git</code> ngay tại đó. Từ giây phút ấy, thư mục cha trở thành <strong>working tree</strong>: nơi bạn sửa tệp như bình thường bằng editor, IDE hay script test. Còn <code>.git</code> là &quot;kho&quot; thật sự, chứa toàn bộ lịch sử, cấu hình riêng của repository, danh sách nhánh và vùng staging.</p>
+<p>Mình hay nói với người mới: hãy coi <code>.git</code> như hộp đen của máy bay. Bạn làm việc ở ngoài, còn mọi bằng chứng về những gì đã xảy ra được ghi vào hộp. Nếu bạn xóa <code>.git</code>, các tệp hiện tại vẫn còn nguyên trên đĩa, nhưng toàn bộ lịch sử commit, nhánh và cấu hình local biến mất. Ngược lại, nếu bạn copy cả thư mục (gồm <code>.git</code>) sang máy khác, bạn mang theo toàn bộ lịch sử.</p>
+<p>Bên trong <code>.git</code> có vài thành phần đáng nhớ ngay từ bài đầu:</p>
+<ul>
+<li><code>HEAD</code>: một tệp nhỏ cho biết bạn đang đứng ở nhánh nào.</li>
+<li><code>config</code>: cấu hình chỉ áp dụng cho repository này.</li>
+<li><code>objects/</code>: nơi Git cất nội dung tệp, cây thư mục và commit dưới dạng object.</li>
+<li><code>refs/</code>: nơi lưu tên nhánh và tag, mỗi tên trỏ tới một commit.</li>
+<li><code>hooks/</code>: các script mẫu chạy tự động ở một số thời điểm (chưa bật).</li>
+</ul>
+<p>Một repository mới tinh chưa có commit nào. Tuy vậy, <code>HEAD</code> đã ghi sẵn tên nhánh đầu tiên. Nhánh ấy chỉ thực sự &quot;tồn tại&quot; như một ref khi bạn tạo commit đầu tiên. Đây là lý do <code>git status</code> trong repository mới hiện dòng &quot;No commits yet&quot;.</p>
+<p>Tên nhánh đầu tiên phụ thuộc vào cấu hình. Git 2.47 nếu không được cấu hình gì sẽ dùng <code>master</code> và in một đoạn hint dài gợi ý bạn chọn tên khác. Nhiều nhóm, nhiều dịch vụ hosting và cả bài tập trong khóa này dùng một tên khác phổ biến hơn hiện nay. Bạn có hai cách chọn: truyền tùy chọn <code>-b</code> (dạng dài <code>--initial-branch</code>) cho riêng lần init đó, hoặc đặt <code>init.defaultBranch</code> trong cấu hình global để mọi repository mới đều dùng tên bạn muốn.</p>
+<p>Điểm cuối cùng cần nắm: Git tìm repository bằng cách đi ngược lên các thư mục cha cho đến khi gặp <code>.git</code>. Vì vậy nếu bạn lỡ chạy <code>git init</code> ở thư mục home, mọi thư mục con đều bị coi là nằm trong repository đó. Luôn kiểm tra vị trí trước khi init.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  D[&quot;Thư mục dự án&quot;] --&gt;|&quot;git init&quot;| W[&quot;Working tree: tệp bạn sửa&quot;]
+  D --&gt;|&quot;git init&quot;| G[&quot;.git: kho dữ liệu&quot;]
+  G --&gt; H[&quot;HEAD: nhánh hiện tại&quot;]
+  G --&gt; C[&quot;config: cấu hình local&quot;]
+  G --&gt; O[&quot;objects: nội dung và lịch sử&quot;]
+  G --&gt; R[&quot;refs: nhánh và tag&quot;]</pre>
+<pre class="mermaid">stateDiagram-v2
+  state &quot;Thư mục thường&quot; as A
+  state &quot;Repository rỗng&quot; as B
+  state &quot;Repository có lịch sử&quot; as C
+  [*] --&gt; A: mkdir
+  A --&gt; B: git init
+  B --&gt; C: commit đầu tiên
+  C --&gt; C: commit tiếp theo</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git init                      # tạo .git trong thư mục hiện tại
+git init -b &lt;tên-nhánh&gt;       # đặt luôn tên nhánh đầu tiên
+git init &lt;thư-mục&gt;            # tạo thư mục (nếu chưa có) rồi khởi tạo trong đó
+git config --global init.defaultBranch &lt;tên&gt;   # đặt tên mặc định cho mọi lần init sau
+git rev-parse --show-toplevel # in gốc repository mà bạn đang đứng trong đó
+git symbolic-ref --short HEAD # in tên nhánh HEAD đang trỏ tới
+git branch -m &lt;tên-mới&gt;       # đổi tên nhánh hiện tại nếu lỡ init sai tên</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-b</code>, <code>--initial-branch</code></td>
+<td>Tên nhánh đầu tiên cho repository mới</td>
+</tr>
+<tr>
+<td><code>--bare</code></td>
+<td>Tạo repository không có working tree, dùng làm remote</td>
+</tr>
+<tr>
+<td><code>-q</code>, <code>--quiet</code></td>
+<td>Không in thông báo</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Giả sử bạn bắt đầu bộ test tự động cho một dự án mới. Trước tiên, kiểm tra xem thư mục đã là repository chưa:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">mkdir f1 &amp;&amp; cd f1
+git status</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: not a git repository (or any of the parent directories): .git</code></pre></div>
+<p>Thông báo này là tín hiệu tốt: không có <code>.git</code> nào ở đây hay ở thư mục cha. Giờ khởi tạo và đặt tên nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git init -b main
+ls -A
+ls .git</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Initialized empty Git repository in /tmp/gt/f1/.git/
+.git
+HEAD
+branches
+config
+description
+hooks
+info
+objects
+refs</code></pre></div>
+<p>Xem trạng thái và nội dung tệp <code>HEAD</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git status
+cat .git/HEAD
+git symbolic-ref --short HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">On branch main
+
+No commits yet
+
+nothing to commit (create/copy files and use &quot;git add&quot; to track)
+ref: refs/heads/main
+main</code></pre></div>
+<p>Nếu không cấu hình gì và chạy <code>git init</code> trơn, Git 2.47 in một đoạn <code>hint:</code> dài rồi dùng <code>master</code>. Khi đó bạn sửa ngay bằng <code>git branch -m main</code>, chưa có commit nào nên việc đổi tên không ảnh hưởng gì.</p>
+<p>Cuối cùng, xác nhận gốc repository:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-parse --show-toplevel</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">/tmp/gt/f1</code></pre></div>
+<p>Đường dẫn trên máy bạn sẽ khác, quan trọng là nó trùng với thư mục bạn định khởi tạo.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Init nhầm thư mục cha.</strong> Bạn chạy <code>git init</code> ở home hay ở thư mục chứa nhiều dự án, sau đó mọi thư mục con đều bị Git nhận là một phần của repository lớn. Cách xử lý: tìm đúng gốc bằng <code>git rev-parse --show-toplevel</code>, và nếu repository đó chưa có gì quan trọng thì xóa thư mục <code>.git</code> thừa.</p>
+<p><strong>Init lại để đổi tên nhánh.</strong> Chạy <code>git init -b main</code> lần hai trong repository đã có sẵn chỉ in cảnh báo <code>warning: re-init: ignored --initial-branch=main</code> và không đổi gì. Muốn đổi tên nhánh, dùng <code>git branch -m</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Xóa <code>.git</code> là xóa toàn bộ lịch sử local. Chỉ làm khi bạn chắc repository đó vừa được tạo nhầm và chưa có commit cần giữ.</p>
+</aside>
+<p><strong>Repository lồng nhau.</strong> Init một repository bên trong repository khác mà không chủ đích dùng submodule sẽ khiến repository ngoài thấy thư mục con như một thứ lạ, khó theo dõi. Nếu cần ghép hai dự án, hãy học submodule ở track nâng cao.</p>
+<p><strong>Tưởng nhánh đã tồn tại.</strong> Ngay sau init, <code>git branch</code> chưa liệt kê gì vì nhánh chưa có commit. Đó là bình thường, không phải lỗi.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Nhóm QA của bạn muốn tách bộ test API cho hệ thống chuyển khoản thành repository riêng. Bạn tạo thư mục, chạy init với tên nhánh mà nhóm đã thống nhất, kiểm tra lại bằng <code>git status</code> và <code>git rev-parse --show-toplevel</code>, rồi mới thêm README và cấu hình CI. Làm đúng từ đầu giúp pipeline và quy tắc bảo vệ nhánh trên server dùng cùng một tên, tránh phải đổi tên sau khi cả nhóm đã clone.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Đặt <code>init.defaultBranch</code> một lần trong cấu hình global, bạn sẽ không phải nhớ truyền <code>-b</code> mỗi lần tạo repository mới.</p>
+</aside>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành đưa bạn một thư mục trống. Nhiệm vụ là biến chính thư mục đó (không phải thư mục cha hay thư mục con) thành repository, với tên nhánh đầu tiên đúng như đề yêu cầu, rồi trả lời một câu hỏi ngắn về tên nhánh mặc định ấy. Trước khi làm, hãy:</p>
+<ul>
+<li>Chạy <code>git status</code> để chắc thư mục chưa nằm trong repository nào khác.</li>
+<li>Ôn lại tùy chọn đặt tên nhánh khi init và cách kiểm tra tên nhánh bằng <code>git symbolic-ref --short HEAD</code>.</li>
+<li>Sau khi làm, dùng <code>git rev-parse --show-toplevel</code> để xác nhận gốc repository trùng với thư mục bài tập.</li>
+</ul>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Bài này không cần commit nào. Trình kiểm tra chỉ xem vị trí <code>.git</code> và nhánh mà <code>HEAD</code> trỏ tới.</p>
+</aside>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git init</code> tạo thư mục <code>.git</code>; tệp của bạn vẫn ở working tree bên ngoài.</li>
+<li><code>.git</code> chứa lịch sử (objects), tên nhánh và tag (refs), cấu hình local và <code>HEAD</code>.</li>
+<li>Tên nhánh đầu tiên chọn bằng <code>-b</code> hoặc cấu hình <code>init.defaultBranch</code>.</li>
+<li>Repository mới chưa có commit, nên nhánh chỉ thật sự xuất hiện sau commit đầu tiên.</li>
+<li>Luôn kiểm tra vị trí bằng <code>git status</code> và <code>git rev-parse --show-toplevel</code> trước và sau khi init.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open repository-init
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><span class="prev off"><small>Bài trước</small>Không có</span><a class="next" href="../foundations/stage-and-commit.html" rel="next"><small>Bài sau</small>Stage và commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 1/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

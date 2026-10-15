@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tổng hợp commit theo tác giả - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 3/10</span></p>
+<h1>Tổng hợp commit theo tác giả</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>shortlog</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Dùng <code>git shortlog</code> để nhóm commit theo tác giả.</li>
+<li>Đếm số commit, kèm email, giới hạn theo thời gian, dải commit hoặc đường dẫn.</li>
+<li>Hiểu vì sao cùng một người có thể bị tách thành nhiều dòng, và cách xử lý.</li>
+<li>Biết giới hạn: số commit không đo được chất lượng hay khối lượng công việc.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git log</code> cho bạn từng commit một. Nhưng nhiều khi câu hỏi là tổng hợp: &quot;Ai đã làm gì trong sprint này?&quot;, &quot;Release này có những đóng góp của ai?&quot;, &quot;Thư mục test này do ai chăm sóc?&quot;. <code>git shortlog</code> trả lời bằng cách gom commit theo tác giả, liệt kê subject dưới mỗi tên.</p>
+<p>Mặc định mỗi nhóm có tên tác giả, số commit trong ngoặc, rồi danh sách subject (cũ trước). Hai tùy chọn hay dùng nhất:</p>
+<ul>
+<li><code>-s</code> (summary): bỏ danh sách subject, chỉ giữ số đếm.</li>
+<li><code>-n</code> (numbered): sắp xếp theo số commit giảm dần thay vì theo tên.</li>
+</ul>
+<p>Kết hợp <code>-sn</code> cho bảng xếp hạng gọn; thêm <code>-e</code> để kèm email.</p>
+<p>Vì shortlog dùng chung cú pháp chọn commit với <code>git log</code>, bạn giới hạn được theo dải (<code>v1.0..v1.1</code>, <code>HEAD~10..HEAD</code>), theo thời gian (<code>--since</code>, <code>--until</code>), và theo đường dẫn (<code>-- tests/</code>). <code>--group=committer</code> nhóm theo người commit thay vì tác giả, hữu ích khi có người áp dụng patch của người khác.</p>
+<p>Một chi tiết dễ vấp: khi <strong>không có terminal</strong> (ví dụ chạy trong script, CI, hay qua pipe), <code>git shortlog</code> không tham số sẽ chờ đọc output của <code>git log</code> từ đầu vào chuẩn thay vì tự đọc HEAD, và trông như bị treo. Luôn truyền rõ một revision như <code>HEAD</code> trong script.</p>
+<p>Nếu cùng một người commit bằng nhiều tên hoặc email (máy cá nhân, máy công ty), shortlog sẽ tách họ thành nhiều dòng. Tệp <code>.mailmap</code> ở gốc repository ánh xạ các danh tính đó về một tên chuẩn.</p>
+<p>Cuối cùng, hãy nhớ: số commit chỉ là số commit. Một commit sửa lỗi bảo mật khó có thể quan trọng hơn hai mươi commit đổi chính tả. Shortlog để thấy bức tranh đóng góp và biết ai đã chạm vào khu vực nào, không phải để chấm điểm con người.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  L[&quot;Danh sách commit đã lọc&quot;] --&gt;|&quot;nhóm theo tác giả&quot;| G1[&quot;Hoa: 4 commit&quot;]
+  L --&gt;|&quot;nhóm theo tác giả&quot;| G2[&quot;Tuan: 5 commit&quot;]
+  G1 --&gt;|&quot;-s&quot;| S1[&quot;Chỉ còn số đếm&quot;]
+  G2 --&gt;|&quot;-s&quot;| S1
+  S1 --&gt;|&quot;-n&quot;| R[&quot;Sắp theo số commit&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog HEAD                  # nhóm theo tác giả, kèm subject
+git shortlog -sn HEAD              # chỉ số đếm, sắp giảm dần
+git shortlog -sne HEAD             # kèm email
+git shortlog -sn v1.0..v1.1        # trong một dải
+git shortlog -sn --since=2026-10-06 HEAD   # từ một ngày
+git shortlog -sn HEAD -- tests/    # chỉ commit chạm đường dẫn
+git shortlog -sn --group=committer HEAD    # nhóm theo người commit
+git log -3 --format=&quot;%an %s&quot;       # kiểm tra lại từng commit cụ thể</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-s</code></td>
+<td>Chỉ số đếm</td>
+</tr>
+<tr>
+<td><code>-n</code></td>
+<td>Sắp theo số commit</td>
+</tr>
+<tr>
+<td><code>-e</code></td>
+<td>Kèm email</td>
+</tr>
+<tr>
+<td><code>--group=committer</code></td>
+<td>Nhóm theo người commit</td>
+</tr>
+<tr>
+<td><code>--no-merges</code></td>
+<td>Bỏ merge commit</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mẫu có hai người đóng góp. Xem tổng quan:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Hoa (4):
+      Tạo cấu hình
+      Tăng timeout
+      Giảm timeout cho nhanh
+      Chuyển cấu hình vào conf
+
+Tuan (5):
+      Thêm test đăng nhập
+      Thêm khóa demo
+      Đổi môi trường sang uat
+      Cập nhật test đăng nhập
+      Xóa khóa demo</code></pre></div>
+<p>Dạng gọn, kèm email:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog -sn HEAD
+git shortlog -sne HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">     5	Tuan
+     4	Hoa
+     5	Tuan &lt;tuan@example.invalid&gt;
+     4	Hoa &lt;hoa@example.invalid&gt;</code></pre></div>
+<p>Ai chăm sóc tệp test? Ai làm gì trong ba commit gần nhất?</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git shortlog -sn HEAD -- login_test.txt
+git shortlog -sn HEAD~3..HEAD
+git log -3 --format=&quot;%an %s&quot;</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">     2	Tuan
+     2	Tuan
+     1	Hoa
+Tuan Xóa khóa demo
+Hoa Chuyển cấu hình vào conf
+Tuan Cập nhật test đăng nhập</code></pre></div>
+<p>Shortlog cho con số, còn <code>git log --format</code> cho bạn thấy chính xác từng commit mới nhất thuộc về ai.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Shortlog &quot;treo&quot; trong script.</strong> Không có terminal và không truyền revision, nó chờ dữ liệu từ đầu vào chuẩn. Truyền <code>HEAD</code> hoặc một dải cụ thể.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Trong terminal tương tác, <code>git shortlog</code> không tham số tự dùng HEAD, nên bạn sẽ không gặp vấn đề này khi gõ tay.</p>
+</aside>
+<p><strong>Một người thành hai dòng.</strong> Tên viết khác nhau hoặc email khác nhau. Thêm <code>.mailmap</code> để gộp, hoặc ít nhất kiểm tra bằng <code>-e</code>.</p>
+<p><strong>Dùng số commit để đánh giá năng suất.</strong> Số commit phụ thuộc thói quen chia commit của mỗi người. Đừng biến nó thành KPI.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Muốn ghi công trong release note, <code>git shortlog --no-merges v1.0..v1.1</code> cho danh sách gọn theo người, sẵn để dán vào tài liệu.</p>
+</aside>
+<p><strong>Quên rằng merge commit cũng được đếm.</strong> Người hay bấm merge trên giao diện có thể có số commit cao bất thường. Thêm <code>--no-merges</code> khi cần.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trước buổi retro, QA lead muốn biết ai đã đụng vào bộ test thanh toán trong sprint để mời đúng người thảo luận về test flaky. Bạn chạy <code>git shortlog -sn --since=&lt;ngày-bắt-đầu-sprint&gt; HEAD -- tests/payment/</code>, có ngay danh sách. Bạn gửi kèm lưu ý rằng đây là danh sách người đã chạm vào mã, không phải bảng đánh giá.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có <code>app.txt</code> với vài commit từ nhiều tác giả. Câu hỏi hỏi ai là người tạo những commit mới nhất. Hãy:</p>
+<ul>
+<li>Chạy <code>git shortlog</code> với một revision hoặc dải phù hợp để thấy phân bố tác giả.</li>
+<li>Giới hạn vào vài commit gần nhất bằng dải <code>HEAD~N..HEAD</code>.</li>
+<li>Đối chiếu bằng <code>git log --format=&quot;%an %s&quot;</code> để chắc chắn từng commit thuộc về ai.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git shortlog</code> nhóm commit theo tác giả, kèm subject.</li>
+<li><code>-sn</code> cho bảng đếm sắp giảm dần; <code>-e</code> thêm email.</li>
+<li>Dùng được dải commit, khoảng thời gian, đường dẫn như <code>git log</code>.</li>
+<li>Trong script, luôn truyền revision để tránh chờ đầu vào chuẩn.</li>
+<li>Số commit không đo chất lượng; dùng để thấy bức tranh đóng góp.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open shortlog
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/grep-pickaxe.html" rel="prev"><small>Bài trước</small>Tìm trong mã và lịch sử</a><a class="next" href="../inspection/bisect.html" rel="next"><small>Bài sau</small>Khoanh vùng commit gây lỗi</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 3/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

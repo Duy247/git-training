@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Truy tác giả từng dòng - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 1/10</span></p>
+<h1>Truy tác giả từng dòng</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>blame</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Đọc output của <code>git blame</code>: mỗi dòng gắn với commit, tác giả, thời gian nào.</li>
+<li>Giới hạn blame vào một khoảng dòng và bỏ qua thay đổi khoảng trắng.</li>
+<li>Đi ngược thêm một bước khi commit được blame chỉ là bước trung gian.</li>
+<li>Hiểu giới hạn của blame và dùng nó để tìm bối cảnh, không phải để đổ lỗi.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn mở tệp cấu hình, thấy dòng <code>timeout=5</code> và tự hỏi: ai đặt giá trị này, khi nào, vì sao? <code>git blame</code> trả lời hai câu đầu ngay lập tức, và dẫn bạn tới câu thứ ba qua commit.</p>
+<p>Với mỗi dòng của tệp ở phiên bản hiện tại, blame tìm <strong>commit gần nhất đã làm dòng đó có nội dung như bây giờ</strong>. Nó đi ngược lịch sử, và khi gặp commit đã thêm hoặc sửa dòng ấy thì dừng lại cho dòng đó. Output mỗi dòng gồm:</p>
+<ul>
+<li>Hash rút gọn của commit. Dấu <code>^</code> ở đầu nghĩa là commit biên (boundary), thường là commit gốc hoặc giới hạn của dải bạn chỉ định.</li>
+<li>Tên tệp tại commit đó, nếu tệp từng mang tên khác (blame tự theo dấu đổi tên trong cùng tệp).</li>
+<li>Tác giả, thời gian, số dòng, và nội dung dòng.</li>
+</ul>
+<p>Điều quan trọng là blame nói về <strong>lần chạm cuối cùng</strong>, không phải người &quot;sinh ra&quot; ý tưởng. Nếu ai đó chỉ định dạng lại tệp (đổi thụt lề, thêm khoảng trắng), blame sẽ gắn mọi dòng cho commit định dạng đó. Vì vậy:</p>
+<ul>
+<li><code>-w</code> bỏ qua thay đổi chỉ về khoảng trắng.</li>
+<li><code>-M</code> phát hiện dòng di chuyển trong cùng tệp; <code>-C</code> phát hiện dòng chép từ tệp khác.</li>
+<li><code>--ignore-rev &lt;commit&gt;</code> (hoặc tệp danh sách qua <code>--ignore-revs-file</code>) bỏ qua các commit định dạng hàng loạt.</li>
+</ul>
+<p>Khi commit blame được không phải câu trả lời bạn cần, hãy <strong>blame tiếp từ cha của nó</strong>: <code>git blame &lt;commit&gt;^ -- &lt;tệp&gt;</code>. Đó là cách đi ngược từng lớp lịch sử của một dòng.</p>
+<p>Cuối cùng, blame chỉ cho bạn <strong>đầu mối</strong>. Bước tiếp theo luôn là <code>git show &lt;commit&gt;</code> để đọc thông điệp và toàn bộ thay đổi. Đọc blame cùng bối cảnh, và dùng nó để biết nên hỏi ai, đừng dùng để quy trách nhiệm.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  L[&quot;Dòng timeout=5&quot;] --&gt;|&quot;git blame&quot;| C1[&quot;Commit 409d8ac, Hoa&quot;]
+  C1 --&gt;|&quot;git show&quot;| M[&quot;Thông điệp và diff đầy đủ&quot;]
+  C1 --&gt;|&quot;git blame 409d8ac^&quot;| C0[&quot;Commit a6a4f2b: timeout=60&quot;]</pre>
+<pre class="mermaid">sequenceDiagram
+  participant B as git blame
+  participant H as Lịch sử
+  B-&gt;&gt;H: dòng 2 hiện là timeout=5, ai chạm cuối?
+  H--&gt;&gt;B: commit 409d8ac đổi 60 thành 5
+  B-&gt;&gt;H: dòng 3 retry=3?
+  H--&gt;&gt;B: không ai đổi từ commit gốc c48be0e</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git blame &lt;tệp&gt;                    # blame cả tệp ở HEAD
+git blame -L 10,20 &lt;tệp&gt;           # chỉ dòng 10 đến 20
+git blame -L 2,2 &lt;tệp&gt;             # đúng một dòng
+git blame -w &lt;tệp&gt;                 # bỏ qua thay đổi khoảng trắng
+git blame -M -C &lt;tệp&gt;              # phát hiện dòng di chuyển, sao chép
+git blame -e &lt;tệp&gt;                 # hiện email thay vì tên
+git blame --date=short &lt;tệp&gt;       # ngày ngắn gọn
+git blame &lt;commit&gt;^ -- &lt;tệp&gt;       # blame phiên bản trước commit đó
+git blame --ignore-rev &lt;commit&gt; &lt;tệp&gt;  # bỏ qua một commit định dạng
+git blame --porcelain &lt;tệp&gt;        # định dạng cho máy đọc</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tùy chọn</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-L a,b</code></td>
+<td>Giới hạn khoảng dòng</td>
+</tr>
+<tr>
+<td><code>-w</code></td>
+<td>Bỏ qua khoảng trắng</td>
+</tr>
+<tr>
+<td><code>-M</code>, <code>-C</code></td>
+<td>Theo dòng di chuyển, sao chép</td>
+</tr>
+<tr>
+<td><code>-e</code></td>
+<td>Email tác giả</td>
+</tr>
+<tr>
+<td><code>-s</code></td>
+<td>Ẩn tác giả và ngày</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Một repository mẫu có tệp <code>conf/app.conf</code> (trước đây tên <code>config.txt</code>). Blame cả tệp:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git blame conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b14bd705 config.txt (Tuan 2026-10-06 09:30:00 +0700 1) env=uat
+409d8acf config.txt (Hoa  2026-10-08 16:00:00 +0700 2) timeout=5
+^c48be0e config.txt (Hoa  2026-10-01 09:00:00 +0700 3) retry=3</code></pre></div>
+<p>Cột tên tệp cho thấy các dòng có từ khi tệp còn tên cũ. Dòng 3 có dấu <code>^</code>: chưa ai đổi nó từ commit gốc. Tập trung vào dòng nghi vấn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git blame --date=short -L 2,2 conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">409d8acf config.txt (Hoa 2026-10-08 2) timeout=5</code></pre></div>
+<p>Đọc commit đó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -1 --format=&quot;%h %an %s&quot; 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">409d8ac Hoa Giảm timeout cho nhanh</code></pre></div>
+<p>Muốn biết trước đó giá trị là gì và ai đặt, blame từ cha của commit:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git blame 409d8ac^ -- config.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b14bd705 (Tuan 2026-10-06 09:30:00 +0700 1) env=uat
+a6a4f2b6 (Hoa  2026-10-05 14:00:00 +0700 2) timeout=60
+^c48be0e (Hoa  2026-10-01 09:00:00 +0700 3) retry=3
+b622b70c (Tuan 2026-10-03 11:00:00 +0700 4) API_KEY_DEMO=abc123</code></pre></div>
+<p>Ở phiên bản trước, dòng 2 là <code>timeout=60</code>, do commit <code>a6a4f2b</code> đặt. Ta đã đi ngược được hai lớp lịch sử của một dòng. Hash trên máy bạn sẽ khác nếu tự dựng lại.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Kết luận chỉ từ blame.</strong> Commit chạm cuối có thể chỉ là đổi định dạng, merge, hay di chuyển mã. Luôn <code>git show</code> commit đó trước khi kết luận.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Tên tác giả trong blame là chữ do người commit tự cấu hình, Git không xác minh. Đừng coi đó là bằng chứng danh tính.</p>
+</aside>
+<p><strong>Bị nhiễu bởi commit định dạng.</strong> Dùng <code>-w</code>, hoặc nhóm thống nhất một tệp <code>.git-blame-ignore-revs</code> và cấu hình <code>blame.ignoreRevsFile</code>.</p>
+<p><strong>Blame sai phiên bản.</strong> <code>git blame &lt;tệp&gt;</code> xem HEAD cộng thay đổi chưa commit trong working tree (dòng chưa commit hiện &quot;Not Committed Yet&quot;). Muốn blame một commit cụ thể, truyền commit trước <code>--</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nhiều IDE có blame tích hợp, nhưng dòng lệnh với <code>-L</code> và <code>&lt;commit&gt;^</code> linh hoạt hơn khi cần đi ngược nhiều lớp.</p>
+</aside>
+<p><strong>Đếm dòng nhầm.</strong> <code>-L</code> đánh số từ 1 theo phiên bản bạn đang blame. Sau khi sửa tệp, số dòng có thể dịch đi.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Test hồi quy thanh toán bắt đầu timeout trên môi trường UAT. Bạn blame tệp cấu hình test, thấy dòng timeout vừa bị đổi trong một commit tuần trước với thông điệp &quot;Giảm timeout cho nhanh&quot;. <code>git show</code> cho thấy đó là thay đổi cố ý để tăng tốc pipeline. Bạn nhắn đúng người, giải thích tác động lên test thanh toán, và hai bên thống nhất một giá trị riêng cho bộ test chậm.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài này là câu hỏi điều tra: repository bài tập có tệp <code>app.txt</code> với vài commit từ nhiều người, và bạn cần tìm tác giả của một dòng cụ thể mà đề nêu. Hãy:</p>
+<ul>
+<li>Mở repository bài tập, chạy <code>git blame</code> cho tệp đó và tìm dòng chứa chuỗi đề yêu cầu.</li>
+<li>Dùng <code>-L</code> để chỉ xem dòng đó cho gọn.</li>
+<li>Xác nhận bằng <code>git show</code> trên commit tìm được, để chắc tác giả và thay đổi khớp.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git blame</code> gắn mỗi dòng với commit gần nhất đã làm nó có nội dung hiện tại.</li>
+<li><code>-L</code> giới hạn dòng, <code>-w</code> bỏ qua khoảng trắng, <code>-M</code>/<code>-C</code> theo dòng di chuyển.</li>
+<li><code>git blame &lt;commit&gt;^ -- &lt;tệp&gt;</code> đi ngược thêm một lớp lịch sử.</li>
+<li>Blame là đầu mối; <code>git show</code> mới cho bối cảnh đầy đủ.</li>
+<li>Dùng blame để biết hỏi ai, không phải để đổ lỗi.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open blame
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../branching/resolving-conflicts.html" rel="prev"><small>Bài trước</small>Giải quyết xung đột merge (Nhánh và hợp nhất)</a><a class="next" href="../inspection/grep-pickaxe.html" rel="next"><small>Bài sau</small>Tìm trong mã và lịch sử</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 1/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

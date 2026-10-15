@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Lọc lịch sử nâng cao - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 5/10</span></p>
+<h1>Lọc lịch sử nâng cao</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>log-filters</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Lọc <code>git log</code> theo tác giả, thông điệp, khoảng thời gian và đường dẫn.</li>
+<li>Hiểu cách các bộ lọc kết hợp với nhau: khi nào là &quot;và&quot;, khi nào là &quot;hoặc&quot;.</li>
+<li>Định dạng output gọn để đọc nhanh danh sách ứng viên.</li>
+<li>Tránh các bẫy về biên thời gian và phân biệt tác giả với người commit.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Lịch sử thật của một dự án có hàng nghìn commit. Đọc hết là không thể; bạn cần <strong>thu hẹp</strong> trước, rồi mới đọc kỹ vài ứng viên. <code>git log</code> có nhiều bộ lọc, mỗi bộ trả lời một khía cạnh:</p>
+<ul>
+<li><strong>Ai</strong>: <code>--author=&lt;mẫu&gt;</code> khớp tên hoặc email tác giả (dạng biểu thức chính quy, khớp một phần). <code>--committer</code> tương tự cho người commit.</li>
+<li><strong>Nói gì</strong>: <code>--grep=&lt;mẫu&gt;</code> khớp nội dung thông điệp commit. <code>-i</code> để không phân biệt hoa thường. <code>--invert-grep</code> lấy những commit <strong>không</strong> khớp.</li>
+<li><strong>Khi nào</strong>: <code>--since</code>/<code>--after</code> và <code>--until</code>/<code>--before</code> nhận ngày tháng hoặc cách nói tương đối như <code>&quot;2 weeks ago&quot;</code>.</li>
+<li><strong>Ở đâu</strong>: <code>-- &lt;đường-dẫn&gt;</code> ở cuối lệnh chỉ lấy commit có chạm vào đường dẫn đó.</li>
+<li><strong>Loại commit</strong>: <code>--no-merges</code> bỏ merge commit, <code>--merges</code> chỉ lấy merge.</li>
+</ul>
+<p>Quy tắc kết hợp cần nhớ:</p>
+<ul>
+<li>Các bộ lọc <strong>khác loại</strong> kết hợp theo kiểu &quot;và&quot;: <code>--author=Hoa --grep=timeout</code> là commit của Hoa <strong>và</strong> có chữ timeout trong thông điệp.</li>
+<li>Nhiều lần <strong>cùng loại</strong> (nhiều <code>--author</code>, nhiều <code>--grep</code>) kết hợp theo kiểu &quot;hoặc&quot;.</li>
+<li>Thêm <code>--all-match</code> để nhiều <code>--grep</code> phải khớp đồng thời.</li>
+</ul>
+<p>Hai điểm tinh tế:</p>
+<ol>
+<li><strong>Tác giả và người commit</strong> có thể khác nhau: tác giả là người viết thay đổi, người commit là người tạo commit (ví dụ khi cherry-pick hay áp dụng patch). Lọc theo đúng trường bạn quan tâm.</li>
+<li><strong>Biên thời gian</strong>: các mốc như <code>--until=2026-10-08</code> được so với ngày commit (committer date). Trong thử nghiệm với Git 2.47, mốc chỉ có ngày không lấy commit lúc 16:00 cùng ngày đó; muốn chắc chắn, ghi rõ giờ như <code>&quot;2026-10-08 23:59&quot;</code>.</li>
+</ol>
+<p>Sau khi lọc, dùng <code>--format</code> để in đúng các cột cần thiết, ví dụ hash, ngày, tác giả, subject. Cuối cùng, xác minh từng ứng viên bằng <code>git show</code>.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  A[&quot;Toàn bộ lịch sử&quot;] --&gt;|&quot;--author&quot;| B[&quot;Đúng người&quot;]
+  B --&gt;|&quot;--since, --until&quot;| C[&quot;Đúng khoảng thời gian&quot;]
+  C --&gt;|&quot;--grep&quot;| D[&quot;Đúng nội dung thông điệp&quot;]
+  D --&gt;|&quot;-- đường dẫn&quot;| E[&quot;Đúng khu vực mã&quot;]
+  E --&gt;|&quot;git show&quot;| F[&quot;Xác minh từng ứng viên&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --author=&lt;mẫu&gt; --oneline
+git log --author=A --author=B --oneline      # A hoặc B
+git log --grep=&lt;mẫu&gt; -i --oneline            # thông điệp chứa mẫu
+git log --grep=A --grep=B --all-match        # phải chứa cả A và B
+git log --invert-grep --grep=&lt;mẫu&gt;           # thông điệp không chứa mẫu
+git log --since=2026-10-05 --until=&quot;2026-10-08 23:59&quot; --oneline
+git log --since=&quot;2 weeks ago&quot; --oneline
+git log --oneline -- &lt;đường-dẫn&gt;             # commit chạm đường dẫn
+git log --no-merges --format=&quot;%h %ad %an %s&quot; --date=short</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Bộ lọc</th>
+<th>Lọc theo</th>
+<th>Kết hợp nhiều lần</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--author</code></td>
+<td>Tên hoặc email tác giả</td>
+<td>Hoặc</td>
+</tr>
+<tr>
+<td><code>--committer</code></td>
+<td>Người commit</td>
+<td>Hoặc</td>
+</tr>
+<tr>
+<td><code>--grep</code></td>
+<td>Thông điệp</td>
+<td>Hoặc, <code>--all-match</code> thành và</td>
+</tr>
+<tr>
+<td><code>--since</code>, <code>--until</code></td>
+<td>Ngày commit</td>
+<td>Tạo khoảng</td>
+</tr>
+<tr>
+<td><code>-- &lt;path&gt;</code></td>
+<td>Tệp, thư mục</td>
+<td>Hoặc</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository mẫu có chín commit của Hoa và Tuan. Lọc theo tác giả:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --author=Hoa --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">54d864d Chuyển cấu hình vào conf
+409d8ac Giảm timeout cho nhanh
+a6a4f2b Tăng timeout
+c48be0e Tạo cấu hình</code></pre></div>
+<p>Kết hợp khác loại là &quot;và&quot;:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --author=Tuan --since=2026-10-05 --oneline
+git log --author=Hoa --grep=timeout --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+ff8b9ef Cập nhật test đăng nhập
+b14bd70 Đổi môi trường sang uat
+409d8ac Giảm timeout cho nhanh
+a6a4f2b Tăng timeout</code></pre></div>
+<p>Nhiều <code>--grep</code> mặc định là &quot;hoặc&quot;, thêm <code>--all-match</code> thành &quot;và&quot;:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --author=Hoa --grep=cấu --grep=timeout --oneline
+git log --author=Hoa --grep=cấu --grep=timeout --all-match --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">54d864d Chuyển cấu hình vào conf
+409d8ac Giảm timeout cho nhanh
+a6a4f2b Tăng timeout
+c48be0e Tạo cấu hình</code></pre></div>
+<p>Lệnh thứ hai không in gì: không thông điệp nào chứa cả hai từ. Bẫy biên thời gian:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --since=2026-10-05 --until=2026-10-08 --oneline
+git log --since=2026-10-05 --until=&quot;2026-10-08 23:59&quot; --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b14bd70 Đổi môi trường sang uat
+a6a4f2b Tăng timeout
+409d8ac Giảm timeout cho nhanh
+b14bd70 Đổi môi trường sang uat
+a6a4f2b Tăng timeout</code></pre></div>
+<p>Commit lúc 16:00 ngày 8 chỉ xuất hiện khi ghi rõ giờ. Cuối cùng, định dạng gọn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --no-merges --format=&quot;%h %ad %an %s&quot; --date=short -3</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 2026-10-11 Tuan Xóa khóa demo
+54d864d 2026-10-10 Hoa Chuyển cấu hình vào conf
+ff8b9ef 2026-10-09 Tuan Cập nhật test đăng nhập</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Đặt đường dẫn trước tùy chọn.</strong> <code>-- &lt;path&gt;</code> phải ở cuối; mọi thứ sau <code>--</code> được hiểu là đường dẫn.</p>
+<p><strong>Nghĩ <code>--author</code> khớp chính xác.</strong> Nó là biểu thức chính quy khớp một phần: <code>--author=Hoa</code> khớp cả &quot;Hoang&quot;. Thêm email hoặc neo mẫu khi cần chính xác.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p><code>--grep</code> chỉ tìm trong thông điệp commit, không tìm trong nội dung tệp. Muốn tìm nội dung thay đổi, dùng pickaxe <code>-S</code> hoặc <code>-G</code>.</p>
+</aside>
+<p><strong>Quên rằng nhiều <code>--grep</code> là &quot;hoặc&quot;.</strong> Kết quả nhiều hơn mong đợi. Thêm <code>--all-match</code>.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Lưu những bộ lọc hay dùng thành alias, ví dụ một alias in log của chính bạn trong tuần qua để viết báo cáo nhanh.</p>
+</aside>
+<p><strong>Lọc theo thời gian trên lịch sử đã rebase.</strong> Ngày commit của commit đã rebase là thời điểm rebase, không phải lúc viết thay đổi. Dùng <code>--format=%ad</code> để xem ngày tác giả khi cần.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Kiểm toán nội bộ hỏi: &quot;Trong tháng 9, những thay đổi nào liên quan đến cấu hình hạn mức chuyển khoản, và ai thực hiện?&quot;. Bạn kết hợp <code>--since</code>, <code>--until</code> có giờ rõ ràng, đường dẫn thư mục cấu hình, và <code>--grep=han.muc -i</code>, xuất bằng <code>--format</code> thành bảng gọn. Sau đó <code>git show</code> từng ứng viên để xác nhận trước khi gửi danh sách.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có <code>app.txt</code> với vài commit từ nhiều tác giả. Câu hỏi đưa một subject cụ thể và hỏi ai là tác giả của commit đó. Hãy:</p>
+<ul>
+<li>Dùng <code>--grep</code> với một phần subject để thu hẹp, kèm <code>--format</code> có trường tác giả.</li>
+<li>Nếu ra nhiều kết quả, kết hợp thêm bộ lọc khác hoặc đọc kỹ subject đầy đủ.</li>
+<li>Xác minh bằng <code>git show -s</code> trên commit tìm được.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>--author</code>, <code>--grep</code>, <code>--since</code>/<code>--until</code>, <code>-- &lt;path&gt;</code> lọc theo người, thông điệp, thời gian, khu vực.</li>
+<li>Bộ lọc khác loại kết hợp kiểu &quot;và&quot;; cùng loại kiểu &quot;hoặc&quot;.</li>
+<li><code>--all-match</code> buộc mọi <code>--grep</code> cùng khớp.</li>
+<li>Ghi rõ giờ cho mốc thời gian để tránh bẫy biên.</li>
+<li>Lọc để thu hẹp, rồi xác minh bằng <code>git show</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open log-filters
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/bisect.html" rel="prev"><small>Bài trước</small>Khoanh vùng commit gây lỗi</a><a class="next" href="../inspection/inspecting-commits.html" rel="next"><small>Bài sau</small>Xem chi tiết commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 5/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

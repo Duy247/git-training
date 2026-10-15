@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Xem chi tiết commit - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 6/10</span></p>
+<h1>Xem chi tiết commit</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>inspecting-commits</code> &middot; Đọc khoảng 4 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Dùng <code>git show</code> để xem metadata và diff của một commit cụ thể.</li>
+<li>Thu gọn output về danh sách tệp, thống kê, hoặc chỉ metadata.</li>
+<li>Xem nội dung một tệp tại một commit mà không cần checkout.</li>
+<li>Biết các cách chỉ tới một commit: hash, nhánh, tag, cú pháp tương đối.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p><code>git log</code> cho bạn danh sách; <code>git show</code> cho bạn <strong>một</strong> thứ, chi tiết đầy đủ. Với một commit, <code>git show</code> in:</p>
+<ol>
+<li>Hash đầy đủ, tác giả, ngày tác giả.</li>
+<li>Thông điệp commit (thụt lề).</li>
+<li>Diff so với parent: tệp nào đổi, dòng nào thêm, bớt.</li>
+</ol>
+<p>Với merge commit, <code>git show</code> mặc định in diff kết hợp (combined diff), chỉ hiện những chỗ kết quả merge khác cả hai parent, nên thường khá ngắn hoặc trống. Thêm <code>--first-parent</code> hoặc <code>-m</code> khi cần xem chi tiết hơn.</p>
+<p>Bạn có thể chỉ commit bằng nhiều cách: hash rút gọn (<code>409d8ac</code>), tên nhánh (<code>main</code> là commit đầu nhánh), tag (<code>v1.0.0</code>), hoặc cú pháp tương đối (<code>HEAD~2</code> là ông của HEAD, <code>HEAD^</code> là cha). <code>git show</code> không chỉ xem commit: <code>git show &lt;commit&gt;:&lt;đường-dẫn&gt;</code> in nội dung tệp tại commit đó, <code>git show &lt;tag&gt;</code> in thông tin tag rồi đến commit.</p>
+<p>Các tùy chọn định dạng hay dùng:</p>
+<ul>
+<li><code>--stat</code>: thay diff bằng bảng thống kê số dòng mỗi tệp.</li>
+<li><code>--name-only</code> / <code>--name-status</code>: chỉ tên tệp, hoặc tên kèm trạng thái <code>A</code> (thêm), <code>M</code> (sửa), <code>D</code> (xóa), <code>R</code> (đổi tên, kèm độ tương đồng).</li>
+<li><code>-s</code> (<code>--no-patch</code>): bỏ diff, chỉ giữ metadata.</li>
+<li><code>--format=&lt;mẫu&gt;</code>: tùy biến phần metadata, như ở <code>git log</code>. <code>--format=fuller</code> hiện thêm người commit và ngày commit.</li>
+</ul>
+<p>Một thói quen tốt khi điều tra: đừng tin subject. Subject do người viết tự đặt và có thể không phản ánh hết những gì commit làm. Một commit tên &quot;Sửa chính tả&quot; vẫn có thể lỡ đổi một giá trị cấu hình. <code>git show --stat</code> mất một giây và cho bạn biết sự thật về phạm vi thay đổi, còn diff đầy đủ cho biết chi tiết.</p>
+<p>Kết hợp hợp lý giúp bạn trả lời nhanh những câu như: &quot;commit này đổi tệp nào?&quot;, &quot;nó có đổi tên tệp không?&quot;, &quot;ai commit, ai viết?&quot;.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  C[&quot;git show 409d8ac&quot;] --&gt; M[&quot;Metadata: tác giả, ngày&quot;]
+  C --&gt; T[&quot;Thông điệp&quot;]
+  C --&gt; D[&quot;Diff so với parent&quot;]
+  D --&gt;|&quot;--stat&quot;| S[&quot;Thống kê theo tệp&quot;]
+  D --&gt;|&quot;--name-status&quot;| N[&quot;Tên tệp và trạng thái&quot;]
+  C --&gt;|&quot;-s&quot;| M</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show &lt;commit&gt;                       # metadata, thông điệp, diff
+git show --stat &lt;commit&gt;                # thống kê thay vì diff
+git show --name-only --format=%s &lt;commit&gt;   # subject và tên tệp
+git show --name-status --oneline &lt;commit&gt;   # trạng thái A, M, D, R
+git show -s --format=fuller &lt;commit&gt;    # chỉ metadata, có cả người commit
+git show &lt;commit&gt;:&lt;đường-dẫn&gt;           # nội dung tệp tại commit
+git show HEAD~2 --oneline --stat        # cú pháp tương đối</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Ký hiệu <code>--name-status</code></th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>A</code></td>
+<td>Thêm tệp</td>
+</tr>
+<tr>
+<td><code>M</code></td>
+<td>Sửa tệp</td>
+</tr>
+<tr>
+<td><code>D</code></td>
+<td>Xóa tệp</td>
+</tr>
+<tr>
+<td><code>R100</code></td>
+<td>Đổi tên, nội dung giống 100 phần trăm</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Xem đầy đủ commit nghi vấn trong repository mẫu:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">commit 409d8acfbf9153b336a1936a5de71e54fca85d61
+Author: Hoa &lt;hoa@example.invalid&gt;
+Date:   Thu Oct 8 16:00:00 2026 +0700
+
+    Giảm timeout cho nhanh
+
+diff --git a/config.txt b/config.txt
+index dca6fad..41a38b1 100644
+--- a/config.txt
++++ b/config.txt
+@@ -1,4 +1,4 @@
+ env=uat
+-timeout=60
++timeout=5
+ retry=3
+ API_KEY_DEMO=abc123</code></pre></div>
+<p>Chỉ cần biết commit đổi tệp nào:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --name-only --format=%s 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Giảm timeout cho nhanh
+
+config.txt</code></pre></div>
+<p>Với commit đổi tên, <code>--name-status</code> cho thấy rõ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show --name-status --oneline 54d864d</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">54d864d Chuyển cấu hình vào conf
+R100	config.txt	conf/app.conf</code></pre></div>
+<p>Xem nội dung tệp tại commit đó, và metadata đầy đủ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show 409d8ac:config.txt
+git show -s --format=fuller 409d8ac</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">env=uat
+timeout=5
+retry=3
+API_KEY_DEMO=abc123
+commit 409d8acfbf9153b336a1936a5de71e54fca85d61
+Author:     Hoa &lt;hoa@example.invalid&gt;
+AuthorDate: Thu Oct 8 16:00:00 2026 +0700
+Commit:     Hoa &lt;hoa@example.invalid&gt;
+CommitDate: Thu Oct 8 16:00:00 2026 +0700
+
+    Giảm timeout cho nhanh</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng đường dẫn hiện tại cho commit cũ.</strong> Ở commit <code>409d8ac</code>, tệp còn tên <code>config.txt</code>, nên lệnh <code>git show 409d8ac:conf/app.conf</code> thất bại:</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">fatal: path &#39;conf/app.conf&#39; exists on disk, but not in &#39;409d8ac&#39;</code></pre></div>
+<p>Kiểm tra tên tại commit đó bằng <code>git show --name-only</code> hoặc <code>git ls-tree -r &lt;commit&gt;</code>.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Cú pháp <code>&lt;commit&gt;:&lt;đường-dẫn&gt;</code> tính đường dẫn từ gốc repository. Muốn tương đối so với thư mục hiện tại, viết <code>&lt;commit&gt;:./tệp</code>.</p>
+</aside>
+<p><strong>Merge commit hiện diff trống.</strong> Đó là diff kết hợp, chỉ hiện chỗ khác cả hai parent. Thêm <code>--first-parent</code> để xem merge mang gì vào nhánh chính.</p>
+<p><strong>Hash rút gọn quá ngắn.</strong> Trên repository lớn, 4 đến 5 ký tự có thể trùng. Git báo mơ hồ; dùng thêm ký tự.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p><code>git show --stat</code> là cách nhanh để ước lượng kích thước một commit trước khi đọc diff chi tiết.</p>
+</aside>
+<p><strong>Nhầm tác giả với người commit.</strong> <code>Author</code> trong output mặc định là tác giả. Dùng <code>--format=fuller</code> để thấy cả hai.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Trong ticket lỗi, developer chỉ ghi &quot;đã sửa ở commit 7c1f9e2&quot;. Trước khi viết test xác nhận, bạn chạy <code>git show --stat 7c1f9e2</code> để biết phạm vi thay đổi, rồi <code>git show 7c1f9e2 -- src/payment/</code> để đọc riêng phần liên quan. Bạn thiết kế test bao đúng những nhánh logic vừa bị sửa, thay vì test lại toàn bộ module.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có <code>app.txt</code> với vài commit. Câu hỏi đưa subject của một commit và hỏi commit đó sửa tệp nào. Hãy:</p>
+<ul>
+<li>Tìm hash của commit theo subject bằng <code>git log --oneline</code> hoặc <code>--grep</code>.</li>
+<li>Dùng <code>git show</code> với <code>--name-only</code> hoặc <code>--stat</code> trên commit đó.</li>
+<li>Trả lời bằng đúng tên tệp như Git in ra.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git show &lt;commit&gt;</code> in metadata, thông điệp và diff so với parent.</li>
+<li><code>--stat</code>, <code>--name-only</code>, <code>--name-status</code>, <code>-s</code> thu gọn output theo nhu cầu.</li>
+<li><code>git show &lt;commit&gt;:&lt;đường-dẫn&gt;</code> xem tệp tại commit mà không checkout.</li>
+<li>Commit có thể chỉ bằng hash, nhánh, tag hoặc cú pháp tương đối.</li>
+<li><code>--format=fuller</code> phân biệt tác giả và người commit.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open inspecting-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/log-filters.html" rel="prev"><small>Bài trước</small>Lọc lịch sử nâng cao</a><a class="next" href="../inspection/file-history-renames.html" rel="next"><small>Bài sau</small>Theo lịch sử qua đổi tên</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 6/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

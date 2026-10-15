@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Đồ thị blob, tree, commit - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 3/11</span></p>
+<h1>Đồ thị blob, tree, commit</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>blobs-trees-commits</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Phân biệt ba loại object chính: blob, tree, commit, và vai trò của từng loại.</li>
+<li>Lần theo đồ thị từ commit xuống tree, tree con và blob bằng <code>git cat-file</code>.</li>
+<li>Hiểu vì sao snapshot mới chỉ tạo object cho phần thay đổi.</li>
+<li>Đọc được mode và kiểu trong mỗi dòng của tree.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Git lưu lịch sử bằng một đồ thị object. Mỗi loại object có một nhiệm vụ rõ ràng:</p>
+<ul>
+<li><strong>Blob</strong> chứa đúng byte của một tệp. Không có tên tệp, không có quyền, không có thời gian. Chỉ nội dung.</li>
+<li><strong>Tree</strong> mô tả một thư mục. Mỗi dòng trong tree gồm mode, kiểu, object ID và tên. Dòng có thể trỏ tới blob (một tệp) hoặc tới tree khác (một thư mục con). Nhờ vậy, tree gốc của một commit mô tả trọn vẹn cây thư mục của snapshot.</li>
+<li><strong>Commit</strong> gắn một snapshot vào lịch sử. Nó chứa ID của tree gốc, ID của các commit cha (parent), tác giả, người commit, thời gian và message. Commit đầu tiên không có parent; merge commit có từ hai parent trở lên.</li>
+</ul>
+<p>(Loại thứ tư là tag object, dùng cho annotated tag: nó trỏ tới một object khác, thường là commit, kèm tên, người tạo và message.)</p>
+<p>Các mũi tên trong đồ thị luôn đi từ object &quot;chứa&quot; tới object &quot;được chứa&quot;: commit trỏ xuống tree, tree trỏ xuống blob và tree con, commit trỏ ngược về parent. Vì ID của mỗi object được tính từ nội dung, mà nội dung có chứa ID của object con, nên ID của commit thực chất &quot;niêm phong&quot; toàn bộ snapshot và toàn bộ lịch sử phía trước nó. Đổi một byte ở một tệp sâu trong cây là đổi blob, kéo theo đổi tree chứa nó, đổi tree cha, đổi tree gốc, đổi commit.</p>
+<p>Điều đó nghe tốn kém, nhưng thật ra rất tiết kiệm. Khi bạn sửa một tệp trong thư mục <code>src</code> và commit, Git chỉ tạo: một blob mới cho tệp đó, một tree mới cho <code>src</code>, một tree gốc mới, và một commit mới. Mọi tệp và thư mục không đổi được tái sử dụng nguyên ID cũ. Snapshot là đầy đủ về mặt logic, nhưng chia sẻ phần lớn object với snapshot trước.</p>
+<p>Mode trong tree cho biết loại mục: <code>100644</code> là tệp thường, <code>100755</code> là tệp thực thi, <code>120000</code> là symlink, <code>040000</code> là thư mục (tree), <code>160000</code> là gitlink của submodule.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  C2[&quot;Commit Sửa app&quot;] --&gt;|&quot;tree&quot;| T2[&quot;Tree gốc mới&quot;]
+  C2 --&gt;|&quot;parent&quot;| C1[&quot;Commit Thêm script và app&quot;]
+  C1 --&gt;|&quot;tree&quot;| T1[&quot;Tree gốc cũ&quot;]
+  T1 --&gt; R[&quot;Blob README.md&quot;]
+  T1 --&gt; S[&quot;Blob run.sh mode 100755&quot;]
+  T1 --&gt; SRC1[&quot;Tree src cũ&quot;]
+  SRC1 --&gt; A1[&quot;Blob app.txt bản 1&quot;]
+  T2 --&gt; R
+  T2 --&gt; S
+  T2 --&gt; SRC2[&quot;Tree src mới&quot;]
+  SRC2 --&gt; A2[&quot;Blob app.txt bản 2&quot;]</pre>
+<p>Để ý <code>README.md</code> và <code>run.sh</code> được cả hai tree gốc trỏ tới: không sao chép gì cả.</p>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Nội dung thô của commit: tree, parent, tác giả, message
+git cat-file -p HEAD
+
+# Tree gốc của commit
+git cat-file -p &#39;HEAD^{tree}&#39;
+
+# Tree của một thư mục con
+git cat-file -p HEAD:src
+
+# Liệt kê đệ quy mọi tệp trong snapshot, -t để thấy cả tree con
+git ls-tree -r -t HEAD
+
+# Mọi object truy cập được, kèm đường dẫn
+git rev-list --objects --all</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Kiểu</th>
+<th>Chứa gì</th>
+<th>Trỏ tới</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>blob</td>
+<td>Byte của tệp</td>
+<td>Không trỏ tới gì</td>
+</tr>
+<tr>
+<td>tree</td>
+<td>Danh sách mode, kiểu, ID, tên</td>
+<td>Blob, tree con, gitlink</td>
+</tr>
+<tr>
+<td>commit</td>
+<td>Tree gốc, parent, người, thời gian, message</td>
+<td>Một tree, các commit cha</td>
+</tr>
+<tr>
+<td>tag</td>
+<td>Đối tượng đích, tên, người tạo, message</td>
+<td>Thường là một commit</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có <code>README.md</code>, một script thực thi <code>run.sh</code> và <code>src/app.txt</code>. Đọc commit vừa tạo (ID trên máy bạn sẽ khác với commit, nhưng blob cùng nội dung sẽ giống):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">tree e87ce63364d64830cc7ff65f96b00b7f00e510ef
+parent 4f3ce2367d6610bcaa86d32af4ed5d3a6834adba
+author Duy &lt;duy@example.invalid&gt; 1792084154 +0700
+committer Duy &lt;duy@example.invalid&gt; 1792084154 +0700
+
+Thêm script và app</code></pre></div>
+<p>Đi xuống tree gốc và tree con:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p &#39;HEAD^{tree}&#39;
+git cat-file -p HEAD:src</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 blob 3f01b4f03f3a2193f92a57add2627ce240056f0f	README.md
+100755 blob 4163036efa65bd4a469e752267498f01ea36a55c	run.sh
+040000 tree 8e37aeb42fda047c1de512588a05f5849757d605	src
+100644 blob b80f0bd60822d4fa4893de455958ef32f6c521bf	app.txt</code></pre></div>
+<p><code>run.sh</code> có mode 100755 vì là tệp thực thi; <code>src</code> là một tree. Giờ sửa <code>src/app.txt</code> và commit &quot;Sửa app&quot;. Đọc lại tree gốc:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git cat-file -p &#39;HEAD^{tree}&#39;
+git cat-file -p HEAD:src</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">100644 blob 3f01b4f03f3a2193f92a57add2627ce240056f0f	README.md
+100755 blob 4163036efa65bd4a469e752267498f01ea36a55c	run.sh
+040000 tree 488921aa03076cfedfb96a3038c11b1f521d1f1e	src
+100644 blob 8c1384d825dbbe41309b7dc18ee7991a9085c46e	app.txt</code></pre></div>
+<p>Blob của <code>README.md</code> và <code>run.sh</code> giữ nguyên ID. Chỉ blob <code>app.txt</code>, tree <code>src</code> và tree gốc là mới. Liệt kê toàn bộ object của repository:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-list --objects --all</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">8376563956961bf00d749ed82720529a32042eb8
+723ff85afe71c6e65155367b0942cdbaa07e5f6d
+4f3ce2367d6610bcaa86d32af4ed5d3a6834adba
+f5d84d632d1726961717a43b27eda2f4cdf8069a 
+3f01b4f03f3a2193f92a57add2627ce240056f0f README.md
+4163036efa65bd4a469e752267498f01ea36a55c run.sh
+488921aa03076cfedfb96a3038c11b1f521d1f1e src
+8c1384d825dbbe41309b7dc18ee7991a9085c46e src/app.txt
+e87ce63364d64830cc7ff65f96b00b7f00e510ef 
+8e37aeb42fda047c1de512588a05f5849757d605 src
+b80f0bd60822d4fa4893de455958ef32f6c521bf src/app.txt
+c84aa38e60aec99583588637e9aeed74defb6508 </code></pre></div>
+<p>Ba dòng đầu là ba commit. Các dòng có ID nhưng không có tên phía sau là tree gốc. Mỗi object chỉ xuất hiện một lần dù được nhiều snapshot dùng chung.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Cú pháp <code>HEAD:src</code> và <code>HEAD^{tree}</code> dùng được với mọi lệnh nhận object: <code>git show</code>, <code>git ls-tree</code>, <code>git diff</code>. Đây là cách nhanh để đọc một thư mục ở commit cũ mà không cần checkout.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ commit lưu diff.</strong> Commit lưu snapshot (qua tree). Diff được tính khi bạn yêu cầu, bằng cách so hai tree.</p>
+<p><strong>Nghĩ mỗi commit sao chép toàn bộ tệp.</strong> Không; object không đổi được dùng chung giữa các snapshot.</p>
+<p><strong>Tìm tên tệp trong blob.</strong> Tên nằm trong tree. Hai tệp khác tên cùng nội dung dùng chung một blob.</p>
+<p><strong>Quên dấu nháy quanh <code>HEAD^{tree}</code> trên một số shell.</strong> Dấu ngoặc nhọn có thể bị shell diễn giải. Bọc trong nháy cho chắc.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Thư mục rỗng không có mặt trong Git, vì tree chỉ chứa mục trỏ tới tệp hoặc thư mục con có nội dung. Đây là lý do nhiều dự án đặt tệp giữ chỗ như <code>.gitkeep</code>.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn cần biết bộ dữ liệu test trong <code>fixtures/</code> của bản release 2.1 có giống bản 2.0 không, mà không muốn checkout. Bạn so <code>git rev-parse v2.0:fixtures</code> với <code>git rev-parse v2.1:fixtures</code>. Hai ID tree trùng nhau, nghĩa là toàn bộ thư mục giống hệt từng byte, không cần chạy lại phần test phụ thuộc dữ liệu đó.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi loại object nào ghi lại cây thư mục của một snapshot. Hãy ôn bảng bốn loại object ở trên.</p>
+<p>Bạn có thể tự khám phá trong repository bài tập: chạy <code>git cat-file -p HEAD</code>, rồi đi theo dòng <code>tree</code> xuống từng tầng.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Blob chứa byte tệp, tree mô tả thư mục, commit nối snapshot với lịch sử.</li>
+<li>Commit trỏ tới một tree gốc và các parent; tree trỏ tới blob và tree con.</li>
+<li>ID của commit niêm phong toàn bộ snapshot và lịch sử phía trước.</li>
+<li>Snapshot mới chỉ tạo object cho phần đã đổi; phần còn lại dùng chung.</li>
+<li>Mode trong tree cho biết tệp thường, thực thi, symlink, thư mục hay submodule.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open blobs-trees-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/object-database.html" rel="prev"><small>Bài trước</small>Kho lưu trữ object</a><a class="next" href="../internals/refs-and-symbolic-refs.html" rel="next"><small>Bài sau</small>Ref và symbolic ref</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 3/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

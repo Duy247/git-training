@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Bisect tự động - Điều tra lịch sử - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Điều tra lịch sử</span><span class="badge" title="Vị trí bài trong track">Bài 2/8</span></p>
+<h1>Bisect tự động</h1>
+<p class="meta">Track: Điều tra lịch sử &middot; Mã bài: <code>bisect-automated</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Dùng <code>git bisect run</code> để Git tự kiểm tra từng commit bằng một script hay lệnh.</li>
+<li>Nắm quy ước mã thoát: 0 là good, 1 đến 127 (trừ 125) là bad, 125 là skip, từ 128 trở lên làm dừng bisect.</li>
+<li>Viết script kiểm tra nhỏ, ổn định, đặt ngoài working tree.</li>
+<li>Xử lý commit không kiểm tra được bằng mã 125.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bisect thủ công đòi bạn ngồi chạy kiểm tra rồi gõ <code>good</code> hoặc <code>bad</code> ở mỗi bước. Nếu việc kiểm tra diễn đạt được thành một lệnh có mã thoát, hãy để Git làm hết: <code>git bisect run &lt;lệnh&gt; [tham số...]</code>.</p>
+<p>Ở mỗi bước, Git checkout commit giữa, chạy lệnh, rồi đọc mã thoát:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Mã thoát</th>
+<th>Ý nghĩa với bisect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>good: commit này chưa có lỗi</td>
+</tr>
+<tr>
+<td>1 đến 127, trừ 125</td>
+<td>bad: commit này có lỗi</td>
+</tr>
+<tr>
+<td>125</td>
+<td>skip: không kết luận được, bỏ qua</td>
+</tr>
+<tr>
+<td>128 trở lên, hoặc âm</td>
+<td>Dừng bisect vì lệnh kiểm tra gặp sự cố</td>
+</tr>
+</tbody></table></div>
+<p>Quy ước này khớp tự nhiên với hầu hết công cụ test: test pass thoát 0, fail thoát 1. Mã 125 dành cho trường hợp &quot;commit này không build được, không chạy được test&quot;. Mã từ 128 trở lên thường nghĩa là tiến trình bị tín hiệu giết, nên Git chọn dừng hẳn thay vì đoán.</p>
+<p>Viết script kiểm tra tốt:</p>
+<ul>
+<li><strong>Đặt ngoài working tree</strong> hoặc ít nhất ngoài phần được Git theo dõi. Nếu script nằm trong repository, khi bisect checkout commit cũ, script có thể biến mất hoặc là bản cũ.</li>
+<li><strong>Chỉ kiểm tra đúng một điều</strong>: chính lỗi bạn đang tìm. Script kiểm tra quá nhiều sẽ &quot;bad&quot; vì lý do khác.</li>
+<li><strong>Ổn định</strong>: không phụ thuộc mạng, giờ hệ thống, hay dữ liệu thay đổi.</li>
+<li><strong>Trả 125 khi không kiểm tra được</strong>, đừng trả 1, kẻo bisect đổ lỗi nhầm.</li>
+</ul>
+<p>Với lỗi đơn giản, bạn thậm chí không cần tệp script: <code>git bisect run grep -q 3300 bieu-phi.txt</code> hay <code>git bisect run sh -c &#39;...&#39;</code> cũng được.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  S[&quot;git bisect run ../kiem-tra.sh&quot;] --&gt; CO[&quot;Git checkout commit giữa&quot;]
+  CO --&gt; R[&quot;Chạy script&quot;]
+  R --&gt;|&quot;mã 0&quot;| G[&quot;Đánh dấu good&quot;]
+  R --&gt;|&quot;mã 1 đến 127, trừ 125&quot;| B[&quot;Đánh dấu bad&quot;]
+  R --&gt;|&quot;mã 125&quot;| K[&quot;Skip, chọn commit khác&quot;]
+  R --&gt;|&quot;mã 128 trở lên&quot;| X[&quot;Dừng bisect&quot;]
+  G --&gt; D{&quot;Còn ứng viên?&quot;}
+  B --&gt; D
+  K --&gt; D
+  D --&gt;|&quot;còn&quot;| CO
+  D --&gt;|&quot;hết&quot;| F[&quot;Báo first bad commit&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Khai báo hai mốc rồi để Git tự chạy
+git bisect start HEAD &lt;commit-tốt&gt;
+git bisect run ../kiem-tra.sh
+
+# Không cần tệp script
+git bisect run grep -q 3300 bieu-phi.txt
+git bisect run sh -c &#39;[ &quot;$(./tinh-phi.sh | tr -d &quot; &quot;)&quot; = 3300 ]&#39;
+
+# Kết thúc
+git bisect reset</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Cùng repository dịch vụ tính phí như bài trước: HEAD in <code>330</code> thay vì <code>3300</code>. Script kiểm tra đặt ở thư mục cha, ngoài repository:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat ../kiem-tra.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">#!/bin/sh
+[ &quot;$(./tinh-phi.sh | tr -d &quot; &quot;)&quot; = &quot;3300&quot; ]</code></pre></div>
+<p>Lệnh <code>[</code> thoát 0 nếu đúng, 1 nếu sai, đúng quy ước bisect. Chạy (ID trên máy bạn sẽ khác):</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect start HEAD dd02f86
+git bisect run ../kiem-tra.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Bisecting: 3 revisions left to test after this (roughly 2 steps)
+[ab0765bdad0d5f91a91319a329bd2ae49fc5a427] Làm gọn biểu phí
+running &#39;../kiem-tra.sh&#39;
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[a29f00a690a12574bbd4d69c8a87682d8a4f6ab6] Thêm cấu hình môi trường
+running &#39;../kiem-tra.sh&#39;
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[f044cf7cba38612a1f6c9b2fdc2c0b1e58e320cf] Cập nhật README
+running &#39;../kiem-tra.sh&#39;
+ab0765bdad0d5f91a91319a329bd2ae49fc5a427 is the first bad commit
+commit ab0765bdad0d5f91a91319a329bd2ae49fc5a427
+Author: Chi &lt;chi@example.invalid&gt;
+...
+    Làm gọn biểu phí
+...
+bisect found first bad commit</code></pre></div>
+<p>Cùng kết quả với bài thủ công, nhưng bạn không phải gõ gì giữa chừng.</p>
+<p>Giờ thử mã 125. Script dưới đây giả lập tình huống commit &quot;Thêm cấu hình môi trường&quot; không build được:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">cat ../kiem-tra4.sh
+git bisect start HEAD dd02f86
+git bisect run ../kiem-tra4.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">#!/bin/sh
+# Giả lập: commit này không build được, không kết luận được
+[ &quot;$(git log -1 --format=%s)&quot; = &quot;Thêm cấu hình môi trường&quot; ] &amp;&amp; exit 125
+[ &quot;$(./tinh-phi.sh | tr -d &#39; &#39;)&quot; = &quot;3300&quot; ]
+...
+[a29f00a690a12574bbd4d69c8a87682d8a4f6ab6] Thêm cấu hình môi trường
+running &#39;../kiem-tra4.sh&#39;
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[009abe12cddf71462a13e4d1d6f7aa99b4a35390] Thêm script tính phí
+running &#39;../kiem-tra4.sh&#39;
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[f044cf7cba38612a1f6c9b2fdc2c0b1e58e320cf] Cập nhật README
+running &#39;../kiem-tra4.sh&#39;
+ab0765bdad0d5f91a91319a329bd2ae49fc5a427 is the first bad commit
+...</code></pre></div>
+<p>Git bỏ qua commit trả 125, thử commit lân cận và vẫn tìm ra đúng commit, chỉ tốn thêm một bước.</p>
+<p>Cuối cùng, xem điều gì xảy ra khi script trả mã ngoài phạm vi, ví dụ <code>exit 200</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git bisect run ../kiem-tra3.sh</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">running &#39;../kiem-tra3.sh&#39;
+error: bisect run failed: exit code 200 from &#39;../kiem-tra3.sh&#39; is &lt; 0 or &gt;= 128</code></pre></div>
+<p>Bisect dừng, không đoán bừa. Nhớ chạy <code>git bisect reset</code> sau mỗi phiên.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Thử script trên hai mốc trước khi bisect: chạy trên HEAD phải thoát khác 0, trên commit tốt phải thoát 0. Kiểm tra bằng <code>../kiem-tra.sh; echo $?</code>. Hai giây này tránh được cả phiên bisect sai.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Script nằm trong repository.</strong> Khi checkout commit cũ, script biến mất hoặc khác, mọi bước đều &quot;bad&quot;. Đặt ở ngoài.</p>
+<p><strong>Trả 1 khi không build được.</strong> Bisect hiểu là &quot;có lỗi&quot; và có thể chỉ nhầm vào commit làm hỏng build. Dùng 125.</p>
+<p><strong>Script phụ thuộc thứ thay đổi theo thời gian.</strong> Mạng, giờ, dữ liệu ngoài làm kết quả lúc đúng lúc sai.</p>
+<p><strong>Kiểm tra quá rộng.</strong> Chạy toàn bộ bộ test có thể fail vì một lỗi khác cũ hơn. Chỉ kiểm tra triệu chứng cần tìm.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Script chạy trong working tree đang được bisect checkout. Nếu script tạo tệp tạm hay build ra thư mục, hãy dọn ở cuối script, kẻo các tệp chưa được theo dõi làm lần checkout tiếp theo thất bại.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Test tự động phát hiện API trả sai định dạng số tiền, nhưng giữa bản tốt gần nhất và HEAD có hơn 200 commit. Bạn viết script ngắn gọi đúng một test case đó, trả 125 nếu bước build lỗi, rồi để <code>git bisect run</code> chạy trong lúc đi họp. Quay lại đã có commit gây lỗi, kèm log của phiên để đính vào ticket.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Repository bài tập có một tệp ứng dụng mà ở HEAD có thêm một dòng đánh dấu lỗi. Bạn cần tìm commit đầu tiên đưa dòng đó vào và trả lời bằng subject. Hãy thử biến việc kiểm tra thành một lệnh có mã thoát phù hợp (một lệnh tìm chuỗi trong tệp là đủ), chú ý chiều của mã thoát: commit tốt phải thoát 0. Rồi để <code>git bisect run</code> làm phần còn lại.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>git bisect run</code> để Git tự checkout và chạy kiểm tra ở mỗi bước.</li>
+<li>Mã 0 là good, 1 đến 127 trừ 125 là bad, 125 là skip, 128 trở lên dừng bisect.</li>
+<li>Đặt script ngoài working tree, chỉ kiểm tra đúng triệu chứng.</li>
+<li>Trả 125 khi commit không kiểm tra được.</li>
+<li>Thử script trên hai mốc trước khi chạy cả phiên.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start forensics</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open bisect-automated
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../forensics/bisect-basics.html" rel="prev"><small>Bài trước</small>Bisect cơ bản</a><a class="next" href="../forensics/pickaxe-string.html" rel="next"><small>Bài sau</small>Tìm chuỗi trong lịch sử</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Điều tra lịch sử, bài 2/8</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Các kiểu reset - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 2/12</span></p>
+<h1>Các kiểu reset</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>reset-variations</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu ba chế độ <code>--soft</code>, <code>--mixed</code>, <code>--hard</code> qua mô hình ba vùng.</li>
+<li>Chọn đúng chế độ cho từng tình huống: gộp lại commit, bỏ stage, bỏ hẳn thay đổi.</li>
+<li>Dùng <code>ORIG_HEAD</code> và reflog để quay lại sau một lần reset.</li>
+<li>Phân biệt reset cả nhánh với reset một tệp.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bài trước nói <code>git reset &lt;commit&gt;</code> dời nhánh. Chính xác hơn, reset làm tối đa ba bước, và chế độ quyết định nó dừng ở bước nào:</p>
+<ol>
+<li><strong>Dời nhánh</strong> (qua HEAD) tới commit đích.</li>
+<li><strong>Làm index giống</strong> commit đích.</li>
+<li><strong>Làm working tree giống</strong> commit đích.</li>
+</ol>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Chế độ</th>
+<th>Bước 1: nhánh</th>
+<th>Bước 2: index</th>
+<th>Bước 3: working tree</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--soft</code></td>
+<td>Có</td>
+<td>Không</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>--mixed</code> (mặc định)</td>
+<td>Có</td>
+<td>Có</td>
+<td>Không</td>
+</tr>
+<tr>
+<td><code>--hard</code></td>
+<td>Có</td>
+<td>Có</td>
+<td>Có</td>
+</tr>
+</tbody></table></div>
+<p>Đọc theo mô hình ba vùng ở track nền tảng:</p>
+<p><strong><code>--soft</code></strong>: chỉ HEAD lùi lại. Index vẫn chứa nội dung của commit vừa bỏ, nên mọi thay đổi của commit đó hiện ra như &quot;đã stage, sẵn sàng commit&quot;. Dùng khi muốn <strong>làm lại commit</strong>: viết lại thông điệp, gộp vài commit cuối thành một, hay thêm tệp trước khi commit lại.</p>
+<p><strong><code>--mixed</code></strong>: HEAD lùi và index được đặt lại theo commit đích. Thay đổi của commit bị bỏ vẫn nằm trong working tree nhưng <strong>chưa stage</strong>. Dùng khi muốn chia lại commit theo cách khác: stage từng phần rồi commit lại.</p>
+<p><strong><code>--hard</code></strong>: cả ba vùng trùng với commit đích. Thay đổi của commit bị bỏ <strong>và</strong> mọi sửa đổi chưa commit của bạn trên các tệp được theo dõi đều biến mất khỏi working tree. Dùng khi chắc chắn muốn vứt bỏ.</p>
+<p>Sau mỗi lần reset dời nhánh, Git lưu vị trí cũ vào <code>ORIG_HEAD</code>, và reflog cũng ghi lại. Vì vậy commit bị &quot;bỏ&quot; vẫn cứu được. Nhưng sửa đổi chưa commit bị <code>--hard</code> xóa thì <strong>không</strong> nằm ở đâu cả.</p>
+<p>Có một dạng khác: <code>git reset &lt;tệp&gt;</code> (không có chế độ, kèm đường dẫn) chỉ làm bước 2 cho tệp đó, tức là bỏ stage tệp. Nó tương đương <code>git restore --staged &lt;tệp&gt;</code>. Ngoài ra <code>--keep</code> giống <code>--hard</code> nhưng từ chối nếu có sửa đổi local sẽ bị mất, một lựa chọn an toàn hơn.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  R[&quot;git reset HEAD~1&quot;] --&gt; H[&quot;1. Dời nhánh&quot;]
+  H --&gt;|&quot;--soft dừng ở đây&quot;| S[&quot;Index giữ nguyên: thay đổi đã stage&quot;]
+  H --&gt; I[&quot;2. Đặt lại index&quot;]
+  I --&gt;|&quot;--mixed dừng ở đây&quot;| M[&quot;Working tree giữ nguyên: thay đổi chưa stage&quot;]
+  I --&gt; W[&quot;3. Đặt lại working tree&quot;]
+  W --&gt;|&quot;--hard&quot;| D[&quot;Thay đổi bị bỏ&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --soft HEAD~1     # bỏ commit cuối, giữ thay đổi đã stage
+git reset HEAD~1            # (--mixed) bỏ commit cuối, giữ thay đổi chưa stage
+git reset --hard HEAD~1     # bỏ commit cuối và mọi thay đổi
+git reset --keep HEAD~1     # như hard nhưng từ chối nếu mất sửa đổi local
+git reset --hard ORIG_HEAD  # quay lại vị trí trước lần reset vừa rồi
+git reset &lt;tệp&gt;             # bỏ stage một tệp (giống restore --staged)
+git status -s               # luôn xem trước và sau</code></pre></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Commit cuối &quot;Commit cần bỏ&quot; thêm tệp <code>bai.txt</code>. Thử từng chế độ, mỗi lần làm lại commit trước khi thử tiếp.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --soft HEAD~1
+git status -s
+git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">A  bai.txt
+7e1e491 Khởi tạo</code></pre></div>
+<p><code>A</code> ở cột trái: tệp vẫn đã stage, chỉ cần <code>git commit</code> là có lại commit.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --mixed HEAD~1 &amp;&amp; git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">?? bai.txt</code></pre></div>
+<p>Index đã đặt lại, nên <code>bai.txt</code> (tệp mới) trở thành untracked; nội dung vẫn trên đĩa.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --hard HEAD~1
+git status -s
+ls</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 7e1e491 Khởi tạo
+README.md</code></pre></div>
+<p><code>bai.txt</code> biến mất. Hối hận? Vị trí cũ vẫn còn:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git rev-parse --short ORIG_HEAD
+git reset --hard ORIG_HEAD
+git log --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">e060444
+HEAD is now at e060444 Commit cần bỏ
+e060444 Commit cần bỏ
+7e1e491 Khởi tạo</code></pre></div>
+<p>Cuối cùng, <code>--keep</code> bảo vệ sửa đổi chưa commit. Khi <code>bai.txt</code> đang có thay đổi chưa stage:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reset --keep HEAD~1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">error: Entry &#39;bai.txt&#39; not uptodate. Cannot merge.
+fatal: Could not reset index file to revision &#39;HEAD~1&#39;.</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>--hard</code> khi chỉ muốn sửa thông điệp.</strong> Bạn mất thay đổi chưa commit mà không cần thiết. Thông điệp sửa bằng amend; muốn làm lại commit thì <code>--soft</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Thay đổi chưa commit bị <code>reset --hard</code> xóa không thể lấy lại bằng reflog. Nếu không chắc, <code>git stash</code> trước.</p>
+</aside>
+<p><strong>Nhầm <code>HEAD~1</code> với <code>HEAD~</code>.</strong> Hai cách viết giống nhau. Nhưng <code>HEAD~2</code> bỏ hai commit; đếm kỹ bằng <code>git log --oneline</code> trước.</p>
+<p><strong>Reset trên nhánh đã push.</strong> Như bài trước: lịch sử bị viết lại, cần force push. Với nhánh chung, dùng revert.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Gộp ba commit &quot;wip&quot; cuối thành một: <code>git reset --soft HEAD~3</code> rồi <code>git commit -m &quot;...&quot;</code>. Nhanh hơn rebase tương tác cho trường hợp đơn giản.</p>
+</aside>
+<p><strong>Quên rằng <code>--mixed</code> là mặc định.</strong> <code>git reset HEAD~1</code> không kèm chế độ là <code>--mixed</code>, không phải <code>--soft</code>.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn vừa commit bộ test mới cho chức năng tra cứu lịch sử giao dịch, rồi nhận ra quên thêm tệp dữ liệu mẫu và thông điệp thiếu mã ticket. Commit chưa push. Bạn chạy <code>git reset --soft HEAD~1</code>, <code>git add</code> tệp dữ liệu, rồi commit lại với thông điệp đầy đủ. Lịch sử chỉ có một commit gọn, đúng chuẩn.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Bài thực hành có một commit cuối cần bỏ, nhưng thay đổi của nó phải còn nguyên trong vùng staging sau khi bạn làm xong. Câu hỏi hỏi chế độ reset nào giữ nội dung trong index. Hãy:</p>
+<ul>
+<li>Ôn bảng ba chế độ và xác định chế độ dừng ở bước nào.</li>
+<li>Đếm commit bằng <code>git log --oneline</code> trước và sau.</li>
+<li>Kiểm tra <code>git status -s</code> sau khi reset: tệp phải ở trạng thái đã stage.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Reset làm tối đa ba bước: dời nhánh, đặt lại index, đặt lại working tree.</li>
+<li><code>--soft</code> chỉ dời nhánh; <code>--mixed</code> thêm index; <code>--hard</code> cả ba.</li>
+<li><code>--mixed</code> là mặc định.</li>
+<li><code>ORIG_HEAD</code> và reflog giúp quay lại sau reset; sửa đổi chưa commit bị <code>--hard</code> thì không.</li>
+<li><code>--keep</code> là lựa chọn an toàn hơn <code>--hard</code> khi có sửa đổi local.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open reset-variations
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/revert-vs-reset.html" rel="prev"><small>Bài trước</small>Revert và reset</a><a class="next" href="../undo/clean-restore.html" rel="next"><small>Bài sau</small>Dọn tệp và khôi phục</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 2/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -48,7 +48,7 @@ test('đáp án chỉ được lưu cho bài có câu hỏi và không tự Chec
 });
 
 test('lệnh trống trong môi trường không tương tác hiển thị hướng dẫn', () => {
-  const result = spawnSync(process.execPath, ['bin/git-training.cjs'], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, ['bin/git-training.cjs'], { encoding: 'utf8', env: { ...process.env, GIT_TRAINING_NO_BROWSER: '1' } });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /git-training ui/);
 });

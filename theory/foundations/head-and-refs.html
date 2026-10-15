@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>HEAD và ref biểu tượng - Nền tảng Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Nền tảng Git</span><span class="badge" title="Vị trí bài trong track">Bài 8/10</span></p>
+<h1>HEAD và ref biểu tượng</h1>
+<p class="meta">Track: Nền tảng Git &middot; Mã bài: <code>head-and-refs</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu ref là gì: một cái tên trỏ tới object ID.</li>
+<li>Phân biệt ref thông thường (nhánh, tag) với symbolic ref như <code>HEAD</code>.</li>
+<li>Biết <code>HEAD</code> thay đổi thế nào khi bạn commit, chuyển nhánh hay vào trạng thái detached.</li>
+<li>Đọc và kiểm tra ref bằng các lệnh an toàn thay vì mở tệp trong <code>.git</code>.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Object ID dài 40 ký tự, không ai nhớ nổi. Vì vậy Git có <strong>ref</strong>: những cái tên dễ đọc, mỗi tên trỏ tới một object ID. Nhánh <code>main</code> thực chất là ref <code>refs/heads/main</code>, chứa ID của commit mới nhất trên nhánh. Tag <code>v1.0.0</code> là <code>refs/tags/v1.0.0</code>. Nhánh remote-tracking như <code>origin/main</code> là <code>refs/remotes/origin/main</code>.</p>
+<p>Nhánh rẻ đến bất ngờ: tạo nhánh chỉ là ghi thêm một ref, không chép tệp nào. Khi bạn commit trên nhánh, Git tạo commit mới rồi cập nhật ref của nhánh sang ID mới. Nhánh &quot;di chuyển&quot; theo commit.</p>
+<p><strong>HEAD</strong> đặc biệt hơn. Thông thường nó không chứa object ID mà chứa <strong>tên của một ref khác</strong>. Loại ref trỏ tới ref này gọi là <strong>symbolic ref</strong>. Khi bạn đứng trên nhánh <code>main</code>, tệp <code>.git/HEAD</code> chứa dòng <code>ref: refs/heads/main</code>. Mọi lệnh cần biết &quot;commit hiện tại&quot; sẽ đi theo chuỗi: HEAD trỏ tới <code>refs/heads/main</code>, <code>refs/heads/main</code> trỏ tới commit.</p>
+<p>Nhờ tầng gián tiếp này mà commit mới tự động cập nhật đúng nhánh: Git nhìn HEAD, thấy tên nhánh, rồi dời nhánh đó. Chuyển nhánh bằng <code>git switch</code> thực chất là đổi nội dung HEAD sang tên nhánh khác (và cập nhật working tree cho khớp).</p>
+<p>Khi bạn checkout thẳng một commit thay vì một nhánh, HEAD chứa trực tiếp object ID. Đây là trạng thái <strong>detached HEAD</strong>. Lúc này HEAD không còn là symbolic ref nữa; commit mới tạo ra sẽ không thuộc nhánh nào. Track hoàn tác có bài riêng về cách giữ lại những commit đó.</p>
+<p>Một số cú pháp tương đối dựa trên ref: <code>HEAD~1</code> (hoặc <code>HEAD^</code>) là commit cha của HEAD, <code>HEAD~2</code> là ông, <code>main~3</code> là commit cách đầu nhánh <code>main</code> ba bước.</p>
+<p>Về lưu trữ, ref có thể là tệp lẻ trong <code>.git/refs/</code> hoặc được gom vào <code>.git/packed-refs</code>. Vì thế đừng dựa vào việc đọc thẳng tệp; hãy hỏi Git.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  H[&quot;HEAD&quot;] --&gt;|&quot;symbolic ref&quot;| M[&quot;refs/heads/main&quot;]
+  M --&gt;|&quot;object ID&quot;| C2[&quot;commit cbef29e&quot;]
+  F[&quot;refs/heads/feature&quot;] --&gt;|&quot;object ID&quot;| C2
+  C2 --&gt;|&quot;parent&quot;| C1[&quot;commit 0b18b1e&quot;]</pre>
+<pre class="mermaid">stateDiagram-v2
+  state &quot;HEAD trỏ nhánh main&quot; as OnMain
+  state &quot;HEAD trỏ nhánh feature&quot; as OnFeature
+  state &quot;Detached HEAD: trỏ thẳng commit&quot; as Detached
+  OnMain --&gt; OnFeature: git switch feature
+  OnFeature --&gt; Detached: git switch --detach
+  Detached --&gt; OnMain: git switch main</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git symbolic-ref HEAD           # in tên ref mà HEAD trỏ tới
+git symbolic-ref --short HEAD   # dạng ngắn, ví dụ main
+git rev-parse HEAD              # object ID mà HEAD cuối cùng trỏ tới
+git rev-parse --abbrev-ref HEAD # tên nhánh hiện tại, hoặc HEAD nếu detached
+git branch --show-current       # tên nhánh hiện tại, trống nếu detached
+git show-ref --heads            # liệt kê ref nhánh và ID
+git for-each-ref --format=&quot;%(refname) %(objectname:short)&quot;
+git log --oneline --decorate    # thấy ref gắn vào commit nào</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Ref</th>
+<th>Tên đầy đủ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Nhánh local <code>main</code></td>
+<td><code>refs/heads/main</code></td>
+</tr>
+<tr>
+<td>Tag <code>v1.0.0</code></td>
+<td><code>refs/tags/v1.0.0</code></td>
+</tr>
+<tr>
+<td>Nhánh remote-tracking</td>
+<td><code>refs/remotes/origin/main</code></td>
+</tr>
+<tr>
+<td>HEAD</td>
+<td><code>HEAD</code> (thường là symbolic ref)</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Repository có hai commit trên <code>main</code>, và một nhánh <code>feature</code> vừa tạo.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git symbolic-ref HEAD
+cat .git/HEAD
+git rev-parse HEAD main refs/heads/main</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">refs/heads/main
+ref: refs/heads/main
+cbef29e895f0af6d2508d8cb0506075e7a743585
+cbef29e895f0af6d2508d8cb0506075e7a743585
+cbef29e895f0af6d2508d8cb0506075e7a743585</code></pre></div>
+<p>Ba cách gọi, cùng một commit. Hai nhánh cũng đang trỏ cùng chỗ:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git show-ref --heads
+git log --oneline --decorate -2</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">cbef29e895f0af6d2508d8cb0506075e7a743585 refs/heads/feature
+cbef29e895f0af6d2508d8cb0506075e7a743585 refs/heads/main
+cbef29e (HEAD -&gt; main, feature) Thêm bản sao
+0b18b1e Snapshot đầu</code></pre></div>
+<p><code>HEAD -&gt; main</code> trong output nghĩa là HEAD đang trỏ tới <code>main</code>. Thử vào trạng thái detached:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch --detach HEAD~1
+git symbolic-ref HEAD
+cat .git/HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">HEAD is now at 0b18b1e Snapshot đầu
+fatal: ref HEAD is not a symbolic ref
+0b18b1ecabc0cd223016dea71c91af3b7a5bdd72</code></pre></div>
+<p>HEAD giờ chứa thẳng object ID, nên <code>symbolic-ref</code> báo lỗi. Quay về nhánh:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git switch main
+git rev-parse --abbrev-ref HEAD</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">Previous HEAD position was 0b18b1e Snapshot đầu
+Switched to branch &#39;main&#39;
+main</code></pre></div>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Sửa tay <code>.git/HEAD</code> hoặc tệp ref.</strong> Một ký tự thừa có thể làm repository không mở được. Dùng <code>git switch</code>, <code>git branch</code>, <code>git update-ref</code> hoặc <code>git symbolic-ref</code> khi thật sự cần ghi.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Ghi bằng <code>git symbolic-ref HEAD &lt;ref&gt;</code> đổi nhánh hiện tại mà không cập nhật working tree hay index. Nó hữu ích cho công cụ, nhưng dùng tay dễ khiến status hiện đầy thay đổi lạ.</p>
+</aside>
+<p><strong>Tưởng nhánh chứa commit.</strong> Nhánh chỉ là con trỏ. Xóa nhánh không xóa ngay commit; tạo nhánh không chép commit.</p>
+<p><strong>Dùng <code>symbolic-ref</code> trong script mà không xử lý detached.</strong> Ở CI, repository thường được checkout ở detached HEAD, lệnh sẽ thất bại. Dùng <code>git rev-parse --abbrev-ref HEAD</code> hoặc kiểm tra mã thoát.</p>
+<p><strong>Đọc <code>.git/refs/heads/&lt;tên&gt;</code> và không thấy tệp.</strong> Ref có thể đã nằm trong <code>packed-refs</code>. <code>git show-ref</code> luôn cho kết quả đúng.</p>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Script chạy test hồi quy của nhóm cần ghi tên nhánh vào báo cáo. Trên máy dev, <code>git symbolic-ref --short HEAD</code> cho tên nhánh; nhưng trên CI, job checkout ở detached HEAD và lệnh lỗi. Bạn sửa script: thử <code>symbolic-ref</code>, nếu thất bại thì lấy biến môi trường của CI chứa tên nhánh, và luôn in kèm <code>git rev-parse --short HEAD</code> để báo cáo có commit chính xác.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Câu hỏi của bài hỏi lệnh nào cho bạn xem đích của một symbolic ref như HEAD. Trong repository bài tập, hãy thử các lệnh ở mục trên, so sánh output khi đang ở nhánh và khi ở detached HEAD, và để ý lệnh nào in ra tên ref chứ không phải object ID.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Nhớ quy tắc: lệnh nào trả lời &quot;HEAD đang đứng trên nhánh nào&quot; thì in tên ref; lệnh nào trả lời &quot;commit nào&quot; thì in object ID.</p>
+</aside>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Ref là tên trỏ tới object ID; nhánh là ref dưới <code>refs/heads/</code>.</li>
+<li>HEAD thường là symbolic ref, chứa tên nhánh hiện tại thay vì ID.</li>
+<li>Commit mới dời nhánh mà HEAD đang trỏ tới.</li>
+<li>Detached HEAD là khi HEAD chứa thẳng object ID.</li>
+<li>Hỏi Git bằng <code>symbolic-ref</code>, <code>rev-parse</code>, <code>show-ref</code> thay vì đọc tệp trong <code>.git</code>.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start foundations</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open head-and-refs
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../foundations/object-model.html" rel="prev"><small>Bài trước</small>Mô hình object</a><a class="next" href="../foundations/commit-message-anatomy.html" rel="next"><small>Bài sau</small>Thông điệp commit rõ nghĩa</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Nền tảng Git, bài 8/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["bin", "dist", "docs", "README.md", "LICENSE"],
+  "files": ["bin", "dist", "docs", "theory", "!theory/src", "!theory/examples", "!theory/build.mjs", "!theory/check.mjs", "!theory/lib.mjs", "!theory/vendor", "!theory/README.md", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",

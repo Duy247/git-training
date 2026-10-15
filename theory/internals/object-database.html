@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Kho lưu trữ object - Cấu trúc bên trong Git - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Cấu trúc bên trong Git</span><span class="badge" title="Vị trí bài trong track">Bài 2/11</span></p>
+<h1>Kho lưu trữ object</h1>
+<p class="meta">Track: Cấu trúc bên trong Git &middot; Mã bài: <code>object-database</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu Git là kho lưu trữ theo nội dung: object ID được tính từ nội dung.</li>
+<li>Tính object ID bằng <code>git hash-object</code> và tự kiểm chứng công thức.</li>
+<li>Đọc kiểu, kích thước, nội dung của object bằng <code>git cat-file</code>.</li>
+<li>Biết object nằm ở đâu trên đĩa và vì sao cùng nội dung luôn cho cùng ID.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bên dưới mọi lệnh Git là một cơ sở dữ liệu khóa và giá trị rất đơn giản. Giá trị là một object: một khối dữ liệu có kiểu (blob, tree, commit hoặc tag). Khóa là object ID, được tính bằng hàm băm trên chính nội dung object. Với repository mặc định, hàm băm là SHA-1, cho ID dài 40 ký tự hex (Git cũng hỗ trợ định dạng SHA-256 cho repository tạo mới với tùy chọn riêng).</p>
+<p>Cụ thể, Git ghép một tiêu đề nhỏ gồm kiểu object, dấu cách, kích thước theo byte, một byte 0, rồi nối nội dung vào sau, và băm toàn bộ chuỗi đó. Hệ quả rất mạnh:</p>
+<ul>
+<li><strong>Cùng nội dung, cùng ID.</strong> Hai tệp giống hệt nhau ở hai thư mục, hai commit, hay hai máy khác nhau đều cho cùng một blob. Git chỉ lưu một lần.</li>
+<li><strong>Đổi một byte, đổi ID.</strong> Không thể sửa lén nội dung mà giữ nguyên ID. Đây là nền tảng cho tính toàn vẹn của lịch sử.</li>
+<li><strong>ID không phụ thuộc tên tệp.</strong> Tên tệp nằm ở tree, không nằm trong blob.</li>
+</ul>
+<p>Trên đĩa, object rời được lưu dưới <code>.git/objects/</code>, tên thư mục là hai ký tự đầu của ID, tên tệp là 38 ký tự còn lại. Nội dung tệp là chuỗi tiêu đề cộng nội dung, đã nén bằng zlib. Khi repository lớn dần, Git gom object vào packfile (bài sau), nhưng ID không đổi.</p>
+<p>Vì ID là hàm của nội dung, object là bất biến: không có thao tác &quot;sửa object&quot;. Khi bạn amend một commit, Git tạo commit mới với ID mới; commit cũ vẫn còn trong kho cho tới khi được dọn.</p>
+<p>Để làm việc trực tiếp với kho object, Git có các lệnh plumbing: <code>git hash-object</code> tính ID (và với <code>-w</code>, ghi object vào kho), <code>git cat-file</code> đọc object theo ID.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  N[&quot;Nội dung: xin chào và xuống dòng&quot;] --&gt; H[&quot;Ghép tiêu đề: blob, kích thước, byte 0&quot;]
+  H --&gt; S[&quot;Băm SHA-1&quot;]
+  S --&gt; ID[&quot;ID ec3a548...&quot;]
+  H --&gt; Z[&quot;Nén zlib&quot;]
+  Z --&gt; F[&quot;.git/objects/ec/3a548...&quot;]
+  ID --&gt;|&quot;2 ký tự đầu là thư mục&quot;| F</pre>
+<pre class="mermaid">flowchart LR
+  A[&quot;a.txt ở repository 1&quot;] --&gt; B[&quot;Blob ec3a548&quot;]
+  C[&quot;a.txt ở repository 2&quot;] --&gt; B
+  D[&quot;copy.txt cùng nội dung&quot;] --&gt; B</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash"># Tính ID của nội dung (không ghi vào kho)
+echo &#39;Bài tập Git&#39; | git hash-object --stdin
+git hash-object README.md
+
+# Tính ID và ghi object vào kho
+printf &#39;xin chào\n&#39; | git hash-object -w --stdin
+
+# Kiểu, kích thước, nội dung của object
+git cat-file -t &lt;id&gt;
+git cat-file -s &lt;id&gt;
+git cat-file -p &lt;id&gt;
+
+# ID của tệp trong một commit
+git rev-parse HEAD:README.md
+
+# Định dạng băm của repository
+git rev-parse --show-object-format</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Lệnh</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hash-object</code></td>
+<td>Tính ID, <code>-w</code> để ghi</td>
+</tr>
+<tr>
+<td><code>cat-file -t</code></td>
+<td>Kiểu object</td>
+</tr>
+<tr>
+<td><code>cat-file -s</code></td>
+<td>Kích thước nội dung</td>
+</tr>
+<tr>
+<td><code>cat-file -p</code></td>
+<td>In nội dung dễ đọc</td>
+</tr>
+<tr>
+<td><code>rev-parse &lt;commit&gt;:&lt;đường dẫn&gt;</code></td>
+<td>ID của blob hoặc tree tại đường dẫn</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Tệp <code>README.md</code> chứa dòng &quot;Bài tập Git&quot;. Tính ID theo ba cách:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">echo &#39;Bài tập Git&#39; | git hash-object --stdin
+git hash-object README.md
+git rev-parse HEAD:README.md</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">3f01b4f03f3a2193f92a57add2627ce240056f0f
+3f01b4f03f3a2193f92a57add2627ce240056f0f
+3f01b4f03f3a2193f92a57add2627ce240056f0f</code></pre></div>
+<p>Ba cách, một ID, vì nội dung giống nhau. Bạn chạy trên máy mình cũng sẽ ra đúng ID này. Ghi một object mới và đọc lại:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">printf &#39;xin chào\n&#39; | git hash-object -w --stdin
+git cat-file -t ec3a548
+git cat-file -s ec3a548
+git cat-file -p ec3a548
+ls .git/objects/ec</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ec3a548daee38db20fda5d6e6983755ee11e96af
+blob
+10
+xin chào
+3a548daee38db20fda5d6e6983755ee11e96af</code></pre></div>
+<p>Kích thước là 10 byte chứ không phải 9, vì chữ &quot;à&quot; chiếm hai byte trong UTF-8. Giờ tự kiểm chứng công thức bằng <code>sha1sum</code>, ghép tiêu đề thủ công:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">printf &#39;blob 10\0xin chào\n&#39; | sha1sum</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ec3a548daee38db20fda5d6e6983755ee11e96af  -</code></pre></div>
+<p>Khớp từng ký tự. Giải nén tệp object để thấy đúng chuỗi đã băm:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">python3 -c &quot;import zlib,sys;print(zlib.decompress(open(&#39;.git/objects/&#39;+sys.argv[1][:2]+&#39;/&#39;+sys.argv[1][2:],&#39;rb&#39;).read()))&quot; ec3a548daee38db20fda5d6e6983755ee11e96af</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">b&#39;blob 10\x00xin ch\xc3\xa0o\n&#39;</code></pre></div>
+<p>Ở một repository khác hoàn toàn, tệp <code>a.txt</code> cùng nội dung cũng cho đúng ID đó:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git hash-object a.txt</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">ec3a548daee38db20fda5d6e6983755ee11e96af</code></pre></div>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Có thể dùng ID rút gọn (ví dụ 7 ký tự) miễn là không trùng với object khác trong repository. Trong script, dùng ID đầy đủ cho chắc.</p>
+</aside>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Nghĩ rằng đổi tên tệp tạo blob mới.</strong> Không. Tên nằm trong tree; blob giữ nguyên nếu nội dung giữ nguyên.</p>
+<p><strong>Ngạc nhiên vì ID khác nhau giữa hai máy cho &quot;cùng&quot; tệp.</strong> Thường do khác ký tự xuống dòng (CRLF và LF) hoặc khoảng trắng cuối tệp. Một byte khác là một ID khác.</p>
+<p><strong>Dùng <code>hash-object</code> mà quên <code>-w</code> rồi tìm không thấy object.</strong> Không có <code>-w</code>, Git chỉ tính ID, không ghi.</p>
+<p><strong>Sửa tay tệp trong <code>.git/objects</code>.</strong> Nội dung không còn khớp ID, <code>git fsck</code> sẽ báo hỏng. Đừng làm điều này ngoài thư mục thử nghiệm.</p>
+<aside class="callout note"><p class="callout-title">Lưu ý</p>
+<p>Commit có ID khác nhau giữa các máy dù cùng thay đổi, vì nội dung commit chứa tên, email và thời gian. Chỉ blob và tree mới thường trùng ID giữa các máy.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bộ test của bạn dùng một tệp dữ liệu mẫu <code>accounts.csv</code> dùng chung ở ba thư mục test khác nhau. Một đồng nghiệp lo rằng repository sẽ phình vì ba bản copy. Bạn chạy <code>git hash-object</code> trên ba tệp, thấy cùng một ID, và giải thích rằng Git chỉ lưu một blob. Khi một bản bị sửa lệch, ID khác đi, và bạn biết ngay thư mục nào đang dùng dữ liệu khác.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Đây là bài trả lời câu hỏi. Câu hỏi hỏi thư mục nào dưới <code>.git</code> chứa object. Hãy ôn lại phần nói về vị trí object trên đĩa.</p>
+<p>Nếu muốn thử, chạy <code>git hash-object -w</code> với một chuỗi bất kỳ trong repository bài tập, rồi tìm tệp tương ứng theo quy tắc hai ký tự đầu.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li>Git là kho lưu trữ theo nội dung: ID là hàm băm của kiểu, kích thước và nội dung.</li>
+<li>Cùng nội dung luôn cho cùng ID; đổi một byte là đổi ID.</li>
+<li>Object rời nằm trong <code>.git/objects/</code> theo quy tắc hai ký tự đầu của ID, nén zlib.</li>
+<li><code>git hash-object</code> tính và ghi object; <code>git cat-file</code> đọc object.</li>
+<li>Object bất biến; sửa đổi luôn tạo object mới.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start internals</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open object-database
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../internals/git-directory.html" rel="prev"><small>Bài trước</small>Thư mục .git</a><a class="next" href="../internals/blobs-trees-commits.html" rel="next"><small>Bài sau</small>Đồ thị blob, tree, commit</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Cấu trúc bên trong Git, bài 2/11</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

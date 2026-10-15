@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Pickaxe chuyên sâu - Quan sát và truy lỗi - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Quan sát và truy lỗi</span><span class="badge" title="Vị trí bài trong track">Bài 8/10</span></p>
+<h1>Pickaxe chuyên sâu</h1>
+<p class="meta">Track: Quan sát và truy lỗi &middot; Mã bài: <code>pickaxe-detail</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu chính xác điều kiện khớp của <code>-S</code>: số lần xuất hiện thay đổi.</li>
+<li>Hiểu <code>-G</code>: có dòng thêm hoặc bớt trong diff khớp biểu thức chính quy.</li>
+<li>Thấy bằng ví dụ thật khi nào hai cách cho kết quả khác nhau.</li>
+<li>Biết tương tác giữa pickaxe, giới hạn đường dẫn và đổi tên tệp.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bài trước đã dùng <code>git log -S</code> để tìm commit thêm hoặc xóa một chuỗi. Bài này mổ xẻ cách nó quyết định, vì hiểu sai một chi tiết nhỏ có thể khiến bạn bỏ sót đúng commit cần tìm.</p>
+<p><strong><code>-S &lt;chuỗi&gt;</code></strong> đếm số lần chuỗi xuất hiện trong tệp <strong>trước</strong> và <strong>sau</strong> commit. Commit chỉ khớp khi hai con số <strong>khác nhau</strong>. Hệ quả:</p>
+<ul>
+<li>Commit thêm chuỗi lần đầu: khớp (0 thành 1).</li>
+<li>Commit xóa chuỗi: khớp (1 thành 0).</li>
+<li>Commit sửa dòng chứa chuỗi nhưng chuỗi vẫn còn đúng một lần: <strong>không khớp</strong>. Ví dụ đổi <code>timeout=30</code> thành <code>timeout=60</code> không làm đổi số lần xuất hiện của chữ <code>timeout</code>.</li>
+<li>Commit chỉ di chuyển dòng chứa chuỗi sang chỗ khác trong tệp: không khớp.</li>
+</ul>
+<p>Vì vậy <code>-S</code> cực hợp cho câu hỏi &quot;chuỗi này <strong>xuất hiện hay biến mất</strong> khi nào&quot;, ví dụ một tên hàm, một khóa cấu hình, một token. Thêm <code>--pickaxe-regex</code> thì chuỗi được hiểu là biểu thức chính quy, nhưng nguyên tắc so sánh số lần vẫn giữ nguyên.</p>
+<p><strong><code>-G &lt;regex&gt;</code></strong> hỏi câu khác: diff của commit có <strong>dòng thêm hoặc bớt nào khớp regex</strong> không? Nó nhìn vào các dòng có dấu <code>+</code> hoặc <code>-</code> trong patch. Đổi <code>timeout=30</code> thành <code>timeout=60</code> tạo một dòng <code>-timeout=30</code> và một dòng <code>+timeout=60</code>, nên <code>-G timeout</code> khớp. Di chuyển một dòng cũng tạo dòng <code>+</code>/<code>-</code>, nên cũng khớp.</p>
+<p>Tóm lại: <code>-S</code> quan tâm <strong>số lượng</strong>, <code>-G</code> quan tâm <strong>dòng thay đổi</strong>. <code>-G</code> thường cho nhiều kết quả hơn; <code>-S</code> cho ít kết quả hơn nhưng trúng đích hơn khi bạn tìm lúc một thứ được thêm vào hay bỏ đi.</p>
+<p><strong>Kết hợp với đường dẫn.</strong> Khi giới hạn <code>-- &lt;tệp&gt;</code>, pickaxe chỉ nhìn tệp đó. Nếu tệp được đổi tên, commit đổi tên trông như &quot;tệp mới xuất hiện cùng toàn bộ nội dung&quot;, nên có thể bị liệt kê là đã &quot;thêm&quot; chuỗi. Đọc diff bằng <code>-p</code> hoặc dùng <code>--follow</code> để tránh hiểu nhầm.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart TD
+  C[&quot;Một commit&quot;] --&gt; S{&quot;-S: số lần xuất hiện trước và sau có khác?&quot;}
+  C --&gt; G{&quot;-G: có dòng thêm hoặc bớt khớp regex?&quot;}
+  S --&gt;|&quot;Khác&quot;| S1[&quot;Khớp: thêm hoặc xóa chuỗi&quot;]
+  S --&gt;|&quot;Bằng nhau&quot;| S2[&quot;Không khớp, kể cả khi sửa dòng đó&quot;]
+  G --&gt;|&quot;Có&quot;| G1[&quot;Khớp: mọi sửa đổi chạm dòng khớp&quot;]
+  G --&gt;|&quot;Không&quot;| G2[&quot;Không khớp&quot;]</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S &lt;chuỗi&gt; --oneline                 # số lần xuất hiện thay đổi
+git log -S &lt;regex&gt; --pickaxe-regex --oneline # như trên, chuỗi là regex
+git log -G &lt;regex&gt; --oneline                 # dòng diff khớp regex
+git log -S &lt;chuỗi&gt; -p                        # kèm diff để thấy + hay -
+git log -S &lt;chuỗi&gt; --pickaxe-all -p          # hiện toàn bộ diff của commit khớp
+git log -S &lt;chuỗi&gt; --oneline -- &lt;tệp&gt;        # giới hạn tệp
+git log -G &lt;regex&gt; --reverse --oneline       # cũ nhất trước</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><code>-S</code></th>
+<th><code>-G</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Đối tượng</td>
+<td>Số lần xuất hiện trong tệp</td>
+<td>Dòng thêm, bớt trong diff</td>
+</tr>
+<tr>
+<td>Sửa dòng nhưng giữ chuỗi</td>
+<td>Không khớp</td>
+<td>Khớp</td>
+</tr>
+<tr>
+<td>Di chuyển dòng</td>
+<td>Không khớp</td>
+<td>Khớp</td>
+</tr>
+<tr>
+<td>Thêm, xóa chuỗi</td>
+<td>Khớp</td>
+<td>Khớp</td>
+</tr>
+<tr>
+<td>Mặc định là</td>
+<td>Chuỗi cố định</td>
+<td>Regex</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Trong repository mẫu, dòng timeout được tạo với <code>30</code>, đổi thành <code>60</code>, rồi thành <code>5</code>. Hỏi bằng <code>-S</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S timeout --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">c48be0e Tạo cấu hình</code></pre></div>
+<p>Chỉ một commit: chữ <code>timeout</code> xuất hiện từ 0 lần thành 1 lần đúng một lần duy nhất. Hai lần đổi giá trị không đổi số lần. Hỏi bằng <code>-G</code>:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -G timeout --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">409d8ac Giảm timeout cho nhanh
+a6a4f2b Tăng timeout
+c48be0e Tạo cấu hình</code></pre></div>
+<p>Ba commit, vì cả ba đều có dòng <code>+</code> hoặc <code>-</code> chứa <code>timeout</code>. Regex chính xác hơn, chỉ bắt giá trị một chữ số:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -G &quot;^timeout=[0-9]$&quot; --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">409d8ac Giảm timeout cho nhanh</code></pre></div>
+<p>Với chuỗi thật sự được thêm rồi xóa, hai cách cho cùng kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S API_KEY_DEMO --oneline
+git log -G API_KEY --oneline</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+b622b70 Thêm khóa demo
+eedf5e9 Xóa khóa demo
+b622b70 Thêm khóa demo</code></pre></div>
+<p>Bẫy đường dẫn khi tệp đã đổi tên:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log -S API_KEY_DEMO --oneline -- conf/app.conf</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">eedf5e9 Xóa khóa demo
+54d864d Chuyển cấu hình vào conf</code></pre></div>
+<p>Commit đổi tên xuất hiện, vì chỉ nhìn <code>conf/app.conf</code> thì đó là lúc tệp (và chuỗi) &quot;xuất hiện&quot;. Commit thêm thật sự nằm ở tên cũ.</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Dùng <code>-S</code> để tìm lần đổi giá trị.</strong> Như ví dụ timeout, bạn sẽ không thấy commit đổi giá trị. Dùng <code>-G</code> hoặc tìm chính giá trị (<code>-S timeout=5</code>).</p>
+<p><strong>Quên <code>-G</code> là regex.</strong> Dấu chấm, dấu sao, ngoặc có nghĩa đặc biệt. Escape khi cần, và đặt mẫu trong ngoặc kép.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Pickaxe với giới hạn đường dẫn có thể chỉ vào commit đổi tên thay vì commit thực sự thêm chuỗi. Luôn xem diff bằng <code>-p</code> trước khi kết luận.</p>
+</aside>
+<p><strong><code>-G</code> quá rộng.</strong> Mẫu ngắn như <code>id</code> khớp vô số dòng. Thu hẹp bằng neo <code>^</code>, <code>$</code>, hoặc giới hạn đường dẫn.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Với câu hỏi &quot;lần đầu tiên chuỗi được thêm&quot;, kết hợp <code>-S</code>, <code>--reverse</code> và đọc dòng <code>+</code> trong <code>-p</code>.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Test giao diện bắt đầu fail vì selector <code>data-test=&quot;btn-transfer&quot;</code> không còn trên trang. <code>git log -S &#39;btn-transfer&#39;</code> cho thấy commit đã xóa thuộc tính đó. Nhưng bạn còn muốn biết ai đã đổi giá trị của các thuộc tính <code>data-test</code> trong tháng: <code>git log -G &#39;data-test=&quot;[a-z-]+&quot;&#39; -- src/ui/</code> liệt kê mọi commit chạm vào những dòng đó, kể cả khi chỉ đổi tên selector.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có <code>app.txt</code> với vài commit; một chuỗi mẫu được thêm vào ở một thời điểm. Câu hỏi yêu cầu subject của commit đã thêm chuỗi đó. Hãy:</p>
+<ul>
+<li>Thử cả <code>-S</code> và <code>-G</code> với chuỗi đề cho, so sánh hai danh sách.</li>
+<li>Dùng <code>-p</code> để xác nhận commit có dòng <code>+</code> chứa chuỗi.</li>
+<li>Nghĩ xem tình huống nào khiến hai cách cho kết quả khác nhau.</li>
+</ul>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>-S</code> khớp khi số lần xuất hiện của chuỗi thay đổi.</li>
+<li><code>-G</code> khớp khi có dòng thêm hoặc bớt trong diff khớp regex.</li>
+<li>Sửa dòng mà giữ chuỗi: <code>-S</code> bỏ qua, <code>-G</code> bắt được.</li>
+<li>Giới hạn đường dẫn và đổi tên có thể làm commit đổi tên hiện như commit thêm.</li>
+<li>Luôn xác nhận bằng diff trước khi kết luận.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start inspection</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open pickaxe-detail
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../inspection/file-history-renames.html" rel="prev"><small>Bài trước</small>Theo lịch sử qua đổi tên</a><a class="next" href="../inspection/diff-strategies.html" rel="next"><small>Bài sau</small>Các cách xem diff</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Quan sát và truy lỗi, bài 8/10</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>

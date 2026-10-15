@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sửa commit cuối - Hoàn tác và cứu hộ - git-training</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/theory.css">
+</head>
+<body>
+<a class="skip-link" href="#noi-dung">Chuyển đến nội dung</a>
+<header class="site-header"><div class="wrap">
+<p class="crumbs"><a href="../index.html">Mục lục bài học</a><span aria-hidden="true">/</span><span class="track-name">Hoàn tác và cứu hộ</span><span class="badge" title="Vị trí bài trong track">Bài 5/12</span></p>
+<h1>Sửa commit cuối</h1>
+<p class="meta">Track: Hoàn tác và cứu hộ &middot; Mã bài: <code>amending-commits</code> &middot; Đọc khoảng 5 phút</p>
+</div></header>
+<main id="noi-dung" tabindex="-1">
+<div class="wrap">
+<nav class="toc" aria-label="Mục lục"><p class="toc-title">Nội dung trang</p><ol><li><a href="#ban-se-hoc-duoc-gi">Bạn sẽ học được gì</a></li><li><a href="#khai-niem">Khái niệm</a></li><li><a href="#hinh-dung-bang-so-do">Hình dung bằng sơ đồ</a></li><li><a href="#lenh-can-biet">Lệnh cần biết</a></li><li><a href="#vi-du-tung-buoc">Ví dụ từng bước</a></li><li><a href="#loi-thuong-gap">Lỗi thường gặp</a></li><li><a href="#ap-dung-trong-cong-viec">Áp dụng trong công việc</a></li><li><a href="#chuan-bi-lam-bai">Chuẩn bị làm bài</a></li><li><a href="#tom-tat">Tóm tắt</a></li></ol></nav>
+<article class="content">
+<h2 id="ban-se-hoc-duoc-gi">Bạn sẽ học được gì</h2>
+<ul>
+<li>Hiểu <code>git commit --amend</code> thật ra làm gì với commit cuối.</li>
+<li>Bổ sung tệp quên stage vào commit vừa tạo mà không sinh commit mới.</li>
+<li>Biết vì sao amend một commit đã push gây rắc rối, và cách xử lý.</li>
+<li>Hoàn tác một lần amend nhầm bằng reflog.</li>
+</ul>
+<h2 id="khai-niem">Khái niệm</h2>
+<p>Bạn vừa commit &quot;Cập nhật báo cáo test&quot; thì nhận ra quên một tệp dữ liệu đi kèm. Tạo thêm commit &quot;Quên thêm tệp&quot; thì lịch sử lộn xộn; điều bạn muốn là commit vừa rồi <strong>giống như đã có tệp đó từ đầu</strong>. Đó là việc của <code>git commit --amend</code>.</p>
+<p>Điều quan trọng cần hiểu: commit trong Git <strong>không thể sửa</strong>. Hash của commit được tính từ nội dung của nó (tree, parent, tác giả, thời gian, message), nên đổi bất cứ gì cũng ra hash khác. Vì vậy amend không &quot;sửa&quot; commit cũ. Nó:</p>
+<ol>
+<li>Lấy index hiện tại (gồm cả những gì bạn vừa stage thêm) làm tree mới.</li>
+<li>Tạo một commit <strong>mới</strong> có cùng parent với commit cuối.</li>
+<li>Dời nhánh sang commit mới. Commit cũ không còn được nhánh trỏ tới, nhưng vẫn nằm trong reflog một thời gian.</li>
+</ol>
+<p>Kết quả: số commit trên nhánh không đổi, nhưng hash commit cuối thay đổi. Mặc định, Git mở editor để bạn xem lại message; <code>--no-edit</code> giữ nguyên message cũ, <code>-m &quot;...&quot;</code> thay message mới. Tác giả và ngày tác giả (author date) được giữ theo commit gốc, còn committer date là thời điểm amend. Output của amend in thêm dòng <code>Date:</code> để nhắc bạn rằng ngày tác giả lấy từ commit cũ.</p>
+<p>Vì hash đổi, amend là <strong>viết lại lịch sử</strong>. Nếu commit cũ đã được push và người khác đã dựa trên nó, nhánh của bạn và remote sẽ phân kỳ: remote có commit cũ, bạn có commit mới thay thế. Push bình thường sẽ bị từ chối, và muốn đẩy lên thì phải force push, ảnh hưởng tới đồng nghiệp. Quy tắc an toàn: <strong>chỉ amend commit chưa chia sẻ</strong>. Nếu đã push lên một nhánh chung, hãy tạo commit bổ sung.</p>
+<h2 id="hinh-dung-bang-so-do">Hình dung bằng sơ đồ</h2>
+<pre class="mermaid">flowchart LR
+  P[&quot;e5f03a5 Khởi tạo&quot;] --&gt; O[&quot;d921dd4 Cập nhật báo cáo test&quot;]
+  P --&gt; N[&quot;1ce65dd Cập nhật báo cáo test + data.txt&quot;]
+  M[&quot;main&quot;] -. &quot;sau amend&quot; .-&gt; N
+  R[&quot;reflog HEAD@{1}&quot;] -.-&gt; O</pre>
+<pre class="mermaid">sequenceDiagram
+  participant W as Working tree
+  participant I as Index
+  participant C as Commit cuối
+  W-&gt;&gt;I: git add tệp quên
+  I-&gt;&gt;C: git commit --amend
+  Note over C: Commit mới thay thế, cùng parent, hash khác</pre>
+<h2 id="lenh-can-biet">Lệnh cần biết</h2>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add &lt;tệp&gt;                 # stage phần cần bổ sung
+git commit --amend            # tạo commit thay thế, mở editor cho message
+git commit --amend --no-edit  # giữ nguyên message
+git commit --amend -m &quot;...&quot;   # đổi luôn message
+git commit --amend --reset-author --no-edit   # cập nhật tác giả và ngày theo cấu hình hiện tại
+git reset --soft HEAD@{1}     # hoàn tác lần amend, giữ thay đổi trong index</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tình huống</th>
+<th>Nên làm</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Commit chưa push, quên tệp</td>
+<td>Stage rồi amend</td>
+</tr>
+<tr>
+<td>Commit đã push lên nhánh cá nhân</td>
+<td>Amend được, nhưng phải force push có kiểm soát</td>
+</tr>
+<tr>
+<td>Commit đã push lên nhánh chung</td>
+<td>Tạo commit bổ sung, không amend</td>
+</tr>
+<tr>
+<td>Muốn sửa commit cũ hơn commit cuối</td>
+<td>Dùng rebase tương tác, không phải amend</td>
+</tr>
+</tbody></table></div>
+<h2 id="vi-du-tung-buoc">Ví dụ từng bước</h2>
+<p>Trạng thái ban đầu: commit cuối đã có, tệp <code>data.txt</code> bị quên.</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline
+git status -s</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">d921dd4 Cập nhật báo cáo test
+e5f03a5 Khởi tạo
+?? data.txt</code></pre></div>
+<p>Stage tệp và amend, giữ nguyên message:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git add data.txt
+git commit --amend --no-edit</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">[main 1ce65dd] Cập nhật báo cáo test
+ Date: Thu Oct 15 09:00:00 2026 +0700
+ 2 files changed, 2 insertions(+)
+ create mode 100644 data.txt</code></pre></div>
+<p>Vẫn hai commit, nhưng commit cuối đã có hash mới và chứa cả hai tệp:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git log --oneline --stat -1</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1ce65dd Cập nhật báo cáo test
+ bao-cao.txt | 1 +
+ data.txt    | 1 +
+ 2 files changed, 2 insertions(+)</code></pre></div>
+<p>Reflog cho thấy commit cũ vẫn được ghi nhận, và bạn có thể so sánh hai bản:</p>
+<div class="code-block" data-lang="bash"><pre><code class="language-bash">git reflog -3
+git diff HEAD@{1} HEAD --stat</code></pre></div>
+<div class="code-block" data-lang="text"><pre><code class="language-text">1ce65dd HEAD@{0}: commit (amend): Cập nhật báo cáo test
+d921dd4 HEAD@{1}: commit: Cập nhật báo cáo test
+e5f03a5 HEAD@{2}: commit (initial): Khởi tạo
+ data.txt | 1 +
+ 1 file changed, 1 insertion(+)</code></pre></div>
+<p>Nếu commit đã push trước khi amend, push tiếp theo sẽ bị từ chối (output rút gọn từ một repo thử khác):</p>
+<div class="code-block" data-lang="text"><pre><code class="language-text">## main...origin/main [ahead 1, behind 1]
+ ! [rejected]        main -&gt; main (non-fast-forward)
+error: failed to push some refs to &#39;/tmp/gt/u7/o.git&#39;</code></pre></div>
+<p><code>ahead 1, behind 1</code> nghĩa là bạn có một commit remote không có (bản amend), và remote có một commit bạn đã thay thế (bản gốc).</p>
+<h2 id="loi-thuong-gap">Lỗi thường gặp</h2>
+<p><strong>Amend khi chưa stage.</strong> Chạy <code>--amend</code> mà quên <code>git add</code> thì commit mới chỉ khác hash, không có tệp bổ sung. Xem <code>git status</code> trước.</p>
+<p><strong>Vô tình đưa tệp khác vào.</strong> Amend dùng toàn bộ index. Nếu bạn đã stage sẵn một tệp không liên quan, nó cũng vào commit. Kiểm tra <code>git diff --staged</code>.</p>
+<aside class="callout warn"><p class="callout-title">Cẩn thận</p>
+<p>Đừng amend commit đã có trên nhánh chung. Đồng nghiệp đã kéo commit cũ sẽ gặp lịch sử phân kỳ, và một force push vội có thể xóa công việc của họ.</p>
+</aside>
+<p><strong>Nghe theo hint &quot;git pull&quot; sau khi amend commit đã push.</strong> Pull sẽ merge commit gốc với bản amend, sinh lịch sử trùng lặp. Hoặc chấp nhận force push có kiểm soát trên nhánh cá nhân, hoặc hoàn tác amend và tạo commit bổ sung.</p>
+<aside class="callout tip"><p class="callout-title">Mẹo</p>
+<p>Amend nhầm? <code>git reset --soft HEAD@{1}</code> đưa nhánh về commit trước khi amend và giữ thay đổi trong index, để bạn commit lại theo cách khác.</p>
+</aside>
+<h2 id="ap-dung-trong-cong-viec">Áp dụng trong công việc</h2>
+<p>Bạn viết test cho luồng chuyển khoản liên ngân hàng, commit xong mới thấy quên tệp dữ liệu mẫu số tài khoản (giả lập). Nhánh <code>test/chuyen-khoan</code> chưa push, nên bạn stage tệp và amend với <code>--no-edit</code>. Reviewer sẽ thấy một commit gọn chứa đủ test và dữ liệu, thay vì hai commit mà commit sau chỉ là &quot;quên tệp&quot;.</p>
+<h2 id="chuan-bi-lam-bai">Chuẩn bị làm bài</h2>
+<p>Repository bài tập có một commit cuối và một tệp chưa được đưa vào commit đó. Yêu cầu là tệp phải nằm trong commit cuối mà tổng số commit không tăng. Hãy kiểm tra <code>git status</code> và <code>git log --oneline</code> trước và sau để chắc số commit giữ nguyên, rồi xác nhận working tree sạch.</p>
+<h2 id="tom-tat">Tóm tắt</h2>
+<ul>
+<li><code>--amend</code> tạo commit mới thay commit cuối, cùng parent, khác hash.</li>
+<li>Stage phần bổ sung trước, rồi amend; <code>--no-edit</code> giữ message.</li>
+<li>Commit gốc vẫn trong reflog; <code>git reset --soft HEAD@{1}</code> hoàn tác lần amend.</li>
+<li>Chỉ amend commit chưa chia sẻ; nhánh chung thì tạo commit bổ sung.</li>
+<li>Sửa commit cũ hơn cần rebase tương tác, không phải amend.</li>
+</ul>
+<aside class="callout ready" aria-labelledby="san-sang"><p class="callout-title" id="san-sang">Sẵn sàng làm bài</p>
+<p>Mở bài thực hành này trong git-training. Nếu chưa có phiên cho track này, bắt đầu track trước:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training start undo</code></pre></div>
+<p>Đến bài này (bài đã mở khóa) thì mở lại bằng mã bài, rồi kiểm tra kết quả:</p>
+<div class="code-block" data-lang="bash"><pre><code>git-training open amending-commits
+git-training check</code></pre></div>
+<p>Bài đầu tiên của track mở sẵn ngay sau <code>start</code>. Bài sau mở khóa khi bài trước đạt.</p></aside>
+</article>
+<nav class="pager" aria-label="Chuyển bài"><a class="prev" href="../undo/reflog.html" rel="prev"><small>Bài trước</small>Nhật ký di chuyển ref</a><a class="next" href="../undo/recovering-lost-commits.html" rel="next"><small>Bài sau</small>Cứu commit thất lạc</a></nav>
+<p class="back"><a href="../index.html">Về mục lục tất cả bài học</a></p>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap">git-training &middot; Lý thuyết tiếng Việt &middot; Hoàn tác và cứu hộ, bài 5/12</div></footer>
+<script src="../assets/mermaid.min.js"></script>
+<script src="../assets/theory.js"></script>
+</body>
+</html>
