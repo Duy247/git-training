@@ -185,29 +185,45 @@ test('WSL: wslview thiếu thì thử rundll32.exe với đường dẫn Windows
   assert.deepEqual(calls.map(c => c.command), ['wslview', 'rundll32.exe']);
 });
 
+function cliHarness(home, bin) {
+  return (args, env = {}) => spawnSync(process.execPath, [path.resolve('bin', 'git-training.cjs'), ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, GIT_TRAINING_HOME: path.join(home, 'state'), GIT_TRAINING_NO_BROWSER: '', CI: '', NODE_ENV: '', PATH: `${bin}${path.delimiter}${process.env.PATH}`, DISPLAY: ':0', ...env },
+  });
+}
+
 test('CLI: --no-browser được chấp nhận ở mọi vị trí và không phá kiểm tra đối số', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'git-training-theory-'));
+  const bin = path.join(home, 'bin');
+  await mkdir(bin);
+  const run = cliHarness(home, bin);
+  try {
+    const flagged = run(['start', '--no-browser', 'foundations', '--dir', path.join(home, 'w1')]);
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.match(flagged.stdout, /Bài lý thuyết: .*repository-init\.html/);
+    const combos = run(['start', 'foundations', '--no-browser', '--dir', path.join(home, 'w2')]);
+    assert.equal(combos.status, 0, combos.stderr);
+    const trailing = run(['start', 'foundations', '--dir', path.join(home, 'w3'), '--no-browser']);
+    assert.equal(trailing.status, 0, trailing.stderr);
+    assert.match(run(['status', '--no-browser']).stderr, /không nhận đối số/);
+    assert.match(run(['open', 'a', 'b', '--no-browser']).stderr, /chỉ nhận một mã bài/);
+    const suppressed = run(['open', 'repository-init'], { GIT_TRAINING_NO_BROWSER: '1' });
+    assert.match(suppressed.stdout, /Bài lý thuyết: /);
+  } finally { await rm(home, { recursive: true, force: true }); }
+});
+
+// Trình mở giả là script shell tên xdg-open nên chỉ chạy được trên Linux; macOS dùng open, Windows dùng rundll32.
+test('CLI: mở đúng tệp lý thuyết bằng xdg-open giả (chỉ Linux)', { skip: process.platform !== 'linux' }, async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), 'git-training-theory-'));
   const bin = path.join(home, 'bin');
   const log = path.join(home, 'opened.log');
   await mkdir(bin);
   await writeFile(path.join(bin, 'xdg-open'), `#!/bin/sh\necho "$@" >> "${log}"\n`);
   await chmod(path.join(bin, 'xdg-open'), 0o755);
-  const run = (args, env = {}) => spawnSync(process.execPath, [path.resolve('bin', 'git-training.cjs'), ...args], {
-    encoding: 'utf8',
-    env: { ...process.env, GIT_TRAINING_HOME: path.join(home, 'state'), GIT_TRAINING_NO_BROWSER: '', CI: '', NODE_ENV: '', PATH: `${bin}:${process.env.PATH}`, DISPLAY: ':0', ...env },
-  });
+  const run = cliHarness(home, bin);
   try {
-    const flagged = run(['start', '--no-browser', 'foundations', '--dir', path.join(home, 'w1')]);
-    assert.equal(flagged.status, 0, flagged.stderr);
-    assert.match(flagged.stdout, /Bài lý thuyết: .*repository-init\.html/);
+    assert.equal(run(['start', 'foundations', '--no-browser', '--dir', path.join(home, 'w1')]).status, 0);
     assert.equal(existsSync(log), false);
-    const combos = run(['start', 'foundations', '--no-browser', '--dir', path.join(home, 'w2')]);
-    assert.equal(combos.status, 0, combos.stderr);
-    const trailing = run(['start', 'foundations', '--dir', path.join(home, 'w3'), '--no-browser']);
-    assert.equal(trailing.status, 0, trailing.stderr);
-    assert.equal(existsSync(log), false);
-    assert.match(run(['status', '--no-browser']).stderr, /không nhận đối số/);
-    assert.match(run(['open', 'a', 'b', '--no-browser']).stderr, /chỉ nhận một mã bài/);
     // status không mở trình duyệt, start mở đúng tệp
     assert.equal(run(['status']).status, 0);
     assert.equal(existsSync(log), false);
@@ -215,8 +231,6 @@ test('CLI: --no-browser được chấp nhận ở mọi vị trí và không ph
     assert.equal(opened.status, 0, opened.stderr);
     assert.match(opened.stdout, /Đã mở bài lý thuyết trong trình duyệt: .*repository-init\.html/);
     assert.equal((await readFile(log, 'utf8')).trim(), theoryPagePath('foundations', 'repository-init'));
-    const headless = run(['status'], { DISPLAY: '' });
-    assert.equal(headless.status, 0);
     const suppressed = run(['open', 'repository-init'], { GIT_TRAINING_NO_BROWSER: '1' });
     assert.match(suppressed.stdout, /Bài lý thuyết: /);
     assert.equal((await readFile(log, 'utf8')).trim().split('\n').length, 1);
