@@ -12,12 +12,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm test"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "typescript": "^5.9.3"
   },
   "keywords": ["git", "training", "learning", "cli", "exercises"],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/Duy247/git-training.git" },
+  "homepage": "https://github.com/Duy247/git-training#readme",
+  "bugs": { "url": "https://github.com/Duy247/git-training/issues" },
+  "publishConfig": { "access": "public" }
 }
