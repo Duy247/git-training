@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { getCourse } from './courses.js';
 import { runUI } from './ui.js';
-import { openTheory, theoryMessage, theoryPagePath, detectWsl } from './theory.js';
+import { openTheory, theoryMessage, theoryPagePath, detectWsl, truthy } from './theory.js';
 import { openFolder, folderMessage } from './explorer.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
 
@@ -13,8 +13,9 @@ const usage = `git-training — luyện Git bằng repository riêng trên máy 
 
 Cách dùng:
   git-training courses                    Liệt kê 11 track
-  git-training                             Mở bảng học (Windows Terminal nếu có)
+  git-training                             Mở bảng học từng bước (Windows Terminal nếu có)
   git-training ui [--window]               Mở bảng học tại đây hoặc cửa sổ mới
+  git-training --classic                   Dùng bảng học đầy đủ kiểu cũ (nhiều phím tắt)
   git-training --version                  Xem phiên bản
   git-training roadmap                    Xem tiến độ toàn bộ roadmap
   git-training start <track> [--dir <nơi-lưu>]
@@ -32,6 +33,7 @@ Cách dùng:
   git-training migrate <thư-mục-phiên-cũ> Nhập tiến độ từ phiên v1
 
 Lệnh Git được chạy trong terminal thường của bạn. 'open' tạo lại repository bài đó.
+Bảng học mặc định hướng dẫn từng bước và TỰ kiểm tra bài thực hành; đặt GIT_TRAINING_CLASSIC=1 hoặc dùng --classic để giữ bố cục cũ.
 Trang lý thuyết KHÔNG tự mở. Dùng git-training theory (hoặc phím V trong bảng học) để đọc trước khi làm bài.
 Đặt GIT_TRAINING_NO_BROWSER=1 để lệnh theory chỉ in đường dẫn mà không mở trình duyệt.
 `;
@@ -70,7 +72,8 @@ async function answerInput(parts: string[]): Promise<string> {
 async function main(): Promise<void> {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   if (nodeMajor < 22) throw new Error('Cần Node.js 22 trở lên. Hãy cập nhật Node.js rồi chạy lại.');
-  const raw = process.argv.slice(2);
+  const classic = process.argv.slice(2).includes('--classic') || truthy(process.env.GIT_TRAINING_CLASSIC);
+  const raw = process.argv.slice(2).filter(part => part !== '--classic');
   const browserFlag = ['start', 'next', 'open'].includes(raw[0] ?? '');
   const [command, argument, ...rest] = browserFlag ? [raw[0]!, ...raw.slice(1).filter(part => part !== '--no-browser')] : raw;
   /** Chỉ nhắc người học có trang lý thuyết; không tự mở trình duyệt. */
@@ -81,7 +84,7 @@ async function main(): Promise<void> {
   const launchWindow = async (): Promise<boolean> => {
     if (process.platform !== 'win32') return false;
     return new Promise(resolve => {
-      const child = spawn('wt.exe', ['-w', 'new', 'nt', '--title', 'Git Training', process.execPath, process.argv[1]!, 'ui'], { detached: true, stdio: 'ignore', windowsHide: false });
+      const child = spawn('wt.exe', ['-w', 'new', 'nt', '--title', 'Git Training', process.execPath, process.argv[1]!, 'ui', ...(classic ? ['--classic'] : [])], { detached: true, stdio: 'ignore', windowsHide: false });
       let settled = false;
       const finish = (opened: boolean) => { if (!settled) { settled = true; resolve(opened); } };
       child.once('error', () => finish(false));
@@ -94,13 +97,13 @@ async function main(): Promise<void> {
     case undefined: {
       if (!process.stdin.isTTY || !process.stdout.isTTY) { console.log(usage); break; }
       if (await launchWindow()) console.log('Đã mở Git Training trong Windows Terminal.');
-      else await runUI();
+      else await runUI({ classic });
       break;
     }
     case 'ui': {
       if (argument !== undefined && argument !== '--window' || rest.length) throw new Error('Dùng git-training ui hoặc git-training ui --window.');
       if (argument === '--window' && await launchWindow()) console.log('Đã mở Git Training trong Windows Terminal.');
-      else { if (argument === '--window') console.log('Không thể mở cửa sổ mới; dùng terminal hiện tại.'); await runUI(); }
+      else { if (argument === '--window') console.log('Không thể mở cửa sổ mới; dùng terminal hiện tại.'); await runUI({ classic }); }
       break;
     }
     case 'help': case '--help': case '-h': console.log(usage); break;

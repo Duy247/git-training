@@ -8,6 +8,8 @@ export interface Exercise {
   id: string;
   title: string;
   instructions: string;
+  /** Nhiệm vụ không kèm câu hỏi; giao diện hướng dẫn chỉ hiện câu hỏi khi người học tới bước trả lời. */
+  task?: string;
   hints: readonly string[];
   solution: string;
   prerequisites?: readonly string[];
@@ -123,6 +125,7 @@ export const courses: readonly Course[] = roadmap.map(track => ({
       mode: lab ? 'hybrid' as const : 'answer' as const,
       needsGit: lab?.needsGit ?? true,
       simulated: simulated.has(`${track.id}/${spec.slug}`),
+      task: lab ? lab.task : `${fixture!.note} Hãy chạy lệnh Git để khảo sát repo.`,
       instructions: lab ? `${lab.task} Sau đó trả lời: ${spec.question}` : `${fixture!.note} Hãy chạy lệnh Git để khảo sát repo, rồi trả lời: ${spec.question}`,
       hints: lab
         ? ['Quan sát trạng thái ban đầu bằng git status và so với kết quả cần đạt.', lab.hint]

@@ -1,5 +1,5 @@
 export { createSession, getSession, getProgress, getRoadmapProgress, openExercise, inspectExercise, checkExercise, saveAnswer, submitAnswer, nextExercise, getExerciseInfo, getHint, getSolution, listCourses, migrateLegacySession } from './engine.js';
-export type { Session, SessionOptions, CreateSessionOptions, ExerciseProgress, TrackProgress, InspectionResult, CheckResult, MigrationResult } from './engine.js';
+export type { Session, SessionOptions, CheckOptions, CreateSessionOptions, ExerciseProgress, TrackProgress, InspectionResult, CheckResult, MigrationResult } from './engine.js';
 export { courses, registerCourse, getCourse, getExercise } from './courses.js';
 export type { Course, Exercise, ExerciseMode, Finding } from './courses.js';
 export { roadmap, ROADMAP_LESSON_COUNT } from './curriculum.js';
@@ -8,3 +8,5 @@ export { theoryPagePath, openTheory, theoryMessage } from './theory.js';
 export type { OpenTheoryOptions, OpenTheoryResult } from './theory.js';
 export { openFolder, folderMessage, fileManagerName } from './explorer.js';
 export type { OpenFolderOptions, OpenFolderResult } from './explorer.js';
+export { buildSteps, currentStep, summarizeFindings, renderLesson, renderInfo, wrapText, shortPath, footerFor, wrongAnswerNote } from './guided.js';
+export type { Step, StepId, StepFlags, StepInputs, LessonView, Rendered } from './guided.js';
