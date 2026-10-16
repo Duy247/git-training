@@ -29,6 +29,10 @@ interface Profile {
   migrated: Record<string, { courseId: string; completed: string[]; importedAt: string }>;
 }
 export interface SessionOptions { sessionDir?: string }
+export interface CheckOptions extends SessionOptions {
+  /** false: ghi nhận kết quả đạt nhưng không tăng số lần Check (dùng cho tự động kiểm tra nền). Mặc định true. */
+  countAttempt?: boolean;
+}
 export interface CreateSessionOptions { workspaceDir?: string }
 export interface ExerciseProgress { id: string; title: string; state: 'locked' | 'available' | 'complete'; attempts: number }
 export interface TrackProgress { id: string; title: string; completed: number; total: number }
@@ -254,15 +258,15 @@ export async function getRoadmapProgress(): Promise<TrackProgress[]> {
 }
 
 /** Kiểm tra cả Git state lẫn câu trả lời nếu bài yêu cầu. */
-export async function checkExercise(options: SessionOptions = {}): Promise<CheckResult> {
+export async function checkExercise(options: CheckOptions = {}): Promise<CheckResult> {
   const session = await getSession(options);
-  return withSessionLock(session.dir, async () => checkExerciseUnlocked(await getSession({ sessionDir: session.dir })));
+  return withSessionLock(session.dir, async () => checkExerciseUnlocked(await getSession({ sessionDir: session.dir }), options.countAttempt !== false));
 }
-async function checkExerciseUnlocked(session: Session): Promise<CheckResult> {
+async function checkExerciseUnlocked(session: Session, countAttempt = true): Promise<CheckResult> {
   const { findings, ready: passed } = await inspectExerciseForSession(session);
   const course = getCourse(session.courseId);
   const exercise = getExercise(course, session.currentExerciseId);
-  session.attempts[exercise.id] = (session.attempts[exercise.id] ?? 0) + 1;
+  if (countAttempt) session.attempts[exercise.id] = (session.attempts[exercise.id] ?? 0) + 1;
   if (passed && !session.completed.includes(exercise.id)) session.completed.push(exercise.id);
   await save(session);
   if (passed) {
@@ -344,10 +348,10 @@ export async function nextExercise(options: SessionOptions = {}): Promise<{ sess
   return next ? openExercise(next.id, { sessionDir: session.dir }) : undefined;
 }
 
-export async function getExerciseInfo(options: SessionOptions = {}): Promise<{ session: Session; repo: string; id: string; title: string; concept: string; instructions: string; expected: string; question?: string; mode: string; simulated: boolean; sourceUrl?: string }> {
+export async function getExerciseInfo(options: SessionOptions = {}): Promise<{ session: Session; repo: string; id: string; title: string; concept: string; instructions: string; task: string; expected: string; question?: string; mode: string; simulated: boolean; sourceUrl?: string }> {
   const session = await getSession(options);
   const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
-  return { session, repo: repoDir(session, exercise.id), id: exercise.id, title: exercise.title, concept: exercise.concept ?? '', instructions: renderPaths(session, exercise.id, exercise.instructions), expected: exercise.expected ?? '', question: exercise.question, mode: exercise.mode ?? 'state', simulated: exercise.simulated ?? false, sourceUrl: exercise.sourceUrl };
+  return { session, repo: repoDir(session, exercise.id), id: exercise.id, title: exercise.title, concept: exercise.concept ?? '', instructions: renderPaths(session, exercise.id, exercise.instructions), task: renderPaths(session, exercise.id, exercise.task ?? exercise.instructions), expected: exercise.expected ?? '', question: exercise.question, mode: exercise.mode ?? 'state', simulated: exercise.simulated ?? false, sourceUrl: exercise.sourceUrl };
 }
 export async function getHint(options: SessionOptions = {}): Promise<{ text: string; level: number; total: number; exhausted: boolean }> {
   const current = await getSession(options);

@@ -18,7 +18,7 @@ npx @duy247/git-training start foundations
 
 Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
 
-Chạy `git-training` không đối số để mở bảng học tiếng Việt. Trên Windows, bảng học mở trong cửa sổ Windows Terminal riêng khi có sẵn; nếu không, nó dùng terminal hiện tại. `git-training ui` luôn mở tại terminal hiện tại, còn `git-training ui --window` yêu cầu cửa sổ riêng trên Windows. Trong bảng học, chọn track bằng phím mũi tên và Enter. Mở một terminal khác để chạy Git trong repository bài tập. Bảng học cập nhật phản hồi khoảng mỗi hai giây; nhấn **C** để ghi nhận bài đạt. Nhấn **A** để nhập đáp án, **H** để xem gợi ý, **S** để xem lời giải, **N** để sang bài tiếp, **L** để chọn bài đã mở khóa, **O** để mở bài theo mã, **T** để đổi track, **R** để xem tiến độ và **Q** để thoát.
+Chạy `git-training` không đối số để mở bảng học tiếng Việt. Mặc định là **chế độ hướng dẫn**: mỗi bài chỉ có vài bước đơn giản, bạn nhấn **Enter** để làm bước tiếp theo (xem phần [Dùng bảng học](#dùng-bảng-học)). Trên Windows, bảng học mở trong cửa sổ Windows Terminal riêng khi có sẵn; nếu không, nó dùng terminal hiện tại. `git-training ui` luôn mở tại terminal hiện tại, còn `git-training ui --window` yêu cầu cửa sổ riêng trên Windows. Mở một terminal khác để chạy Git trong thư mục bài tập; bảng học **tự nhận** khi bạn làm xong. Muốn bố cục đầy đủ kiểu cũ (nhiều phím tắt: **C**, **A**, **H**, **S**, **N**, **L**, **O**, **T**, **R**, **Q**), chạy `git-training --classic` hoặc đặt `GIT_TRAINING_CLASSIC=1`.
 
 Các lệnh thường vẫn hoạt động độc lập với bảng học:
 
@@ -57,7 +57,8 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | Lệnh | Chức năng |
 | --- | --- |
 | `courses` | Liệt kê track. |
-| Không đối số | Mở bảng học; trên Windows thử mở cửa sổ riêng. |
+| Không đối số | Mở bảng học (chế độ hướng dẫn); trên Windows thử mở cửa sổ riêng. |
+| `--classic` | Dùng bảng học kiểu cũ với đầy đủ menu và phím tắt (hoặc đặt `GIT_TRAINING_CLASSIC=1`). Dùng được cùng `ui`. |
 | `ui [--window]` | Mở bảng học tại terminal hiện tại hoặc cửa sổ mới trên Windows. |
 | `start <track> [--dir <thư-mục>]` | Tạo phiên mới; mặc định trong `~/git-training`. Chỉ in đường dẫn trang lý thuyết, không tự mở. |
 | `--version` | Xem phiên bản CLI. |
@@ -71,7 +72,7 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | `check` | Kiểm tra Git và đáp án, lưu lần thử, mở khóa bài tiếp theo nếu đạt. |
 | `next` | Mở bài kế sau khi đạt. |
 | `open <mã-bài>` | Mở lại bài đã mở khóa từ checkpoint. |
-| `theory` | **Mở trang lý thuyết** của bài hiện tại trong trình duyệt (nên đọc trước khi làm). Trong bảng học: chọn mục đầu (vàng) hoặc nhấn **V**. |
+| `theory` | **Mở trang lý thuyết** của bài hiện tại trong trình duyệt (nên đọc trước khi làm). Trong bảng học: bước 1 (dòng vàng) hoặc nhấn **V**. |
 | `folder` | Mở thư mục repository của bài hiện tại trong File Explorer, Finder hoặc trình quản lý tệp. Trong bảng học: phím **E**. |
 | `migrate <thư-mục-phiên-cũ>` | Nhập tiến độ từ phiên bản hai track cũ. |
 
@@ -81,7 +82,18 @@ Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-
 
 ## Dùng bảng học
 
-Ở màn hình bài học có một menu: dùng **↑/↓** (hoặc **←/→** khi menu hai cột) để di chuyển, mục đang chọn được tô sáng, rồi **Enter** để chạy. Chữ trong `[ ]` vẫn là phím tắt nhấn thẳng được (`V` lý thuyết, `C` check, `A` trả lời, `E` mở thư mục, `H` gợi ý, `S` lời giải, `N` bài sau, `L` danh sách, `O` mở theo mã, `T` track, `R` roadmap, `Q` thoát). Cửa sổ thấp hoặc hẹp thì menu thu thành một dòng. Gợi ý và lời giải hiện ngay trong nội dung (cuộn bằng PgUp/PgDn/Home/End). Khi đạt một bài lần đầu, bảng chạy hiệu ứng pháo hoa cầu vồng; nhấn phím bất kỳ để bỏ qua, đặt `GIT_TRAINING_NO_EFFECTS=1` hoặc `NO_COLOR` để tắt.
+**Chế độ hướng dẫn (mặc định)** chỉ có ba màn hình chính: chào mừng, bài học và hoàn thành. Màn hình bài học liệt kê các bước bằng tiếng Việt đơn giản, đánh dấu `✓` bước đã xong, `❯` bước tiếp theo, và chỉ mở rộng chi tiết của bước hiện tại:
+
+1. **Đọc bài lý thuyết** (dòng vàng nổi bật): Enter mở trang trong trình duyệt.
+2. **Làm bài trong thư mục bài tập**: Enter mở thư mục bằng File Explorer/Finder; hoặc mở một terminal mới và gõ `cd "$(git-training path)"` (PowerShell: `Set-Location (git-training path)`).
+3. **Trả lời câu hỏi** (chỉ bài có câu hỏi): gõ thẳng đáp án rồi Enter. Sai thì có lời nhắn thân thiện; sau hai lần sai, bảng gợi ý nhấn **Tab** để xem gợi ý.
+4. **Kiểm tra**: **tự động**. Khi bài thực hành Git chưa xong, màn hình hiện `Đang chờ bạn làm xong…` với một ký tự quay, tự đọc lại thư mục bài mỗi 1–2 giây; khi đạt, bước chuyển xanh, pháo hoa nổ và Enter sang bài tiếp theo. Bài chỉ trả lời được chấm ngay khi bạn nhấn Enter ở đáp án.
+
+Thanh dưới cùng luôn có các phím chính: **Enter** tiếp tục, **H** cần giúp, **M** menu, **Q** thoát (khi đang gõ đáp án: **Tab** cần giúp, **Esc** menu, **Ctrl+C** thoát). Bước lý thuyết và bước làm bài có thể bỏ qua bằng **→**. **Cần giúp?** cho **Gợi ý** trước (từng mức); **Lời giải** nằm cuối và có bước xác nhận. **M** mở menu đầy đủ: Danh sách bài, Mở bài theo mã, Chọn chủ đề, Lộ trình, Mở thư mục bài tập, Mở bài lý thuyết, Kiểm tra lại ngay, Cần giúp, Làm lại bài này từ đầu (tạo lại thư mục bài, có xác nhận) và Thoát; các phím tắt chữ (`V`, `E`, `C`, `H`, `L`, `O`, `T`, `R`, `K`) vẫn dùng được ngoài lúc gõ đáp án. Số lần thử chỉ tăng khi bạn nhấn **Kiểm tra lại** hoặc gửi đáp án; việc tự kiểm tra nền không tính lần thử. Tiến độ lưu cùng định dạng với trước đây nên bài đã làm vẫn còn.
+
+Hiệu ứng pháo hoa tắt bằng `GIT_TRAINING_NO_EFFECTS=1` hoặc `NO_COLOR` (khi `NO_COLOR` có, bảng cũng bỏ màu và chỉ dùng chữ đậm/đảo màu). Nhấn phím bất kỳ để bỏ qua pháo hoa. Bảng chạy được ở cửa sổ nhỏ (kể cả 60×20); nếu nội dung dài hơn cửa sổ, dùng **PgUp/PgDn** hoặc **↑/↓** để cuộn.
+
+**Chế độ cổ điển** (`--classic`): một menu hai cột ở màn hình bài học; dùng **↑/↓** (hoặc **←/→**) rồi **Enter**, hoặc nhấn thẳng chữ trong `[ ]` (`V` lý thuyết, `C` check, `A` trả lời, `E` mở thư mục, `H` gợi ý, `S` lời giải, `N` bài sau, `L` danh sách, `O` mở theo mã, `T` track, `R` roadmap, `Q` thoát). Cửa sổ thấp hoặc hẹp thì menu thu thành một dòng. Gợi ý và lời giải hiện ngay trong nội dung (cuộn bằng PgUp/PgDn/Home/End). Bảng cập nhật phản hồi mỗi hai giây nhưng chỉ nhấn **C** mới ghi nhận bài đạt.
 
 ## Trang lý thuyết
 
@@ -122,7 +134,7 @@ const result = await checkExercise({ sessionDir: session.dir });
 console.log(result.passed, result.findings);
 ```
 
-`createSession(track, { workspaceDir? })` tạo phiên. Các hàm khác nhận `{ sessionDir? }`; nếu bỏ qua, chúng tìm phiên như CLI. `getRoadmapProgress()` trả tiến độ từng track. `registerCourse` đăng ký khóa học đáng tin cậy trong tiến trình hiện tại; xem [hướng dẫn viết khóa học](docs/course-authoring.md).
+`createSession(track, { workspaceDir? })` tạo phiên. Các hàm khác nhận `{ sessionDir? }`; nếu bỏ qua, chúng tìm phiên như CLI. `getRoadmapProgress()` trả tiến độ từng track. `checkExercise({ sessionDir?, countAttempt? })` với `countAttempt: false` ghi nhận kết quả đạt mà không tăng số lần Check (bảng học dùng cho việc tự kiểm tra nền); `getExerciseInfo()` có thêm `task` (nhiệm vụ không kèm câu hỏi). `registerCourse` đăng ký khóa học đáng tin cậy trong tiến trình hiện tại; xem [hướng dẫn viết khóa học](docs/course-authoring.md).
 
 ## Phát triển
 
