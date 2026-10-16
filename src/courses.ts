@@ -129,10 +129,13 @@ export const courses: readonly Course[] = roadmap.map(track => ({
       solution: lab ? `${lab.solution.replaceAll('; ', '\n').replaceAll(' && ', '\n')}\nĐáp án câu hỏi: ${answer.trim()}.` : `Đáp án: ${answer.trim()}. ${spec.concept}`,
       setup: lab ? lab.setup : async (repo: string) => scenario(repo, track.id, spec.slug),
       validate: lab ? lab.validate : async () => [],
-      evaluateAnswer: async (_repo: string, submitted: string) => [{
-        pass: [...answer.split('~'), ...(answerVariants[`${track.id}/${spec.slug}`] ?? [])].some(candidate => answerMatches(candidate, submitted)),
-        message: 'Đáp án chưa phù hợp. Hãy xem lại câu hỏi; cú pháp lệnh đầy đủ và dạng viết tắt tương đương đều được chấp nhận.',
-      }],
+      evaluateAnswer: async (_repo: string, submitted: string) => {
+        const pass = [...answer.split('~'), ...(answerVariants[`${track.id}/${spec.slug}`] ?? [])].some(candidate => answerMatches(candidate, submitted));
+        return [{
+          pass,
+          message: pass ? 'Đáp án đúng.' : 'Đáp án chưa phù hợp. Hãy xem lại câu hỏi; cú pháp lệnh đầy đủ và dạng viết tắt tương đương đều được chấp nhận.',
+        }];
+      },
     } satisfies Exercise;
   }),
 }));

@@ -154,3 +154,14 @@ test('CLI giải thích Git bị thiếu và --dir không thay đổi phiên đa
     assert.match(launch(['courses', 'extra']).stderr, /không nhận đối số/);
   } finally { await rm(home, { recursive: true, force: true }); }
 });
+
+test('đáp án đúng không kèm thông báo "chưa phù hợp"', async () => {
+  const course = getCourse('foundations');
+  const exercise = course.exercises.find(item => item.id === 'stage-and-commit');
+  const answer = (await exercise.evaluateAnswer('', 'git add'))[0];
+  assert.equal(answer.pass, true);
+  assert.doesNotMatch(answer.message, /chưa phù hợp/);
+  const wrong = (await exercise.evaluateAnswer('', 'git zzz'))[0];
+  assert.equal(wrong.pass, false);
+  assert.match(wrong.message, /chưa phù hợp/);
+});
