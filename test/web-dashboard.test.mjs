@@ -11,6 +11,7 @@ import { cdCommand, terminalHelp } from '../dist/web/shell.js';
 import { urlCommands, openUrl } from '../dist/web/browser.js';
 import { startDashboard, readTheoryFile, packageRoot } from '../dist/web/server.js';
 import { Dashboard } from '../dist/web/service.js';
+import { finishPage, esc } from '../dist/web/pages.js';
 import { idleMinutes } from '../dist/web/run.js';
 import { git } from '../dist/index.js';
 
@@ -197,7 +198,7 @@ test('trang: chào mừng, bài học cần phiên, tiến độ liệt kê 116 
     assert.match((await raw(handle)).text, /Tiếp tục học/);
     assert.equal((await raw(handle, { pathname: '/lesson' })).status, 200);
     assert.match((await raw(handle, { pathname: '/lesson' })).text, /id="app"/);
-    assert.match((await raw(handle, { pathname: '/finish' })).text, /Bạn đã học xong chủ đề/);
+    assert.match((await raw(handle, { pathname: '/finish' })).text, /Bạn đã làm xong bài cuối của chủ đề[\s\S]*Xem các bài còn lại/);
   });
 });
 
@@ -426,4 +427,13 @@ test('CLI: --terminal và --port sai được xử lý; không có TTY thì in h
   const badPort = run(['web', '--port', 'abc']);
   assert.notEqual(badPort.status, 0);
   assert.match(badPort.stderr, /--port/);
+});
+
+test('trang hoàn thành phân biệt đã xong cả chủ đề với mới tới bài cuối; mọi chữ động đều được escape', () => {
+  const done = finishPage({ version: '1', courseTitle: 'Nền tảng <Git>', done: 10, total: 10, doneAll: 10, totalAll: 116, finished: true });
+  assert.match(done, /Bạn đã học xong chủ đề "Nền tảng &lt;Git&gt;"/);
+  assert.match(done, /Chọn chủ đề tiếp theo/);
+  const partial = finishPage({ version: '1', courseTitle: 'A', done: 1, total: 10, doneAll: 1, totalAll: 116, finished: false });
+  assert.match(partial, /còn 9 bài chưa làm/);
+  assert.equal(esc(`<script>"x"&'y'</script>`), '&lt;script&gt;&quot;x&quot;&amp;&#39;y&#39;&lt;/script&gt;');
 });

@@ -258,10 +258,11 @@
       var next = s.hasNext
         ? '<p class="mt-1">Bài tiếp theo: <strong class="font-semibold">' + esc(s.nextTitle) + '</strong></p>'
         : '<p class="mt-1">Đây là bài cuối của chủ đề này.</p>';
+      var tail = s.hasNext ? 'Sang bài tiếp theo' : 'Xem tổng kết chủ đề';
       box.setAttribute('data-complete', '1');
       box.innerHTML = '<div class="banner-ok' + (flags.justPassed ? ' enter' : '') + ' mt-8" role="status"><div class="rule-grow mb-3 w-24" aria-hidden="true"></div>' +
         '<p class="text-lg font-semibold">Bạn đã đạt bài này.</p>' + next +
-        '<div class="mt-4"><button type="button" class="btn btn-primary" id="next-btn" data-act="next">' + (s.hasNext ? 'Sang bài tiếp theo' : 'Xem tổng kết chủ đề') + '</button></div></div>';
+        '<div class="mt-4"><button type="button" class="btn btn-primary" id="next-btn" data-act="next">' + tail + '</button></div></div>';
       if (flags.focusNext) { var button = $('#next-btn'); if (button) button.focus({ preventScroll: false }); }
     }
     function renderProblem(s) {

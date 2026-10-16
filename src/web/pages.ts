@@ -115,19 +115,20 @@ export function lessonPage(options: { version: string }): string {
   return layout({ title: 'Bài học', section: 'learn', version: options.version, body, boot: { page: 'lesson' }, wide: true, hasSession: true });
 }
 
-export function finishPage(options: { version: string; courseTitle: string; done: number; total: number; doneAll: number; totalAll: number }): string {
+export function finishPage(options: { version: string; courseTitle: string; done: number; total: number; doneAll: number; totalAll: number; finished: boolean }): string {
+  const remaining = options.total - options.done;
   const body = `
 <div class="banner-ok enter">
   <div class="rule-grow mb-4 w-24" aria-hidden="true"></div>
-  <p class="eyebrow !text-ok">Hoàn thành</p>
-  <h1 class="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Bạn đã học xong chủ đề "${esc(options.courseTitle)}"</h1>
-  <p class="mt-3 text-lg">${options.done}/${options.total} bài của chủ đề này. Toàn bộ lộ trình: ${options.doneAll}/${options.totalAll} bài.</p>
+  <p class="eyebrow !text-ok">${options.finished ? 'Hoàn thành' : 'Bài cuối của chủ đề'}</p>
+  <h1 class="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">${options.finished ? `Bạn đã học xong chủ đề "${esc(options.courseTitle)}"` : `Bạn đã làm xong bài cuối của chủ đề "${esc(options.courseTitle)}"`}</h1>
+  <p class="mt-3 text-lg">${options.done}/${options.total} bài của chủ đề này${options.finished ? '' : `; còn ${remaining} bài chưa làm`}. Toàn bộ lộ trình: ${options.doneAll}/${options.totalAll} bài.</p>
 </div>
 <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-  <a class="btn btn-primary" href="/progress">Chọn chủ đề tiếp theo</a>
+  <a class="btn btn-primary" href="/progress">${options.finished ? 'Chọn chủ đề tiếp theo' : 'Xem các bài còn lại'}</a>
   <a class="link text-base" href="/lesson">Quay lại bài vừa học</a>
 </div>`;
-  return layout({ title: 'Hoàn thành chủ đề', section: 'learn', version: options.version, body, boot: { page: 'finish' }, hasSession: true });
+  return layout({ title: options.finished ? 'Hoàn thành chủ đề' : 'Bài cuối của chủ đề', section: 'learn', version: options.version, body, boot: { page: 'finish' }, hasSession: true });
 }
 
 /** Trang lỗi nhỏ, không cần tệp tĩnh (dùng cả khi chưa có cookie). */

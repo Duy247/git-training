@@ -1,4 +1,4 @@
-import { getCourse } from '../courses.js';
+import { getCourse, getExercise } from '../courses.js';
 import { roadmap } from '../curriculum.js';
 import { detectWsl } from '../theory.js';
 import { theoryPagePath } from '../theory.js';
@@ -156,12 +156,16 @@ export class Dashboard {
     };
   }
 
-  /** Tự kiểm tra nền: chỉ ghi nhận khi đạt, và không tăng số lần thử. */
+  /** Tự kiểm tra nền: chỉ ghi nhận khi đạt, và không tăng số lần thử. Mỗi lần gọi chỉ chấm một lần. */
   async poll(): Promise<{ state: LessonState; justPassed: boolean }> {
     const dir = this.requireDir();
-    const before = await this.lessonState();
-    if (before.complete || before.problem || !before.pollable) return { state: before, justPassed: false };
-    const inspection = await inspectExercise({ sessionDir: dir });
+    const session = await getSession({ sessionDir: dir });
+    const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
+    const pollable = (exercise.mode ?? 'state') !== 'answer' && !session.completed.includes(exercise.id);
+    if (!pollable) return { state: await this.lessonState(), justPassed: false };
+    let inspection: InspectionResult;
+    try { inspection = await inspectExercise({ sessionDir: dir }); }
+    catch { return { state: await this.lessonState(), justPassed: false }; } // lessonState biến lỗi thành thông báo thân thiện
     if (inspection.ready) {
       const outcome = await checkExercise({ sessionDir: dir, countAttempt: false });
       return { state: await this.lessonState({ ready: outcome.passed, findings: outcome.findings, session: outcome.session }), justPassed: outcome.passed };

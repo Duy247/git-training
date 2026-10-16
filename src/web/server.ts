@@ -30,8 +30,8 @@ const securityHeaders: Record<string, string> = {
 /** Kiểu chữ của trang lý thuyết khi nhúng: bỏ phần đầu trang (đã có tiêu đề bên ngoài) và dùng màu của bảng học. */
 const embedStyle = `<style>
 .site-header{display:none}
-:root{--bg:#ffffff;--surface:#f6f5f1;--accent:#a8391a;--accent-contrast:#ffffff;--border:#d9d6cd;--note:#a8391a}
-@media(prefers-color-scheme:dark){:root{--bg:#1d1d1a;--surface:#151513;--accent:#f19a72;--accent-contrast:#1d1d1a;--border:#34332e;--note:#f19a72}}
+:root{--bg:#ffffff;--surface:#f6f5f1;--accent:#a8391a;--accent-contrast:#ffffff;--border:#d9d6cd;--note:#a8391a;--note-bg:#f3e4dd;--inline-code-bg:#efede6;--code-bg:#f6f5f1;--muted:#5a574f}
+@media(prefers-color-scheme:dark){:root{--bg:#1d1d1a;--surface:#151513;--accent:#f19a72;--accent-contrast:#1d1d1a;--border:#34332e;--note:#f19a72;--note-bg:#35241c;--inline-code-bg:#2a2a25;--code-bg:#151513;--muted:#a9a69c}}
 main{padding-top:1rem}
 </style>`;
 
