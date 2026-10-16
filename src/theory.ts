@@ -36,7 +36,7 @@ export interface OpenTheoryOptions {
 export interface OpenTheoryResult { opened: boolean; reason?: string; path?: string }
 
 const processOpened = new Set<string>();
-const truthy = (value: string | undefined): boolean => value !== undefined && !['', '0', 'false', 'no', 'off'].includes(value.trim().toLowerCase());
+export const truthy = (value: string | undefined): boolean => value !== undefined && !['', '0', 'false', 'no', 'off'].includes(value.trim().toLowerCase());
 
 export function detectWsl(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): boolean {
   if (platform !== 'linux') return false;
@@ -82,12 +82,12 @@ export function openCommands(file: string, options: { platform: NodeJS.Platform;
   return commands;
 }
 
-function wslWindowsPath(file: string): string | undefined {
+export function wslWindowsPath(file: string): string | undefined {
   try { return execFileSync('wslpath', ['-w', file], { encoding: 'utf8', timeout: 2000 }).trim() || undefined; } catch { return undefined; }
 }
 
 /** Chạy một lệnh mở; true nếu không lỗi ngay. Không bao giờ throw và không chờ trình duyệt đóng. */
-function launch(spawn: SpawnLike, item: OpenCommand, waitMs: number): Promise<{ ok: boolean; missing: boolean; detail?: string }> {
+export function launch(spawn: SpawnLike, item: OpenCommand, waitMs: number, okExitCodes: number[] = [0]): Promise<{ ok: boolean; missing: boolean; detail?: string }> {
   return new Promise(resolve => {
     let child: ChildProcess;
     let timer: NodeJS.Timeout | undefined;
@@ -101,7 +101,7 @@ function launch(spawn: SpawnLike, item: OpenCommand, waitMs: number): Promise<{ 
     try { child = spawn(item.command, item.args, item.options); }
     catch (error) { finish(false, true, (error as Error).message); return; }
     child.once('error', error => finish(false, (error as NodeJS.ErrnoException).code === 'ENOENT', error.message));
-    child.once('exit', code => finish(code === 0 || code === null, false, `mã thoát ${code}`));
+    child.once('exit', code => finish(code === null || okExitCodes.includes(code), false, `mã thoát ${code}`));
     // Một số trình mở (xdg-open) chỉ trả về khi trình duyệt đóng; sau thời gian chờ coi như đã mở.
     timer = setTimeout(() => { child.unref?.(); finish(true, false); }, waitMs);
   });

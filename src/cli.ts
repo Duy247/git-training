@@ -5,7 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { getCourse } from './courses.js';
 import { runUI } from './ui.js';
-import { openTheory, theoryMessage } from './theory.js';
+import { openTheory, theoryMessage, theoryPagePath, detectWsl } from './theory.js';
+import { openFolder, folderMessage } from './explorer.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
 
 const usage = `git-training — luyện Git bằng repository riêng trên máy của bạn
@@ -16,21 +17,23 @@ Cách dùng:
   git-training ui [--window]               Mở bảng học tại đây hoặc cửa sổ mới
   git-training --version                  Xem phiên bản
   git-training roadmap                    Xem tiến độ toàn bộ roadmap
-  git-training start <track> [--dir <nơi-lưu>] [--no-browser]
+  git-training start <track> [--dir <nơi-lưu>]
   git-training list                       Xem các bài trong track hiện tại
   git-training status                     Xem bài và thư mục thực hành
   git-training path                       Chỉ in đường dẫn repository hiện tại
+  git-training folder                     Mở thư mục thực hành trong File Explorer / Finder / trình quản lý tệp
   git-training hint                       Mở gợi ý tiếp theo
   git-training solution                   Xem lời giải
   git-training answer [đáp-án]           Trả lời câu hỏi; bỏ trống để nhập tương tác
   git-training check                      Kiểm tra trạng thái Git và đáp án
-  git-training next [--no-browser]        Mở bài tiếp theo sau khi đạt
-  git-training open <mã-bài> [--no-browser]  Khôi phục checkpoint bài đã mở khóa
+  git-training next                       Mở bài tiếp theo sau khi đạt
+  git-training open <mã-bài>              Khôi phục checkpoint bài đã mở khóa
+  git-training theory                     MỞ BÀI LÝ THUYẾT của bài hiện tại trong trình duyệt (nên đọc trước khi làm)
   git-training migrate <thư-mục-phiên-cũ> Nhập tiến độ từ phiên v1
 
 Lệnh Git được chạy trong terminal thường của bạn. 'open' tạo lại repository bài đó.
-Khi mở một bài (start, next, open, bảng học), trang lý thuyết của bài tự mở trong trình duyệt mặc định.
-Tắt bằng --no-browser hoặc đặt GIT_TRAINING_NO_BROWSER=1.
+Trang lý thuyết KHÔNG tự mở. Dùng git-training theory (hoặc phím V trong bảng học) để đọc trước khi làm bài.
+Đặt GIT_TRAINING_NO_BROWSER=1 để lệnh theory chỉ in đường dẫn mà không mở trình duyệt.
 `;
 
 function show(info: Awaited<ReturnType<typeof getExerciseInfo>>): void {
@@ -43,6 +46,7 @@ function show(info: Awaited<ReturnType<typeof getExerciseInfo>>): void {
   if (info.session.completed.length === getCourse(info.session.courseId).exercises.length) console.log('Track này đã hoàn thành; bạn có thể mở lại bài đã đạt để luyện tiếp.');
   console.log(`\nThư mục thực hành: ${info.repo}`);
   console.log(`Chuyển thư mục: cd "${info.repo}"`);
+  console.log('Mở thư mục này trong trình quản lý tệp: git-training folder');
   if (info.mode !== 'state') console.log('Gửi câu trả lời bằng git-training answer "<đáp-án>".');
 }
 function report(result: Awaited<ReturnType<typeof checkExercise>>): void {
@@ -68,11 +72,11 @@ async function main(): Promise<void> {
   if (nodeMajor < 22) throw new Error('Cần Node.js 22 trở lên. Hãy cập nhật Node.js rồi chạy lại.');
   const raw = process.argv.slice(2);
   const browserFlag = ['start', 'next', 'open'].includes(raw[0] ?? '');
-  const noBrowser = browserFlag && raw.slice(1).includes('--no-browser');
   const [command, argument, ...rest] = browserFlag ? [raw[0]!, ...raw.slice(1).filter(part => part !== '--no-browser')] : raw;
-  const theory = async (info: { session: { courseId: string }; id: string }, reopen = false) => {
-    const message = theoryMessage(await openTheory(info.session.courseId, info.id, { noBrowser, reopen }));
-    if (message) console.log(message);
+  /** Chỉ nhắc người học có trang lý thuyết; không tự mở trình duyệt. */
+  const theory = async (info: { session: { courseId: string }; id: string }) => {
+    const page = theoryPagePath(info.session.courseId, info.id);
+    if (page) console.log(`\nBài lý thuyết (nên đọc trước khi làm): git-training theory\n  ${page}`);
   };
   const launchWindow = async (): Promise<boolean> => {
     if (process.platform !== 'win32') return false;
@@ -142,6 +146,21 @@ async function main(): Promise<void> {
     }
     case 'status': noExtra(); show(await getExerciseInfo()); break;
     case 'path': noExtra(); console.log((await getExerciseInfo()).repo); break;
+    case 'theory': {
+      noExtra();
+      const info = await getExerciseInfo();
+      const result = await openTheory(info.session.courseId, info.id, { reopen: true });
+      console.log(result.path ? theoryMessage(result) : 'Bài này chưa có trang lý thuyết.');
+      if (!result.opened) process.exitCode = 1;
+      break;
+    }
+    case 'folder': {
+      noExtra();
+      const result = await openFolder((await getExerciseInfo()).repo);
+      console.log(folderMessage(result, process.platform, detectWsl()));
+      if (!result.opened) process.exitCode = 1;
+      break;
+    }
     case 'hint': {
       noExtra();
       const hint = await getHint();
@@ -168,7 +187,7 @@ async function main(): Promise<void> {
       const opened = await openExercise(argument);
       const info = await getExerciseInfo({ sessionDir: opened.session.dir });
       show(info);
-      await theory(info, true);
+      await theory(info);
       break;
     }
     case 'migrate': {
