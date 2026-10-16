@@ -437,3 +437,76 @@ test('trang hoàn thành phân biệt đã xong cả chủ đề với mới t�
   assert.match(partial, /còn 9 bài chưa làm/);
   assert.equal(esc(`<script>"x"&'y'</script>`), '&lt;script&gt;&quot;x&quot;&amp;&#39;y&#39;&lt;/script&gt;');
 });
+
+test('thương hiệu MBBank: nhãn "dành cho CBNV MBBank" nhưng ai cũng dùng được, chân trang có liên kết Tác giả và ghi chú không chính thức', async () => {
+  await withWeb(async handle => {
+    const home = (await raw(handle)).text;
+    assert.match(home, /Dành cho cán bộ nhân viên MBBank/);
+    assert.match(home, /bên ngoài MBBank vẫn dùng được tự do/);
+    assert.doesNotMatch(home, /<img[^>]+(?:logo|\.png)/i, 'không dùng logo hay ảnh ở đầu trang');
+    assert.match(home, /<header class="brandbar">[\s\S]*?<span>Git Training<\/span>/);
+    assert.match(home, /href="\/about">Xem thêm về tác giả/);
+    for (const route of ['/', '/progress', '/about', '/nope']) {
+      const html = (await raw(handle, { pathname: route })).text;
+      if (route === '/nope') continue;
+      assert.match(html, /<footer[\s\S]*href="\/about"[^>]*>Tác giả: Văn Thành Duy<\/a>/, `chân trang ${route}`);
+      assert.match(html, /không phải sản phẩm chính thức của MB\. Màu sắc lấy cảm hứng từ nhận diện của MBBank\./, `ghi chú không chính thức ${route}`);
+      assert.doesNotMatch(html, /logo|nhãn hiệu|favicon/i, `không nhắc logo ${route}`);
+      assert.doesNotMatch(html, /<img[^>]+src="(?:https?:)?\/\//, 'không nạp ảnh từ ngoài');
+    }
+    assert.doesNotMatch(home, /(?<!không phải )(?:sản phẩm|ứng dụng) chính thức/i);
+    assert.doesNotMatch(home, /yêu công nghệ|vật lý/);
+  });
+});
+
+test('trang Tác giả: cần cookie, đúng nội dung, liên kết ngoài mở tab mới có noopener, không nạp tài nguyên ngoài', async () => {
+  await withWeb(async handle => {
+    const denied = await raw(handle, { pathname: '/about', cookie: false });
+    assert.equal(denied.status, 403);
+    assert.doesNotMatch(denied.text, /Văn Thành Duy/);
+    const wrongHost = await raw(handle, { pathname: '/about', headers: { host: 'evil.example' } });
+    assert.equal(wrongHost.status, 421);
+    const page = await raw(handle, { pathname: '/about' });
+    assert.equal(page.status, 200);
+    assert.match(page.headers['content-type'], /text\/html/);
+    assert.match(page.headers['content-security-policy'], /default-src 'self'/);
+    assert.doesNotMatch(page.headers['content-security-policy'], /unsafe-eval|https?:/);
+    for (const needle of ['Văn Thành Duy', 'Automation Tester · Manual Tester · Coding Enthusiast', 'MBBank', 'FPT Software', 'Bauman Moscow State Technical University', 'Playwright', 'Robot Framework']) assert.ok(page.text.includes(needle), needle);
+    const anchors = [...page.text.matchAll(/<a [^>]*href="(https?:\/\/[^"]+)"[^>]*>/g)];
+    assert.deepEqual(anchors.map(match => match[1]), ['https://duyqa.blog', 'https://duyqa.blog/about', 'https://github.com/Duy247/git-training', 'https://github.com/Duy247']);
+    for (const [tag] of anchors) { assert.match(tag, /target="_blank"/); assert.match(tag, /rel="noopener noreferrer"/); }
+    assert.doesNotMatch(page.text, /<(?:script|link|img|iframe)[^>]+(?:src|href)="https?:\/\//, 'chỉ có liên kết, không có yêu cầu ra ngoài');
+    assert.doesNotMatch(page.text, /yêu công nghệ|vật lý/);
+    assert.equal((await raw(handle, { pathname: '/about', method: 'POST', body: {} })).status, 405);
+  });
+});
+
+test('gói: không còn logo hay biểu tượng MB, mô tả gói đúng, tệp tĩnh logo không được phục vụ', async () => {
+  const manifest = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.ok(manifest.files.includes('web'));
+  assert.match(manifest.description, /MBBank/);
+  assert.match(manifest.description, /mọi người đều dùng tự do/);
+  for (const file of ['web/logo-mb.png', 'web/favicon.png']) assert.ok(!existsSync(path.join(root, file)), `${file} đã bị bỏ`);
+  await withWeb(async handle => {
+    for (const asset of ['/static/logo-mb.png', '/static/favicon.png']) assert.equal((await raw(handle, { pathname: asset })).status, 404, asset);
+    assert.doesNotMatch((await raw(handle)).text, /rel="icon"/);
+  });
+});
+
+test('bảng màu: mọi cặp chữ/nền chính đạt WCAG AA ở chế độ sáng và tối; dải thương hiệu giữ chữ trắng trên xanh MB', () => {
+  const css = readFileSync(path.join(root, 'web-src/input.css'), 'utf8');
+  const blocks = css.match(/:root \{[^}]*\}/g);
+  assert.equal(blocks.length, 2, 'một khối sáng và một khối tối');
+  const parse = block => Object.fromEntries([...block.matchAll(/--c-([\w-]+):\s*(#[0-9a-f]{6})/gi)].map(match => [match[1], match[2]]));
+  const light = parse(blocks[0]);
+  const dark = { ...light, ...parse(blocks[1]) };
+  const lum = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  const text = [['ink', 'paper'], ['ink', 'surface'], ['muted', 'paper'], ['muted', 'surface'], ['accent', 'paper'], ['accent', 'surface'], ['accent', 'accent-soft'], ['accent-ink', 'accent'], ['ok', 'paper'], ['ok', 'ok-soft'], ['ink', 'accent-soft'], ['muted', 'accent-soft'], ['brand-ink', 'brand'], ['brand-soft', 'brand']];
+  for (const [name, theme] of [['sáng', light], ['tối', dark]]) {
+    for (const [fg, bg] of text) assert.ok(ratio(theme[fg], theme[bg]) >= 4.5, `${name}: ${fg} trên ${bg} = ${ratio(theme[fg], theme[bg]).toFixed(2)}`);
+    for (const bg of ['paper', 'surface']) assert.ok(ratio(theme.edge, theme[bg]) >= 3, `${name}: viền ô nhập (edge) trên ${bg} cần ≥ 3:1`);
+  }
+  assert.equal(light.brand.toLowerCase(), '#141ecd');
+  assert.doesNotMatch(css, /gradient|text-shadow/i, 'không dùng chuyển màu hay bóng chữ');
+});

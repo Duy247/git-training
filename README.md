@@ -1,5 +1,7 @@
 # git-training
 
+> **Dành cho cán bộ nhân viên MBBank.** Công cụ học tập do tác giả tự xây dựng cho CBNV MBBank; mọi người bên ngoài vẫn dùng tự do (mã nguồn mở, giấy phép MIT). Đây là công cụ do tác giả tự xây dựng, không phải sản phẩm chính thức của MB; màu sắc lấy cảm hứng từ nhận diện của MBBank.
+
 `git-training` là công cụ luyện Git ngay trên máy. Mỗi bài có repository riêng; bạn dùng terminal thường rồi chạy `git-training check` để xem kết quả. Công cụ không cần quyền quản trị, không ghi lại lệnh bạn gõ và không cần mạng trong lúc học.
 
 ## Yêu cầu
@@ -85,7 +87,7 @@ Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-
 
 `git-training` (không đối số) khởi động một máy chủ HTTP nhỏ **chỉ trên máy bạn** và mở trình duyệt mặc định. Terminal in đường dẫn dạng `http://127.0.0.1:<cổng>/?t=<mã>`; giữ cửa sổ đó mở, nhấn **Ctrl+C** để dừng. Đóng tab trình duyệt không làm máy chủ dừng: mở lại đường dẫn là học tiếp. Nếu quá **2 giờ** không có yêu cầu nào (không còn tab nào mở), máy chủ tự dừng; đổi bằng `GIT_TRAINING_IDLE_MINUTES=<phút>` (`0` là không bao giờ tự dừng).
 
-Các trang: **Chào mừng** (ba dòng hướng dẫn và nút *Tiếp tục học*), **Bài học**, **Tất cả bài** (mọi chủ đề và bài, không khóa bài nào, nhảy tới bài bất kỳ) và **Hoàn thành chủ đề**. Trang bài học gồm:
+Các trang: **Chào mừng** (ba dòng hướng dẫn và nút *Tiếp tục học*), **Bài học**, **Tất cả bài** (mọi chủ đề và bài, không khóa bài nào, nhảy tới bài bất kỳ) **Hoàn thành chủ đề** và **Tác giả**. Trang bài học gồm:
 
 1. **Đọc bài lý thuyết**: bài HTML có sẵn (`theory/…`) hiện ngay bên phải nhiệm vụ trên màn hình rộng; trên điện thoại/máy tính bảng, nút *Mở bài lý thuyết* mở toàn màn hình (đóng bằng *Quay lại bài* hoặc Esc). Có liên kết mở trong tab mới.
 2. **Làm bài trong thư mục bài tập**: lệnh `cd "<đường dẫn>"` có nút **Chép lệnh** (dấu nháy đúng theo hệ điều hành), nút **Mở thư mục** (File Explorer, Finder hoặc `xdg-open`), và hướng dẫn mở terminal cho người mới. Trang **tự kiểm tra** thư mục bài mỗi ~1,5 giây và hiện *Còn thiếu* gì; khi đạt, bước chuyển xanh với một hiệu ứng nhỏ (CSS thuần, tắt khi hệ điều hành đặt "giảm chuyển động").
@@ -94,9 +96,9 @@ Các trang: **Chào mừng** (ba dòng hướng dẫn và nút *Tiếp tục h�
 
 *Cần giúp?* gồm **Gợi ý** (từng mức), **Lời giải** (có bước xác nhận) và **Làm lại bài này từ đầu**. Số lần thử chỉ tăng khi bạn gửi đáp án hoặc bấm *Kiểm tra lại*; tự kiểm tra nền không tính lần thử. Tiến độ dùng chung `session.json` với bảng học terminal và các lệnh `check`, `next`…, nên có thể đổi qua lại.
 
-Giao diện: Tailwind CSS đã dựng sẵn thành `web/app.css` (người dùng không cần cài Tailwind), phông Be Vietnam Pro và JetBrains Mono tự lưu, một màu nhấn, sáng/tối theo hệ thống, dùng được từ 360 px, thao tác bằng bàn phím, kết quả kiểm tra được đọc bằng `aria-live`. Không gọi CDN hay mạng ngoài.
+Giao diện: dải đầu trang màu xanh MB (bảng màu ước lượng theo nhận diện MB, không phải thông số chính thức), trang **Tác giả** (`/about`) và chân trang giới thiệu. Tailwind CSS đã dựng sẵn thành `web/app.css` (người dùng không cần cài Tailwind), phông Be Vietnam Pro và JetBrains Mono tự lưu, một màu nhấn, sáng/tối theo hệ thống, dùng được từ 360 px, thao tác bằng bàn phím, kết quả kiểm tra được đọc bằng `aria-live`. Không gọi CDN hay mạng ngoài.
 
-**Bảo mật.** Máy chủ chỉ lắng nghe `127.0.0.1` nên máy khác trong mạng không truy cập được. Mã ngẫu nhiên trong đường dẫn được đổi lấy cookie `HttpOnly; SameSite=Strict`; mọi yêu cầu khác không có cookie đều bị từ chối. Tiêu đề `Host` lạ bị từ chối (chống DNS rebinding), yêu cầu ghi cần `Content-Type: application/json`, `Origin` cùng nguồn và không đến từ trang khác (`Sec-Fetch-Site`). Phản hồi có `Content-Security-Policy` chỉ cho tài nguyên cùng nguồn (trang lý thuyết cần thêm `unsafe-eval` cho Mermaid). Máy chủ chỉ phục vụ HTML/CSS/JS/phông trong `theory/` (không có `src`, `examples`, `vendor`) và hai tệp trong `web/`. Máy chủ không chạy lệnh Git của người học; nó chỉ đọc trạng thái repository bài tập như lệnh `check`.
+**Bảo mật.** Máy chủ chỉ lắng nghe `127.0.0.1` nên máy khác trong mạng không truy cập được. Mã ngẫu nhiên trong đường dẫn được đổi lấy cookie `HttpOnly; SameSite=Strict`; mọi yêu cầu khác không có cookie đều bị từ chối. Tiêu đề `Host` lạ bị từ chối (chống DNS rebinding), yêu cầu ghi cần `Content-Type: application/json`, `Origin` cùng nguồn và không đến từ trang khác (`Sec-Fetch-Site`). Phản hồi có `Content-Security-Policy` chỉ cho tài nguyên cùng nguồn (trang lý thuyết cần thêm `unsafe-eval` cho Mermaid). Máy chủ chỉ phục vụ HTML/CSS/JS/phông trong `theory/` (không có `src`, `examples`, `vendor`) và các tệp tĩnh trong `web/` (CSS, JS). Máy chủ không chạy lệnh Git của người học; nó chỉ đọc trạng thái repository bài tập như lệnh `check`.
 
 Biến môi trường: `GIT_TRAINING_NO_BROWSER=1` (không tự mở trình duyệt, chỉ in đường dẫn; cũng tự bỏ qua khi có `CI` hoặc Linux không có giao diện), `GIT_TRAINING_NO_EXPLORER=1` (tắt nút *Mở thư mục*), `GIT_TRAINING_IDLE_MINUTES`, `GIT_TRAINING_HOME` (nơi lưu tiến độ), `GIT_TRAINING_TERMINAL=1` (dùng bảng học terminal).
 
@@ -155,6 +157,10 @@ console.log(result.passed, result.findings);
 ```
 
 `createSession(track, { workspaceDir? })` tạo phiên. Các hàm khác nhận `{ sessionDir? }`; nếu bỏ qua, chúng tìm phiên như CLI. `getRoadmapProgress()` trả tiến độ từng track. `checkExercise({ sessionDir?, countAttempt? })` với `countAttempt: false` ghi nhận kết quả đạt mà không tăng số lần Check (bảng học dùng cho việc tự kiểm tra nền); `getExerciseInfo()` có thêm `task` (nhiệm vụ không kèm câu hỏi). `registerCourse` đăng ký khóa học đáng tin cậy trong tiến trình hiện tại; xem [hướng dẫn viết khóa học](docs/course-authoring.md).
+
+## Tác giả
+
+**Văn Thành Duy**, Automation Tester · Manual Tester · Coding Enthusiast. Hiện là Chuyên viên Kiểm thử (Automation Tester) tại MBBank từ 03/2025. Blog: [duyqa.blog](https://duyqa.blog), giới thiệu đầy đủ: [duyqa.blog/about](https://duyqa.blog/about), GitHub: [Duy247](https://github.com/Duy247). Mọi góp ý và báo lỗi: [Issues](https://github.com/Duy247/git-training/issues).
 
 ## Phát triển
 

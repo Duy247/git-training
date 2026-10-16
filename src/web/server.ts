@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listCourses } from '../engine.js';
 import { Dashboard, NoSessionError, UserError } from './service.js';
-import { finishPage, lessonPage, plainPage, progressPage, welcomePage } from './pages.js';
+import { aboutPage, finishPage, lessonPage, plainPage, progressPage, welcomePage } from './pages.js';
 
 /** Thư mục gốc của gói: dist/web/server.js nằm trong <gốc>/dist/web. */
 export const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -30,8 +30,8 @@ const securityHeaders: Record<string, string> = {
 /** Kiểu chữ của trang lý thuyết khi nhúng: bỏ phần đầu trang (đã có tiêu đề bên ngoài) và dùng màu của bảng học. */
 const embedStyle = `<style>
 .site-header{display:none}
-:root{--bg:#ffffff;--surface:#f6f5f1;--accent:#a8391a;--accent-contrast:#ffffff;--border:#d9d6cd;--note:#a8391a;--note-bg:#f3e4dd;--inline-code-bg:#efede6;--code-bg:#f6f5f1;--muted:#5a574f}
-@media(prefers-color-scheme:dark){:root{--bg:#1d1d1a;--surface:#151513;--accent:#f19a72;--accent-contrast:#1d1d1a;--border:#34332e;--note:#f19a72;--note-bg:#35241c;--inline-code-bg:#2a2a25;--code-bg:#151513;--muted:#a9a69c}}
+:root{--bg:#ffffff;--surface:#f6f7fb;--accent:#141ecd;--accent-contrast:#ffffff;--border:#d8dcea;--note:#141ecd;--note-bg:#e9ebfb;--inline-code-bg:#eceef7;--code-bg:#f6f7fb;--muted:#4b5569}
+@media(prefers-color-scheme:dark){:root{--bg:#182033;--surface:#0f1522;--accent:#97a2ff;--accent-contrast:#0f1522;--border:#2b3650;--note:#97a2ff;--note-bg:#1d2650;--inline-code-bg:#222c45;--code-bg:#0f1522;--muted:#a7b1c7}}
 main{padding-top:1rem}
 </style>`;
 
@@ -166,6 +166,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       sendHtml(res, 200, welcomePage({ version: options.version, current, firstCourse: current ? '' : listCourses()[0]!.id, totalAll: progress.totalAll, doneAll: progress.doneAll }));
       return;
     }
+    if (route === '/about') { sendHtml(res, 200, aboutPage({ version: options.version, hasSession: dashboard.hasSession() })); return; }
     if (route === '/progress') { sendHtml(res, 200, progressPage(await dashboard.progress(), { version: options.version, hasSession: dashboard.hasSession() })); return; }
     if (route === '/lesson') { if (!dashboard.hasSession()) { redirect(res, '/'); return; } sendHtml(res, 200, lessonPage({ version: options.version })); return; }
     if (route === '/finish') {

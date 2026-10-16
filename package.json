@@ -1,7 +1,7 @@
 {
   "name": "@duy247/git-training",
-  "version": "0.5.0",
-  "description": "Luyện Git offline qua 116 bài thực hành tiếng Việt, có bảng học trên trình duyệt",
+  "version": "0.6.0",
+  "description": "Luyện Git offline qua 116 bài thực hành tiếng Việt, có bảng học trên trình duyệt. Xây dựng cho cán bộ nhân viên MBBank; mọi người đều dùng tự do (mã nguồn mở)",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -51,7 +51,9 @@
     "training",
     "learning",
     "cli",
-    "exercises"
+    "exercises",
+    "vietnamese",
+    "mbbank"
   ],
   "license": "MIT",
   "repository": {

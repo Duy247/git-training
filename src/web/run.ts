@@ -30,7 +30,7 @@ export async function runWeb(options: RunWebOptions): Promise<DashboardHandle> {
     if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') throw new Error(`Cổng ${options.port} đang được dùng. Hãy chọn cổng khác bằng --port hoặc bỏ --port để tự chọn.`);
     throw error;
   }
-  log('Git Training đang chạy trên máy của bạn (chỉ mở được từ máy này).');
+  log('Git Training (dành cho CBNV MBBank) đang chạy trên máy của bạn (chỉ mở được từ máy này).');
   log(`\n  ${handle.url}\n`);
   log('Giữ cửa sổ này mở trong lúc học. Nhấn Ctrl+C để dừng.');
   if (options.noOpen || truthy(process.env.GIT_TRAINING_NO_BROWSER)) log('Hãy mở đường dẫn trên bằng trình duyệt của bạn.');
