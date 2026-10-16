@@ -71,13 +71,17 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | `check` | Kiểm tra Git và đáp án, lưu lần thử, mở khóa bài tiếp theo nếu đạt. |
 | `next` | Mở bài kế sau khi đạt. |
 | `open <mã-bài>` | Mở lại bài đã mở khóa từ checkpoint. |
-| `theory` | **Mở trang lý thuyết** của bài hiện tại trong trình duyệt (nên đọc trước khi làm). Trong bảng học: phím **V** hoặc Enter. |
+| `theory` | **Mở trang lý thuyết** của bài hiện tại trong trình duyệt (nên đọc trước khi làm). Trong bảng học: chọn mục đầu (vàng) hoặc nhấn **V**. |
 | `folder` | Mở thư mục repository của bài hiện tại trong File Explorer, Finder hoặc trình quản lý tệp. Trong bảng học: phím **E**. |
 | `migrate <thư-mục-phiên-cũ>` | Nhập tiến độ từ phiên bản hai track cũ. |
 
 `open` tạo lại repository của chính bài đó từ checkpoint và giữ dấu hoàn thành. Dữ liệu phiên nằm ngoài repository bài tập. Từ thư mục phiên, CLI tự tìm phiên; ở nơi khác, CLI dùng phiên hoạt động gần nhất. Biến `GIT_TRAINING_HOME` đổi vị trí lưu chỉ mục và hồ sơ tiến độ. Nếu thư mục phiên bị xóa, `start <track>` tạo phiên mới; nếu chỉ repository bài bị xóa, dùng `open <mã-bài>` để khôi phục.
 
 Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-repo` được ghi rõ là **mô phỏng offline**. Chúng không đăng nhập dịch vụ, ký bằng khóa thật hay viết lại lịch sử thật. Bài remote dùng bare repository cục bộ.
+
+## Dùng bảng học
+
+Ở màn hình bài học có một menu: dùng **↑/↓** (hoặc **←/→** khi menu hai cột) để di chuyển, mục đang chọn được tô sáng, rồi **Enter** để chạy. Chữ trong `[ ]` vẫn là phím tắt nhấn thẳng được (`V` lý thuyết, `C` check, `A` trả lời, `E` mở thư mục, `H` gợi ý, `S` lời giải, `N` bài sau, `L` danh sách, `O` mở theo mã, `T` track, `R` roadmap, `Q` thoát). Cửa sổ thấp hoặc hẹp thì menu thu thành một dòng. Gợi ý và lời giải hiện ngay trong nội dung (cuộn bằng PgUp/PgDn/Home/End). Khi đạt một bài lần đầu, bảng chạy hiệu ứng pháo hoa cầu vồng; nhấn phím bất kỳ để bỏ qua, đặt `GIT_TRAINING_NO_EFFECTS=1` hoặc `NO_COLOR` để tắt.
 
 ## Trang lý thuyết
 
