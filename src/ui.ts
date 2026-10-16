@@ -108,7 +108,15 @@ export async function runUI(): Promise<void> {
         if (info.question) section('Câu hỏi', info.question);
         add(); add(`PHẢN HỒI  •  số lần Check: ${current?.attempts ?? 0}`);
         if (inspection) {
-          for (const finding of inspection.findings) add(`  ${finding.pass ? '✓' : '·'} ${finding.message.startsWith('Chưa có câu trả lời.') ? 'Chưa có câu trả lời. Nhấn A để nhập đáp án.' : finding.message}`);
+          /** Câu trong finding mô tả điều cần làm nên chỉ hiện khi chưa đạt; mục đã đạt dùng câu xác nhận chung. */
+          const shown = new Set<string>();
+          for (const [index, finding] of inspection.findings.entries()) {
+            const isAnswer = info.mode !== 'state' && index === inspection.findings.length - 1;
+            const text = finding.pass ? (isAnswer ? 'Câu trả lời đã đúng.' : 'Phần thực hành Git đã đạt.') : finding.message.startsWith('Chưa có câu trả lời.') ? 'Chưa có câu trả lời. Nhấn A để nhập đáp án.' : finding.message;
+            if (finding.pass && shown.has(text)) continue;
+            shown.add(text);
+            add(`  ${finding.pass ? '✓' : '·'} ${text}`);
+          }
           if (inspection.ready) add('  Sẵn sàng đạt — nhấn C để ghi nhận kết quả.');
         } else add('  Đang đọc trạng thái bài học…');
         section('Repository', info.repo);
@@ -131,7 +139,7 @@ export async function runUI(): Promise<void> {
     const visibleBody = body.slice(scroll, scroll + room);
     if (scroll === 0 && visibleBody.length) visibleBody[0] = `\x1b[1;36m${visibleBody[0]}\x1b[0m`;
     /** Dòng đánh dấu HL (phím mở lý thuyết) in đậm, chữ đen trên nền vàng để người học không bỏ sót. */
-    const paint = (line: string, plain: string): string => line.startsWith(HL) ? `\x1b[1;30;43m ${line.slice(1)} \x1b[0m` : `${plain}${line}\x1b[0m`;
+    const paint = (line: string, plain: string): string => line.startsWith(HL) ? `\x1b[1;38;5;16;48;5;220m ${line.slice(1)} \x1b[0m` : `${plain}${line}\x1b[0m`;
     for (const [index, line] of visibleBody.entries()) if (line.startsWith(HL)) visibleBody[index] = paint(line, '');
     const visibleTail = tail.slice(-(height - 1)).map(line => paint(line, '\x1b[36m'));
     process.stdout.write(`\x1b[?25${prompt ? 'h' : 'l'}\x1b[H\x1b[2J${[...visibleBody, ...visibleTail].join('\n')}\x1b[0m`);
