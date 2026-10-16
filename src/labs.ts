@@ -118,7 +118,7 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await git(repo, 'tag', '-a', 'v1.0.0', '-m', 'Phiên bản 1.0.0'); },
   },
   remote: {
-    task: 'Thêm bare repository trong thư mục bài tập làm origin rồi push main.', expected: 'refs/heads/main ở origin bằng main local.',
+    task: 'Repository bare origin.git đã có sẵn cạnh repo (đường dẫn {remote}). Hãy thêm nó làm remote origin rồi push main.', expected: 'refs/heads/main ở origin bằng main local.',
     hint: 'Đường dẫn origin là {remote}; dùng git remote add và git push.', solution: 'git remote add origin "{remote}"; git push -u origin main',
     setup: async repo => { await base(repo); await bare(repo); },
     validate: async repo => { let pushed = ''; try { pushed = await git(repo, '--git-dir', remotePath(repo), 'rev-parse', 'refs/heads/main'); } catch { /* chưa push */ } return result(pushed !== '' && pushed === await git(repo, 'rev-parse', 'main'), 'Hãy push main lên origin local.'); },
@@ -290,7 +290,7 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await git(repo, 'push', '-u', 'origin', 'feature'); },
   },
   addUpstream: {
-    task: 'Thêm remote upstream trỏ đến repository upstream.git bên cạnh repo.', expected: 'Repository có cả origin và upstream riêng.',
+    task: 'Repository upstream.git đã có sẵn cạnh repo (đường dẫn {upstream}). Hãy thêm remote upstream trỏ đến nó và giữ nguyên origin.', expected: 'Repository có cả origin và upstream riêng.',
     hint: 'Thêm remote bằng git remote add upstream "{upstream}".', solution: 'git remote add upstream "{upstream}"',
     setup: async repo => { await base(repo); await bare(repo); await git(repo, 'remote', 'add', 'origin', remotePath(repo)); await git(repo, 'init', '--bare', '-b', 'main', path.join(path.dirname(repo), 'upstream.git')); },
     validate: async repo => { let url = ''; try { url = await git(repo, 'remote', 'get-url', 'upstream'); } catch { /* chưa có */ } return result(url !== '' && path.resolve(repo, url) === path.join(path.dirname(repo), 'upstream.git') && (await git(repo, 'remote')).split('\n').includes('origin'), 'Hãy thêm upstream và giữ origin.'); },
@@ -388,7 +388,7 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await write(repo, 'feature.txt', 'Tính năng mới\n'); await commit(repo, 'Thêm tính năng sau cờ'); },
   },
   submodule: {
-    task: 'Thêm repository local module-source làm submodule tại modules/sample và commit gitlink.',
+    task: 'Repository local module-source đã có sẵn cạnh repo (đường dẫn {submodule}). Hãy thêm nó làm submodule tại modules/sample và commit gitlink.',
     expected: 'HEAD có gitlink tại modules/sample, .gitmodules trỏ đến nguồn local trong sandbox.',
     hint: 'Dùng git -c protocol.file.allow=always submodule add "{submodule}" modules/sample rồi commit.',
     solution: 'git -c protocol.file.allow=always submodule add "{submodule}" modules/sample; git commit -m "Thêm submodule"',
@@ -467,7 +467,7 @@ export const labs: Record<string, Lab> = {
     solve: async repo => { await git(repo, 'update-ref', 'refs/lesson/base', await git(repo, 'merge-base', 'main', 'topic')); },
   },
   reviewBranch: {
-    task: 'Fetch nhánh feature từ origin local rồi tạo nhánh review/pr tại commit đó; giữ main nguyên.',
+    task: 'Origin local có nhánh feature (ở local bạn chưa có nhánh này; main đã tiến thêm một commit riêng). Hãy fetch feature rồi tạo nhánh review/pr tại commit đó; giữ main nguyên.',
     expected: 'review/pr trỏ tới origin/feature và main chưa nhận tính năng.',
     hint: 'Tải nhánh bằng git fetch origin feature rồi mở review/pr từ origin/feature.',
     solution: 'git fetch origin feature; git switch -c review/pr origin/feature; git diff main...review/pr',
@@ -480,6 +480,8 @@ export const labs: Record<string, Lab> = {
       await git(repo, 'push', 'origin', 'feature');
       await git(repo, 'switch', 'main');
       await git(repo, 'branch', '-D', 'feature');
+      await write(repo, 'main.txt', 'Main tiến thêm sau khi feature tách ra\n');
+      await commit(repo, 'Main tiến thêm');
     },
     validate: async repo => { let review = ''; try { review = await git(repo, 'rev-parse', 'refs/heads/review/pr'); } catch { /* chưa có */ } return result(review !== '' && review === await git(repo, 'rev-parse', 'refs/remotes/origin/feature') && await tipFile(repo, 'feature.txt') === 'Đề xuất' && (await git(repo, 'rev-parse', 'main')) !== review && await clean(repo), 'Hãy fetch và mở nhánh review/pr mà không sửa main.'); },
     solve: async repo => { await git(repo, 'fetch', 'origin', 'feature'); await git(repo, 'switch', '-c', 'review/pr', 'origin/feature'); },

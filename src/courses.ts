@@ -1,4 +1,4 @@
-import { commit, git, init, write } from './git.js';
+import { fixtures } from './fixtures.js';
 import { getLab } from './labs.js';
 import { roadmap } from './curriculum.js';
 
@@ -35,69 +35,68 @@ function answerMatches(expected: string, submitted: string): boolean {
   const candidate = normalize(expected);
   const actual = normalize(submitted);
   if (actual === candidate) return true;
-  if (candidate === 'feat:' && /^feat(?:\([^)]+\))?!?:?$/.test(actual)) return true;
-  if (candidate.startsWith('git ') && actual.startsWith(candidate + ' ')) return true;
+  if (candidate === 'feat:' && /^feat(?:\([^)]+\))?!?:?(?:\s.*)?$/.test(actual)) return true;
+  if (/^(git|gh) /.test(candidate) && actual.startsWith(candidate + ' ')) return true;
+  if (/[:!]$/.test(candidate) && candidate !== 'feat:' && actual.startsWith(candidate)) return true;
   if (candidate.startsWith('-') && actual.split(/\s+/).some(token => token === candidate || token.startsWith(candidate + '='))) return true;
   return false;
 }
 
 const answerVariants: Record<string, readonly string[]> = {
+  'foundations/gitignore': ['gitignore'],
   'foundations/stage-and-commit': ['git add bai.txt', 'git add .', 'git add -A', 'git add --all'],
-  'foundations/head-and-refs': ['git symbolic-ref HEAD'],
+  'foundations/three-trees': ['staging area', 'staging', 'vùng staging', 'khu vực staging', 'vùng chờ', 'vùng chuẩn bị'],
+  'foundations/object-model': ['blob object', 'đối tượng blob'],
+  'foundations/head-and-refs': ['git symbolic-ref HEAD', 'git rev-parse --abbrev-ref HEAD', 'git branch --show-current'],
   'foundations/commit-message-anatomy': ['feat'],
-  'branching/create-and-switch': ['git checkout -b'],
+  'branching/create-and-switch': ['git checkout -b', 'git switch --create'],
   'branching/renaming-branches': ['-m', 'git branch -m', 'git branch --move'],
   'branching/upstream-tracking': ['-u', 'git push -u', 'git push --set-upstream'],
   'undo/stash-as-undo': ['git stash'],
+  'undo/clean-restore': ['git clean -fd', 'git clean -df', 'git clean -fdx', 'git clean -fx', 'git clean --force'],
+  'undo/resetting-single-file': ['git checkout HEAD --', 'git checkout --'],
+  'undo/detached-head': ['git checkout -b', 'git switch --create', 'git branch'],
+  'remote/remotes-push-pull': ['git push -u origin main', 'git push --set-upstream origin main'],
+  'remote/multiple-remotes': ['git remote --verbose'],
   'remote/prune-stale-branches': ['git remote prune origin', 'git fetch --prune origin', 'git fetch --prune'],
-  'remote/pushing-tags': ['git push --tags', 'git push origin --tags'],
+  'remote/pushing-tags': ['git push --tags', 'git push origin --tags', 'git push origin refs/tags/v1.0.0', 'git push origin tag v1.0.0'],
+  'remote/ssh-keys': ['public', 'khóa công khai', '.pub', 'public key (.pub)'],
+  'remote/personal-access-tokens': ['secrets', 'secret manager', 'github secrets', 'ci secret', 'ci secrets', 'repository secrets', 'github actions secrets', 'secret store', 'bí mật', 'biến bí mật', 'kho bí mật'],
+  'remote/branch-protection': ['required status check', 'status checks', 'status check', 'required checks', 'kiểm tra trạng thái bắt buộc', 'kiểm tra bắt buộc'],
+  'release-ops/tagging': ['git tag --annotate', 'git tag -am'],
   'release-ops/semver': ['v1.3.0'],
-  'release-ops/release-branches': ['release/2.0'],
-  'release-ops/hotfix-branches': ['hotfix/1.0.1'],
+  'release-ops/tag-signing': ['--sign'],
+  'release-ops/commit-signing': ['--show-signature'],
+  'release-ops/release-branches': ['release/2.0', 'release'],
+  'release-ops/hotfix-branches': ['hotfix/1.0.1', 'hotfix'],
+  'release-ops/changelog-generation': ['changelog'],
   'advanced/interactive-rebase': ['--interactive', 'git rebase -i', 'git rebase --interactive'],
-  'advanced/partial-clones': ['--filter=blob:none'],
-  'daily-workflows/reviewing-pr-locally': ['git diff main..review/pr', 'git diff main review/pr'],
+  'advanced/splitting-commit': ['mixed'],
+  'advanced/hooks-automation': ['pre-commit hook', 'pre commit', 'precommit'],
+  'advanced/partial-clones': ['--filter=blob:none', 'filter=blob:none'],
+  'daily-workflows/perfect-commit': ['git add --patch'],
+  'daily-workflows/aliases': ['git config alias.st', 'git config --local alias.st'],
+  'daily-workflows/conventional-commits': ['feat:', 'feat'],
+  'daily-workflows/pre-commit-hooks': ['pre-commit hook', 'pre commit', 'precommit'],
+  'daily-workflows/husky-lint-staged': ['lint staged', 'lintstaged'],
+  'daily-workflows/long-running-features': ['feature flags', 'feature toggle', 'feature toggles', 'feature switch', 'flag', 'cờ tính năng', 'cờ bật tắt'],
   'internals/git-directory': ['.git/index'],
   'internals/object-database': ['.git/objects'],
-  'internals/reachability': ['branch', 'nhánh'],
-  'internals/three-way-merge': ['common ancestor', 'tổ tiên chung'],
+  'internals/blobs-trees-commits': ['tree object', 'đối tượng tree'],
+  'internals/index-format': ['git ls-files -s', 'git ls-files --stage'],
+  'internals/packfiles': ['pack', '*.pack'],
+  'internals/gc-internals': ['git maintenance run'],
+  'internals/reachability': ['branch', 'nhánh', 'refs', 'reference', 'branch ref', 'tên nhánh'],
+  'internals/loose-vs-packed': ['pack', '.pack', 'pack file', 'tệp pack'],
+  'internals/plumbing-vs-porcelain': ['lệnh plumbing', 'plumbing command', 'plumbing commands'],
+  'internals/three-way-merge': ['common ancestor', 'tổ tiên chung', 'tổ tiên chung gần nhất', 'merge-base', 'base'],
+  'teamwork/pr-lifecycle': ['code review', 'review code', 'reviewing', 'pr review', 'duyệt', 'phê duyệt', 'approval', 'approve'],
   'teamwork/co-authoring': ['Co-authored-by'],
   'teamwork/pair-workflows': ['Co-authored-by'],
   'teamwork/repo-onboarding': ['README'],
-  'teamwork/documentation-conventions': ['README'],
+  'teamwork/documentation-conventions': ['CONTRIBUTING'],
+  'forensics/filter-repo-surgery': ['revoke token', 'revoke', 'thu hồi', 'rotate token', 'rotate', 'xoay vòng token', 'vô hiệu hóa token', 'thu hồi khóa', 'đổi token', 'thu hồi và tạo token mới'],
 };
-
-function answerHint(question: string, answer: string): string {
-  if (question.includes('Subject')) return 'Hãy dùng git log, git blame hoặc git show để tìm subject commit trong fixture.';
-  if (question.startsWith('Ai ')) return 'Hãy xem tác giả bằng git blame hoặc git log --format=%an.';
-  if (answer.startsWith('git ')) return 'Trả lời bằng lệnh Git; có thể thêm đối số phù hợp với câu hỏi.';
-  if (answer.startsWith('-')) return 'Trả lời bằng tên tùy chọn Git; dạng viết tắt tương đương cũng được nhận.';
-  return 'Trả lời bằng tên hoặc giá trị ngắn gọn đúng với câu hỏi.';
-}
-
-async function scenario(repo: string, track: string, lesson: string): Promise<void> {
-  await init(repo);
-  await write(repo, 'README.md', 'Bài tập Git offline\n');
-  await commit(repo, 'Khởi tạo');
-  if (track !== 'inspection' && track !== 'forensics') return;
-  await git(repo, 'config', 'user.name', 'Lan');
-  await write(repo, 'app.txt', 'dong dau\n');
-  await commit(repo, 'Tạo ứng dụng');
-  await git(repo, 'config', 'user.name', 'Minh');
-  await write(repo, 'app.txt', 'dong dau\nTOKEN_DEMO\n');
-  await commit(repo, 'Thêm chuỗi mẫu');
-  await write(repo, 'app.txt', 'dong dau\nTOKEN_DEMO\nloi\n');
-  await commit(repo, 'Thêm lỗi');
-  if (lesson === 'file-history-renames') {
-    await git(repo, 'mv', 'app.txt', 'app-renamed.txt');
-    await commit(repo, 'Đổi tên tệp ứng dụng');
-  }
-  if (lesson === 'finding-leaked-secrets') {
-    await write(repo, 'app.txt', 'dong dau\nloi\n');
-    await commit(repo, 'Xóa chuỗi mẫu');
-  }
-  await git(repo, 'config', 'user.name', 'Git Training');
-}
 
 const simulated = new Set([
   'remote/pull-request-workflow', 'remote/fork-upstream', 'remote/ssh-keys', 'remote/personal-access-tokens',
@@ -112,6 +111,8 @@ export const courses: readonly Course[] = roadmap.map(track => ({
   exercises: track.lessons.map(spec => {
     const lab = spec.lab ? getLab(spec.lab) : undefined;
     const answer = spec.answer;
+    const fixture = lab ? undefined : fixtures[`${track.id}/${spec.slug}`];
+    if (!lab && !fixture) throw new Error(`Bài chỉ trả lời ${track.id}/${spec.slug} thiếu fixture mô tả trạng thái repo.`);
     return {
       id: spec.slug,
       title: spec.title,
@@ -122,12 +123,12 @@ export const courses: readonly Course[] = roadmap.map(track => ({
       mode: lab ? 'hybrid' as const : 'answer' as const,
       needsGit: lab?.needsGit ?? true,
       simulated: simulated.has(`${track.id}/${spec.slug}`),
-      instructions: lab ? `${lab.task} Sau đó trả lời: ${spec.question}` : `Khảo sát repository bài tập nếu cần, rồi trả lời: ${spec.question}`,
+      instructions: lab ? `${lab.task} Sau đó trả lời: ${spec.question}` : `${fixture!.note} Hãy chạy lệnh Git để khảo sát repo, rồi trả lời: ${spec.question}`,
       hints: lab
         ? ['Quan sát trạng thái ban đầu bằng git status và so với kết quả cần đạt.', lab.hint]
-        : [spec.concept, answerHint(spec.question, answer)],
+        : [spec.concept, fixture!.hint],
       solution: lab ? `${lab.solution.replaceAll('; ', '\n').replaceAll(' && ', '\n')}\nĐáp án câu hỏi: ${answer.trim()}.` : `Đáp án: ${answer.trim()}. ${spec.concept}`,
-      setup: lab ? lab.setup : async (repo: string) => scenario(repo, track.id, spec.slug),
+      setup: lab ? lab.setup : fixture!.setup,
       validate: lab ? lab.validate : async () => [],
       evaluateAnswer: async (_repo: string, submitted: string) => {
         const pass = [...answer.split('~'), ...(answerVariants[`${track.id}/${spec.slug}`] ?? [])].some(candidate => answerMatches(candidate, submitted));
