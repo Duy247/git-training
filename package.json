@@ -1,14 +1,37 @@
 {
   "name": "@duy247/git-training",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Luyện Git offline qua 116 bài thực hành tiếng Việt",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "bin": { "git-training": "./bin/git-training.cjs" },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "git-training": "./bin/git-training.cjs"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["bin", "dist", "docs", "theory", "!theory/src", "!theory/examples", "!theory/build.mjs", "!theory/check.mjs", "!theory/lib.mjs", "!theory/vendor", "!theory/README.md", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "docs",
+    "theory",
+    "!theory/src",
+    "!theory/examples",
+    "!theory/build.mjs",
+    "!theory/check.mjs",
+    "!theory/lib.mjs",
+    "!theory/vendor",
+    "!theory/README.md",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",
@@ -19,10 +42,23 @@
     "@types/node": "^22.15.0",
     "typescript": "^5.9.3"
   },
-  "keywords": ["git", "training", "learning", "cli", "exercises"],
+  "keywords": [
+    "git",
+    "training",
+    "learning",
+    "cli",
+    "exercises"
+  ],
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/Duy247/git-training.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Duy247/git-training.git"
+  },
   "homepage": "https://github.com/Duy247/git-training#readme",
-  "bugs": { "url": "https://github.com/Duy247/git-training/issues" },
-  "publishConfig": { "access": "public" }
+  "bugs": {
+    "url": "https://github.com/Duy247/git-training/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

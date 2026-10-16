@@ -1,5 +1,6 @@
 import readline from 'node:readline';
-import { openTheory } from './theory.js';
+import { openTheory, theoryMessage, theoryPagePath, detectWsl } from './theory.js';
+import { openFolder, folderMessage, fileManagerName } from './explorer.js';
 import { createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, inspectExercise, listCourses, nextExercise, openExercise, saveAnswer, checkExercise, type InspectionResult, type ExerciseProgress } from './engine.js';
 
 type Page = 'tracks' | 'lesson' | 'lessons' | 'roadmap';
@@ -39,15 +40,13 @@ export async function runUI(): Promise<void> {
   let closed = false;
   try { sessionDir = (await getSession()).dir; page = 'lesson'; } catch { /* chưa có phiên */ }
 
-  /** Mở trang lý thuyết của bài hiện tại; trả về đoạn thông báo ngắn (đường dẫn luôn có để tự mở). */
-  const theory = async (courseId: string, exerciseId: string, reopen: boolean): Promise<string> => {
-    const result = await openTheory(courseId, exerciseId, { reopen });
-    if (!result.path) return '';
-    return result.opened ? ` Đã mở bài lý thuyết trong trình duyệt: ${result.path}` : ` Bài lý thuyết: ${result.path}`;
+  /** Trang lý thuyết KHÔNG tự mở; người học nhấn V (hoặc Enter) để mở. */
+  const openCurrentTheory = async (): Promise<string> => {
+    const info = await getExerciseInfo({ sessionDir });
+    const result = await openTheory(info.session.courseId, info.id, { reopen: true });
+    return theoryMessage(result) ?? 'Bài này chưa có trang lý thuyết.';
   };
-  const theoryOfCurrent = async (reopen: boolean): Promise<string> => {
-    try { const info = await getExerciseInfo({ sessionDir }); return await theory(info.session.courseId, info.id, reopen); } catch { return ''; }
-  };
+  const theoryHint = 'Nhấn V để đọc bài lý thuyết trước khi làm.';
 
   const refresh = async () => {
     if (!sessionDir || busy || closed || page !== 'lesson' || prompt) return;
@@ -64,6 +63,7 @@ export async function runUI(): Promise<void> {
     const body: string[] = [];
     const controls: string[] = [];
     const add = (value = '') => body.push(...wrap(value, width - 2));
+    const HL = '\u0001';
     const control = (value: string) => controls.push(...wrap(value, width - 2));
     const section = (label: string, value: string) => {
       add(); add(label.toLocaleUpperCase('vi'));
@@ -75,6 +75,7 @@ export async function runUI(): Promise<void> {
     };
     add('GIT TRAINING  •  Luyện Git trên máy');
     add('─'.repeat(Math.min(width - 2, 72)));
+    let theoryBanner = '';
     try {
       if (page === 'tracks') {
         add('Chọn track bằng ↑/↓ và Enter:'); add();
@@ -100,6 +101,7 @@ export async function runUI(): Promise<void> {
         const done = progress.filter(item => item.state === 'complete').length;
         const current = progress.find(item => item.id === info.id);
         add(`${info.session.courseId}  •  ${done}/${progress.length} bài  •  ${info.title}`);
+        if (theoryPagePath(info.session.courseId, info.id)) { theoryBanner = '▶ [V] MỞ BÀI LÝ THUYẾT: đọc trước khi làm bài ◀'; body.push(...wrap(theoryBanner, width - 2).map(line => HL + line)); }
         add(info.simulated ? 'Mô phỏng offline' : 'Thực hành Git');
         section('Nhiệm vụ', info.instructions);
         section('Kết quả cần đạt', info.expected);
@@ -110,9 +112,12 @@ export async function runUI(): Promise<void> {
           if (inspection.ready) add('  Sẵn sàng đạt — nhấn C để ghi nhận kết quả.');
         } else add('  Đang đọc trạng thái bài học…');
         section('Repository', info.repo);
+        add(`  Nhấn E để mở thư mục này trong ${fileManagerName(process.platform, detectWsl())}.`);
         add(process.platform === 'win32' ? '  PowerShell: Set-Location ~; Set-Location (git-training path)' : '  Shell: cd ~ && cd "$(git-training path)"');
         section('Kiến thức', info.concept);
+        if (theoryBanner) controls.push(...wrap(theoryBanner, width - 2).map(line => HL + line));
         controlPair('[C] Check', '[A] Trả lời');
+        control(`[E] Mở thư mục bài trong ${fileManagerName(process.platform, detectWsl())}`);
         controlPair('[H] Gợi ý', '[S] Lời giải');
         controlPair('[N] Bài sau', '[L] Danh sách bài');
         controlPair('[O] Mở bài', '[T] Chọn track');
@@ -125,7 +130,10 @@ export async function runUI(): Promise<void> {
     scroll = Math.min(scroll, Math.max(0, body.length - room));
     const visibleBody = body.slice(scroll, scroll + room);
     if (scroll === 0 && visibleBody.length) visibleBody[0] = `\x1b[1;36m${visibleBody[0]}\x1b[0m`;
-    const visibleTail = tail.slice(-(height - 1)).map(line => `\x1b[36m${line}\x1b[0m`);
+    /** Dòng đánh dấu HL (phím mở lý thuyết) in đậm, chữ đen trên nền vàng để người học không bỏ sót. */
+    const paint = (line: string, plain: string): string => line.startsWith(HL) ? `\x1b[1;30;43m ${line.slice(1)} \x1b[0m` : `${plain}${line}\x1b[0m`;
+    for (const [index, line] of visibleBody.entries()) if (line.startsWith(HL)) visibleBody[index] = paint(line, '');
+    const visibleTail = tail.slice(-(height - 1)).map(line => paint(line, '\x1b[36m'));
     process.stdout.write(`\x1b[?25${prompt ? 'h' : 'l'}\x1b[H\x1b[2J${[...visibleBody, ...visibleTail].join('\n')}\x1b[0m`);
   };
 
@@ -137,7 +145,7 @@ export async function runUI(): Promise<void> {
     if (page === 'tracks') {
       if (key === 'up' || key === 'k') selected = (selected - 1 + listCourses().length) % listCourses().length;
       if (key === 'down' || key === 'j') selected = (selected + 1) % listCourses().length;
-      if (key === 'return') { const course = listCourses()[selected]; if (course) { const session = await createSession(course.id); sessionDir = session.dir; inspection = undefined; page = 'lesson'; notice = (await theoryOfCurrent(false)).trim(); await refresh(); } }
+      if (key === 'return') { const course = listCourses()[selected]; if (course) { const session = await createSession(course.id); sessionDir = session.dir; inspection = undefined; page = 'lesson'; notice = `Đã mở track. ${theoryHint}`; await refresh(); } }
       if (key === 'r') page = 'roadmap';
     } else if (page === 'roadmap') {
       if (key === 't') { selected = 0; page = 'tracks'; }
@@ -149,7 +157,7 @@ export async function runUI(): Promise<void> {
       if (key === 'return') {
         const item: ExerciseProgress | undefined = lessons[selected];
         if (item?.state === 'locked') notice = 'Bài này chưa mở khóa.';
-        else if (item) { await openExercise(item.id, options); inspection = undefined; page = 'lesson'; notice = `Đã khôi phục checkpoint của ${item.id}.${await theoryOfCurrent(true)}`; await refresh(); }
+        else if (item) { await openExercise(item.id, options); inspection = undefined; page = 'lesson'; notice = `Đã khôi phục checkpoint của ${item.id}. ${theoryHint}`; await refresh(); }
       }
       if (key === 'b') page = 'lesson';
     } else if (sessionDir) {
@@ -157,8 +165,10 @@ export async function runUI(): Promise<void> {
       if (key === 'a') { prompt = 'answer'; input = ''; }
       if (key === 'h') { const hint = await getHint(options); notice = `Gợi ý ${hint.level}/${hint.total}: ${hint.text}`; }
       if (key === 's') notice = `Lời giải: ${await getSolution(options)}`;
-      if (key === 'n') { const next = await nextExercise(options); notice = next ? `Đã mở ${next.session.currentExerciseId}.${await theoryOfCurrent(false)}` : 'Đã hoàn thành track!'; inspection = undefined; scroll = 0; await refresh(); }
+      if (key === 'n') { const next = await nextExercise(options); notice = next ? `Đã mở ${next.session.currentExerciseId}. ${theoryHint}` : 'Đã hoàn thành track!'; inspection = undefined; scroll = 0; await refresh(); }
       if (key === 'l') { selected = 0; page = 'lessons'; }
+      if (key === 'v' || key === 'return') notice = await openCurrentTheory();
+      if (key === 'e') { const info = await getExerciseInfo(options); notice = folderMessage(await openFolder(info.repo), process.platform, detectWsl()); }
       if (key === 'o') { prompt = 'open'; input = ''; }
       if (key === 't') { selected = 0; page = 'tracks'; }
       if (key === 'r') page = 'roadmap';
@@ -187,7 +197,7 @@ export async function runUI(): Promise<void> {
             else if (key.name === 'return') {
               const value = input.trim(); const kind = prompt; prompt = undefined; input = '';
               if (value && kind === 'answer') { await saveAnswer(value, { sessionDir }); notice = 'Đã lưu đáp án. Nhấn C khi sẵn sàng ghi nhận kết quả.'; await refresh(); }
-              if (value && kind === 'open') { await openExercise(value, { sessionDir }); inspection = undefined; page = 'lesson'; notice = (await theoryOfCurrent(true)).trim(); await refresh(); }
+              if (value && kind === 'open') { await openExercise(value, { sessionDir }); inspection = undefined; page = 'lesson'; notice = `Đã mở ${value}. ${theoryHint}`; await refresh(); }
             } else if (character && !key.ctrl && !key.meta && !/\p{C}/u.test(character)) input += character;
           } else await act(key.name ?? character.toLowerCase());
           await draw();

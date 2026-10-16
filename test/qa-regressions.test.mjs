@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { checkExercise, createSession, getCourse, getExerciseInfo, getSession, git, openExercise, submitAnswer, write } from '../dist/index.js';
@@ -150,7 +150,7 @@ test('CLI giải thích Git bị thiếu và --dir không thay đổi phiên đa
     assert.equal(second.status, 0, second.stderr);
     assert.match(second.stdout, /--dir không đổi vị trí/);
     await assert.rejects(stat(path.join(home, 'b')), { code: 'ENOENT' });
-    assert.equal(launch(['--version']).stdout.trim(), '0.1.0');
+    assert.equal(launch(['--version']).stdout.trim(), JSON.parse(await readFile(path.resolve('package.json'), 'utf8')).version);
     assert.match(launch(['courses', 'extra']).stderr, /không nhận đối số/);
   } finally { await rm(home, { recursive: true, force: true }); }
 });
