@@ -1,0 +1,138 @@
+@import "tailwindcss";
+@source "../src/web";
+@source "../web/app.js";
+
+/* Bảng học web của git-training. Một màu nhấn (đất nung), màu xanh lá chỉ dùng cho "đã xong".
+   Phông Be Vietnam Pro / JetBrains Mono tự lưu trong theory/assets (không gọi CDN). */
+
+:root {
+  color-scheme: light dark;
+  --c-paper: #f6f5f1;
+  --c-surface: #ffffff;
+  --c-ink: #1c1b18;
+  --c-muted: #5a574f;
+  --c-line: #d9d6cd;
+  --c-edge: #8a867c;
+  --c-accent: #a8391a;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: #f3e4dd;
+  --c-ok: #1a6b3c;
+  --c-ok-soft: #e1efe6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-paper: #151513;
+    --c-surface: #1d1d1a;
+    --c-ink: #ebe9e2;
+    --c-muted: #a9a69c;
+    --c-line: #34332e;
+    --c-edge: #7d7a70;
+    --c-accent: #f19a72;
+    --c-accent-ink: #1d1d1a;
+    --c-accent-soft: #35241c;
+    --c-ok: #6fcf97;
+    --c-ok-soft: #1a2d22;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Be Vietnam Pro', 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, Consolas, 'Courier New', monospace;
+  --color-paper: var(--c-paper);
+  --color-surface: var(--c-surface);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-edge: var(--c-edge);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-ok: var(--c-ok);
+  --color-ok-soft: var(--c-ok-soft);
+  /* Thang chữ: cỡ chữ thân 17px, dòng 1.65 cho người mới đọc thoải mái. */
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 2.75rem;
+  --text-3xl--line-height: 1.1;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--c-paper); color: var(--c-ink); font-family: var(--font-sans); font-size: 1.0625rem; line-height: 1.65; font-feature-settings: 'kern', 'liga'; text-rendering: optimizeLegibility; }
+  h1, h2, h3 { text-wrap: balance; }
+  p, li { text-wrap: pretty; }
+  :focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; border-radius: 3px; }
+  button, summary { cursor: pointer; }
+  [hidden] { display: none !important; }
+}
+
+@layer components {
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .5rem 1.15rem; border-radius: var(--radius-md); border: 1px solid var(--c-edge); background: var(--c-surface); color: var(--c-ink); font-weight: 500; font-size: 1rem; line-height: 1.3; text-align: center; transition: background-color .12s, border-color .12s; }
+  .btn:hover { border-color: var(--c-ink); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-primary { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-accent-ink); font-weight: 600; }
+  .btn-primary:hover { background: var(--c-accent); border-color: var(--c-ink); filter: brightness(.93); }
+  .btn-sm { min-height: 2.25rem; padding: .25rem .8rem; font-size: .9375rem; }
+  .link { color: var(--c-accent); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+  .link:hover { text-decoration-thickness: 2px; }
+  .eyebrow { font-size: .875rem; letter-spacing: .02em; color: var(--c-muted); font-weight: 500; }
+  .label { font-size: .875rem; font-weight: 600; color: var(--c-muted); letter-spacing: .02em; }
+  .code { font-family: var(--font-mono); font-size: .9375rem; background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--radius-md); padding: .65rem .85rem; overflow-wrap: anywhere; }
+  .field { width: 100%; min-height: 3rem; padding: .55rem .85rem; border-radius: var(--radius-md); border: 1px solid var(--c-edge); background: var(--c-surface); color: var(--c-ink); font-size: 1.0625rem; }
+  .field:focus-visible { outline-offset: 0; border-color: var(--c-accent); }
+
+  /* Danh sách bước */
+  .steps { position: relative; }
+  .step { position: relative; padding-left: 3.25rem; padding-bottom: 1.25rem; }
+  .step::before { content: ''; position: absolute; left: 1.1rem; top: 2.5rem; bottom: .15rem; width: 2px; background: var(--c-line); }
+  .step:last-child::before { display: none; }
+  .step[data-state='done']::before { background: var(--c-ok); }
+  .marker { position: absolute; left: 0; top: .05rem; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 999px; border: 2px solid var(--c-edge); background: var(--c-paper); color: var(--c-muted); font-weight: 600; font-size: 1rem; }
+  .step[data-state='current'] .marker { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-accent-ink); }
+  .step[data-state='done'] .marker { background: var(--c-ok); border-color: var(--c-ok); color: var(--c-paper); }
+  .marker svg { width: 1.1rem; height: 1.1rem; }
+  .marker .tick { stroke-dasharray: 22; stroke-dashoffset: 0; }
+  .step-head { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; min-height: 2.5rem; padding: .15rem 0; font-weight: 600; font-size: 1.125rem; line-height: 1.4; }
+  .step[data-state='todo'] .step-head { color: var(--c-muted); font-weight: 500; }
+  .step-note { flex: none; font-size: .875rem; font-weight: 500; color: var(--c-muted); }
+  .step[data-state='done'] .step-note { color: var(--c-ok); }
+  .step[data-state='current'] .step-note { color: var(--c-accent); }
+  .step-body { padding: .35rem 0 .25rem; }
+
+  .spinner { display: inline-block; width: 1rem; height: 1rem; border-radius: 999px; border: 2px solid var(--c-line); border-top-color: var(--c-accent); animation: gt-spin .9s linear infinite; flex: none; }
+
+  .banner-ok { border-left: 4px solid var(--c-ok); background: var(--c-ok-soft); padding: 1rem 1.15rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .note { border-left: 4px solid var(--c-accent); background: var(--c-accent-soft); padding: .75rem 1rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .rule-grow { height: 3px; background: var(--c-ok); transform-origin: left; }
+}
+
+/* Hiệu ứng đạt bài: vẽ dấu tích và quét một đường kẻ xanh. Chỉ CSS, tắt khi người dùng chọn giảm chuyển động. */
+@keyframes gt-spin { to { transform: rotate(360deg); } }
+@keyframes gt-draw { from { stroke-dashoffset: 22; } to { stroke-dashoffset: 0; } }
+@keyframes gt-sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes gt-ring { from { box-shadow: 0 0 0 0 var(--c-ok); } to { box-shadow: 0 0 0 10px transparent; } }
+@keyframes gt-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.just-done .tick { animation: gt-draw .5s ease-out both; }
+.just-done .marker { animation: gt-ring 1s ease-out; }
+.banner-ok.enter { animation: gt-rise .4s ease-out both; }
+.banner-ok.enter .rule-grow { animation: gt-sweep .9s .1s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-top-color: var(--c-accent); border-right-color: var(--c-accent); }
+  .just-done .tick, .just-done .marker, .banner-ok.enter, .banner-ok.enter .rule-grow { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* Khung lý thuyết trên màn hình hẹp: mở toàn màn hình, đóng bằng nút "Quay lại bài" hoặc Esc. */
+@media (max-width: 1023.98px) {
+  .theory-open { position: fixed; inset: 0; z-index: 50; display: flex !important; flex-direction: column; height: 100dvh; border-radius: 0 !important; border-width: 0 !important; background: var(--c-paper); }
+}

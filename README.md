@@ -18,7 +18,7 @@ npx @duy247/git-training start foundations
 
 Trong bản mã nguồn, chạy `npm install`, `npm run build`, rồi `npm link` để lệnh `git-training` hoạt động từ mọi thư mục. Nếu không muốn link, dùng đường dẫn tuyệt đối đến `dist/cli.js` với `node` cho **mọi** lệnh. `start` in đường dẫn repository của bài đầu. Chuyển đến đó, thực hành rồi kiểm tra:
 
-Chạy `git-training` không đối số để mở bảng học tiếng Việt. Mặc định là **chế độ hướng dẫn**: mỗi bài chỉ có vài bước đơn giản, bạn nhấn **Enter** để làm bước tiếp theo (xem phần [Dùng bảng học](#dùng-bảng-học)). Trên Windows, bảng học mở trong cửa sổ Windows Terminal riêng khi có sẵn; nếu không, nó dùng terminal hiện tại. `git-training ui` luôn mở tại terminal hiện tại, còn `git-training ui --window` yêu cầu cửa sổ riêng trên Windows. Mở một terminal khác để chạy Git trong thư mục bài tập; bảng học **tự nhận** khi bạn làm xong. Muốn bố cục đầy đủ kiểu cũ (nhiều phím tắt: **C**, **A**, **H**, **S**, **N**, **L**, **O**, **T**, **R**, **Q**), chạy `git-training --classic` hoặc đặt `GIT_TRAINING_CLASSIC=1`.
+Chạy `git-training` không đối số để mở **bảng học trên trình duyệt** (xem [Bảng học trên trình duyệt](#bảng-học-trên-trình-duyệt)). Công cụ mở một trang web chạy ngay trên máy bạn (không cần mạng): trang liệt kê các bước của bài, hiện bài lý thuyết ngay cạnh nhiệm vụ và **tự nhận** khi bạn làm xong trong thư mục bài tập. Giữ cửa sổ terminal đang chạy `git-training` mở trong lúc học, rồi mở một terminal khác để gõ lệnh Git. Muốn học hoàn toàn trong terminal, chạy `git-training --terminal` (hoặc đặt `GIT_TRAINING_TERMINAL=1`); `git-training --classic` giữ bố cục terminal đầy đủ kiểu cũ với nhiều phím tắt.
 
 Các lệnh thường vẫn hoạt động độc lập với bảng học:
 
@@ -57,9 +57,10 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 | Lệnh | Chức năng |
 | --- | --- |
 | `courses` | Liệt kê track. |
-| Không đối số | Mở bảng học (chế độ hướng dẫn); trên Windows thử mở cửa sổ riêng. |
-| `--classic` | Dùng bảng học kiểu cũ với đầy đủ menu và phím tắt (hoặc đặt `GIT_TRAINING_CLASSIC=1`). Dùng được cùng `ui`. |
-| `ui [--window]` | Mở bảng học tại terminal hiện tại hoặc cửa sổ mới trên Windows. |
+| Không đối số, hoặc `web [--port <số>] [--no-open]` | Mở bảng học trên trình duyệt (máy chủ cục bộ). `--no-open` chỉ in đường dẫn; `--port` chọn cổng (mặc định tự chọn cổng trống). Cần chạy trong terminal tương tác; `web` chạy được ở mọi nơi. |
+| `--terminal` | Dùng bảng học trong terminal (chế độ hướng dẫn từng bước); trên Windows thử mở Windows Terminal riêng. Hoặc đặt `GIT_TRAINING_TERMINAL=1`. |
+| `--classic` | Bảng học terminal kiểu cũ với đầy đủ menu và phím tắt (hoặc đặt `GIT_TRAINING_CLASSIC=1`). Dùng được cùng `ui`. |
+| `ui [--window]` | Mở bảng học terminal tại terminal hiện tại hoặc cửa sổ mới trên Windows. |
 | `start <track> [--dir <thư-mục>]` | Tạo phiên mới; mặc định trong `~/git-training`. Chỉ in đường dẫn trang lý thuyết, không tự mở. |
 | `--version` | Xem phiên bản CLI. |
 | `roadmap` | Xem tiến độ cả 11 track. |
@@ -80,7 +81,26 @@ Các track bắt đầu độc lập. Trong mỗi track, bài sau mở khóa khi
 
 Bài về GitHub, credential, signing, branch protection, Husky và `git-filter-repo` được ghi rõ là **mô phỏng offline**. Chúng không đăng nhập dịch vụ, ký bằng khóa thật hay viết lại lịch sử thật. Bài remote dùng bare repository cục bộ.
 
-## Dùng bảng học
+## Bảng học trên trình duyệt
+
+`git-training` (không đối số) khởi động một máy chủ HTTP nhỏ **chỉ trên máy bạn** và mở trình duyệt mặc định. Terminal in đường dẫn dạng `http://127.0.0.1:<cổng>/?t=<mã>`; giữ cửa sổ đó mở, nhấn **Ctrl+C** để dừng. Đóng tab trình duyệt không làm máy chủ dừng: mở lại đường dẫn là học tiếp. Nếu quá **2 giờ** không có yêu cầu nào (không còn tab nào mở), máy chủ tự dừng; đổi bằng `GIT_TRAINING_IDLE_MINUTES=<phút>` (`0` là không bao giờ tự dừng).
+
+Các trang: **Chào mừng** (ba dòng hướng dẫn và nút *Tiếp tục học*), **Bài học**, **Tất cả bài** (mọi chủ đề và bài, không khóa bài nào, nhảy tới bài bất kỳ) và **Hoàn thành chủ đề**. Trang bài học gồm:
+
+1. **Đọc bài lý thuyết**: bài HTML có sẵn (`theory/…`) hiện ngay bên phải nhiệm vụ trên màn hình rộng; trên điện thoại/máy tính bảng, nút *Mở bài lý thuyết* mở toàn màn hình (đóng bằng *Quay lại bài* hoặc Esc). Có liên kết mở trong tab mới.
+2. **Làm bài trong thư mục bài tập**: lệnh `cd "<đường dẫn>"` có nút **Chép lệnh** (dấu nháy đúng theo hệ điều hành), nút **Mở thư mục** (File Explorer, Finder hoặc `xdg-open`), và hướng dẫn mở terminal cho người mới. Trang **tự kiểm tra** thư mục bài mỗi ~1,5 giây và hiện *Còn thiếu* gì; khi đạt, bước chuyển xanh với một hiệu ứng nhỏ (CSS thuần, tắt khi hệ điều hành đặt "giảm chuyển động").
+3. **Trả lời câu hỏi**: ô nhập thường, Enter để gửi. Sai thì có lời nhắn thân thiện; sau hai lần sai, trang gợi ý xem gợi ý.
+4. **Kiểm tra**: tự động; nút *Kiểm tra lại* tính một lần thử. Bài chỉ trả lời (không có bước thực hành) được chấm ngay khi gửi đáp án.
+
+*Cần giúp?* gồm **Gợi ý** (từng mức), **Lời giải** (có bước xác nhận) và **Làm lại bài này từ đầu**. Số lần thử chỉ tăng khi bạn gửi đáp án hoặc bấm *Kiểm tra lại*; tự kiểm tra nền không tính lần thử. Tiến độ dùng chung `session.json` với bảng học terminal và các lệnh `check`, `next`…, nên có thể đổi qua lại.
+
+Giao diện: Tailwind CSS đã dựng sẵn thành `web/app.css` (người dùng không cần cài Tailwind), phông Be Vietnam Pro và JetBrains Mono tự lưu, một màu nhấn, sáng/tối theo hệ thống, dùng được từ 360 px, thao tác bằng bàn phím, kết quả kiểm tra được đọc bằng `aria-live`. Không gọi CDN hay mạng ngoài.
+
+**Bảo mật.** Máy chủ chỉ lắng nghe `127.0.0.1` nên máy khác trong mạng không truy cập được. Mã ngẫu nhiên trong đường dẫn được đổi lấy cookie `HttpOnly; SameSite=Strict`; mọi yêu cầu khác không có cookie đều bị từ chối. Tiêu đề `Host` lạ bị từ chối (chống DNS rebinding), yêu cầu ghi cần `Content-Type: application/json`, `Origin` cùng nguồn và không đến từ trang khác (`Sec-Fetch-Site`). Phản hồi có `Content-Security-Policy` chỉ cho tài nguyên cùng nguồn (trang lý thuyết cần thêm `unsafe-eval` cho Mermaid). Máy chủ chỉ phục vụ HTML/CSS/JS/phông trong `theory/` (không có `src`, `examples`, `vendor`) và hai tệp trong `web/`. Máy chủ không chạy lệnh Git của người học; nó chỉ đọc trạng thái repository bài tập như lệnh `check`.
+
+Biến môi trường: `GIT_TRAINING_NO_BROWSER=1` (không tự mở trình duyệt, chỉ in đường dẫn; cũng tự bỏ qua khi có `CI` hoặc Linux không có giao diện), `GIT_TRAINING_NO_EXPLORER=1` (tắt nút *Mở thư mục*), `GIT_TRAINING_IDLE_MINUTES`, `GIT_TRAINING_HOME` (nơi lưu tiến độ), `GIT_TRAINING_TERMINAL=1` (dùng bảng học terminal).
+
+## Dùng bảng học trong terminal
 
 **Chế độ hướng dẫn (mặc định)** chỉ có ba màn hình chính: chào mừng, bài học và hoàn thành. Màn hình bài học liệt kê các bước bằng tiếng Việt đơn giản, đánh dấu `✓` bước đã xong, `❯` bước tiếp theo, và chỉ mở rộng chi tiết của bước hiện tại:
 
@@ -140,8 +160,11 @@ console.log(result.passed, result.findings);
 
 ```sh
 npm install
+npm run build:css   # dựng web/app.css từ web-src/input.css bằng Tailwind (chỉ cần khi sửa giao diện web)
 npm test
 npm run pack:check
 ```
+
+`web/app.css` được commit để `npm test` và người dùng không cần Tailwind; `prepublishOnly` luôn dựng lại CSS trước khi phát hành. Giao diện web nằm ở `src/web/` (máy chủ, trang) và `web/app.js` (JavaScript thuần).
 
 Bộ kiểm thử chạy Git thật cho 116 bài. CI chạy trên Windows, macOS và Linux. Gói hiện tại trên npm là `@duy247/git-training@0.1.0`; phát hành bản mới bằng `npm version` rồi `npm publish`.

@@ -197,7 +197,7 @@ test('giao diện thật: mặc định là chế độ hướng dẫn, --classi
   await withHome(async home => {
     const env = { HOME: home, GIT_TRAINING_HOME: path.join(home, 'state') };
     delete env.NO_COLOR;
-    const guided = drive('', ['\\r', '\\003'], env);
+    const guided = drive('--terminal', ['\\r', '\\003'], env);
     assert.match(guided.stdout, /Chào mừng/);
     assert.match(guided.stdout, /CÁC BƯỚC/);
     assert.doesNotMatch(guided.stdout, /Check \(chấm bài\)/);

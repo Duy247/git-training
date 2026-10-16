@@ -29,6 +29,10 @@ interface Profile {
   migrated: Record<string, { courseId: string; completed: string[]; importedAt: string }>;
 }
 export interface SessionOptions { sessionDir?: string }
+export interface OpenExerciseOptions extends SessionOptions {
+  /** true: cho phép mở bất kỳ bài nào, kể cả khi chưa đạt bài trước (bảng học web không khóa bài). Mặc định false. */
+  ignoreLock?: boolean;
+}
 export interface CheckOptions extends SessionOptions {
   /** false: ghi nhận kết quả đạt nhưng không tăng số lần Check (dùng cho tự động kiểm tra nền). Mặc định true. */
   countAttempt?: boolean;
@@ -224,12 +228,12 @@ export async function getSession(options: SessionOptions = {}): Promise<Session>
 }
 
 /** Mở checkpoint mới; kết quả đã đạt không bị xóa. */
-export async function openExercise(exerciseId: string, options: SessionOptions = {}): Promise<{ session: Session; repo: string }> {
+export async function openExercise(exerciseId: string, options: OpenExerciseOptions = {}): Promise<{ session: Session; repo: string }> {
   const current = await getSession(options);
   return withSessionLock(current.dir, async () => {
     const session = await getSession({ sessionDir: current.dir });
     const exercise = getExercise(getCourse(session.courseId), exerciseId);
-    if (!unlocked(session, exerciseId)) throw new Error(`Bài ${exerciseId} chưa mở khóa. Hãy hoàn thành bài trước.`);
+    if (!options.ignoreLock && !unlocked(session, exerciseId)) throw new Error(`Bài ${exerciseId} chưa mở khóa. Hãy hoàn thành bài trước.`);
     const root = exerciseRoot(session, exerciseId);
     try { if ((await lstat(root)).isSymbolicLink()) throw new Error('Checkpoint là liên kết tượng trưng không an toàn.'); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
@@ -366,6 +370,18 @@ export async function getHint(options: SessionOptions = {}): Promise<{ text: str
     }
     return { text: exhausted ? 'Đã xem hết gợi ý. Dùng git-training solution nếu cần lời giải.' : renderPaths(session, exercise.id, exercise.hints[level - 1] ?? 'Bài này chưa có gợi ý.'), level, total: exercise.hints.length, exhausted };
   });
+}
+/** Các gợi ý người học đã xem ở bài hiện tại (theo thứ tự), kèm tổng số gợi ý. Không đổi trạng thái. */
+export async function getSeenHints(options: SessionOptions = {}): Promise<{ seen: string[]; total: number }> {
+  const session = await getSession(options);
+  const exercise = getExercise(getCourse(session.courseId), session.currentExerciseId);
+  const count = Math.min(session.hintsSeen[exercise.id] ?? 0, exercise.hints.length);
+  return { seen: exercise.hints.slice(0, count).map(text => renderPaths(session, exercise.id, text)), total: exercise.hints.length };
+}
+/** Mã bài đã đạt của mọi track (từ hồ sơ chung), để vẽ tiến độ mà không cần mở phiên của từng track. */
+export async function getCompletedByTrack(): Promise<Record<string, string[]>> {
+  const profile = await loadProfile();
+  return Object.fromEntries(Object.entries(profile.completed).map(([id, list]) => [id, [...list]]));
 }
 export async function getSolution(options: SessionOptions = {}): Promise<string> {
   const session = await getSession(options);

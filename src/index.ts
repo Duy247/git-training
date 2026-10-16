@@ -1,5 +1,5 @@
-export { createSession, getSession, getProgress, getRoadmapProgress, openExercise, inspectExercise, checkExercise, saveAnswer, submitAnswer, nextExercise, getExerciseInfo, getHint, getSolution, listCourses, migrateLegacySession } from './engine.js';
-export type { Session, SessionOptions, CheckOptions, CreateSessionOptions, ExerciseProgress, TrackProgress, InspectionResult, CheckResult, MigrationResult } from './engine.js';
+export { createSession, getSession, getProgress, getRoadmapProgress, openExercise, inspectExercise, checkExercise, saveAnswer, submitAnswer, nextExercise, getExerciseInfo, getHint, getSeenHints, getCompletedByTrack, getSolution, listCourses, migrateLegacySession } from './engine.js';
+export type { Session, SessionOptions, OpenExerciseOptions, CheckOptions, CreateSessionOptions, ExerciseProgress, TrackProgress, InspectionResult, CheckResult, MigrationResult } from './engine.js';
 export { courses, registerCourse, getCourse, getExercise } from './courses.js';
 export type { Course, Exercise, ExerciseMode, Finding } from './courses.js';
 export { roadmap, ROADMAP_LESSON_COUNT } from './curriculum.js';
