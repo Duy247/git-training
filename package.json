@@ -1,7 +1,7 @@
 {
   "name": "@duy247/git-training",
-  "version": "0.4.0",
-  "description": "Luyện Git offline qua 116 bài thực hành tiếng Việt",
+  "version": "0.5.0",
+  "description": "Luyện Git offline qua 116 bài thực hành tiếng Việt, có bảng học trên trình duyệt",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -21,6 +21,7 @@
     "bin",
     "dist",
     "docs",
+    "web",
     "theory",
     "!theory/src",
     "!theory/examples",
@@ -34,12 +35,15 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:css": "tailwindcss -i web-src/input.css -o web/app.css --minify",
     "test": "npm run build && node --test test/*.test.mjs",
     "pack:check": "npm pack --dry-run",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm run build:css && npm test"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@types/node": "^22.15.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
   },
   "keywords": [

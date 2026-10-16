@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { getCourse } from './courses.js';
 import { runUI } from './ui.js';
+import { runWeb } from './web/run.js';
 import { openTheory, theoryMessage, theoryPagePath, detectWsl, truthy } from './theory.js';
 import { openFolder, folderMessage } from './explorer.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
@@ -13,9 +14,11 @@ const usage = `git-training — luyện Git bằng repository riêng trên máy 
 
 Cách dùng:
   git-training courses                    Liệt kê 11 track
-  git-training                             Mở bảng học từng bước (Windows Terminal nếu có)
-  git-training ui [--window]               Mở bảng học tại đây hoặc cửa sổ mới
-  git-training --classic                   Dùng bảng học đầy đủ kiểu cũ (nhiều phím tắt)
+  git-training                             Mở bảng học trên trình duyệt (chạy ngay trên máy bạn, không cần mạng)
+  git-training web [--port <số>] [--no-open]  Như trên; --no-open chỉ in đường dẫn, không tự mở trình duyệt
+  git-training --terminal                  Dùng bảng học trong terminal (từng bước, Windows Terminal nếu có)
+  git-training ui [--window]               Mở bảng học terminal tại đây hoặc cửa sổ mới
+  git-training --classic                   Dùng bảng học terminal đầy đủ kiểu cũ (nhiều phím tắt)
   git-training --version                  Xem phiên bản
   git-training roadmap                    Xem tiến độ toàn bộ roadmap
   git-training start <track> [--dir <nơi-lưu>]
@@ -33,7 +36,7 @@ Cách dùng:
   git-training migrate <thư-mục-phiên-cũ> Nhập tiến độ từ phiên v1
 
 Lệnh Git được chạy trong terminal thường của bạn. 'open' tạo lại repository bài đó.
-Bảng học mặc định hướng dẫn từng bước và TỰ kiểm tra bài thực hành; đặt GIT_TRAINING_CLASSIC=1 hoặc dùng --classic để giữ bố cục cũ.
+Bảng học trên trình duyệt hướng dẫn từng bước và TỰ kiểm tra bài thực hành; nó chỉ lắng nghe trên máy này (127.0.0.1). Đặt GIT_TRAINING_TERMINAL=1 hoặc dùng --terminal để học trong terminal; GIT_TRAINING_CLASSIC=1 hoặc --classic giữ bố cục terminal cũ.
 Trang lý thuyết KHÔNG tự mở. Dùng git-training theory (hoặc phím V trong bảng học) để đọc trước khi làm bài.
 Đặt GIT_TRAINING_NO_BROWSER=1 để lệnh theory chỉ in đường dẫn mà không mở trình duyệt.
 `;
@@ -72,8 +75,18 @@ async function answerInput(parts: string[]): Promise<string> {
 async function main(): Promise<void> {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   if (nodeMajor < 22) throw new Error('Cần Node.js 22 trở lên. Hãy cập nhật Node.js rồi chạy lại.');
-  const classic = process.argv.slice(2).includes('--classic') || truthy(process.env.GIT_TRAINING_CLASSIC);
-  const raw = process.argv.slice(2).filter(part => part !== '--classic');
+  const argv = process.argv.slice(2);
+  const classic = argv.includes('--classic') || truthy(process.env.GIT_TRAINING_CLASSIC);
+  const terminalMode = classic || argv.includes('--terminal') || truthy(process.env.GIT_TRAINING_TERMINAL);
+  const noOpen = argv.includes('--no-open');
+  const portAt = argv.indexOf('--port');
+  let port: number | undefined;
+  if (portAt >= 0) {
+    port = Number(argv[portAt + 1]);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Dùng --port <số từ 0 đến 65535>.');
+  }
+  const raw = argv.filter((part, index) => !['--classic', '--terminal', '--no-open'].includes(part) && part !== '--port' && !(portAt >= 0 && index === portAt + 1));
+  const manifest = async () => JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
   const browserFlag = ['start', 'next', 'open'].includes(raw[0] ?? '');
   const [command, argument, ...rest] = browserFlag ? [raw[0]!, ...raw.slice(1).filter(part => part !== '--no-browser')] : raw;
   /** Chỉ nhắc người học có trang lý thuyết; không tự mở trình duyệt. */
@@ -96,8 +109,14 @@ async function main(): Promise<void> {
   switch (command) {
     case undefined: {
       if (!process.stdin.isTTY || !process.stdout.isTTY) { console.log(usage); break; }
+      if (!terminalMode) { await runWeb({ version: (await manifest()).version, port, noOpen }); break; }
       if (await launchWindow()) console.log('Đã mở Git Training trong Windows Terminal.');
       else await runUI({ classic });
+      break;
+    }
+    case 'web': {
+      if (argument !== undefined) throw new Error('Lệnh web không nhận đối số. Dùng --port <số> hoặc --no-open.');
+      await runWeb({ version: (await manifest()).version, port, noOpen });
       break;
     }
     case 'ui': {
@@ -109,8 +128,7 @@ async function main(): Promise<void> {
     case 'help': case '--help': case '-h': console.log(usage); break;
     case '--version': case 'version': {
       noExtra();
-      const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
-      console.log(manifest.version);
+      console.log((await manifest()).version);
       break;
     }
     case 'courses':
