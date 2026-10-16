@@ -187,7 +187,7 @@ test('cờ --classic và GIT_TRAINING_CLASSIC được nhận; không terminal t
   assert.match(help.stdout, /từng bước/);
 });
 
-function hasScript() { return spawnSync('sh', ['-c', 'command -v script'], { encoding: 'utf8' }).status === 0; }
+function hasScript() { return process.platform === 'linux' && spawnSync('sh', ['-c', 'command -v script'], { encoding: 'utf8' }).status === 0; } // script -qec is util-linux only (BSD/macOS script differs)
 function drive(args, keys, env) {
   const script = `(sleep 1.5; ${keys.map(key => `printf '${key}'; sleep 0.7`).join('; ')}) | script -qec "stty cols 80 rows 24; node bin/git-training.cjs ${args}" /dev/null`;
   return spawnSync('sh', ['-c', script], { encoding: 'utf8', timeout: 20000, env: { ...process.env, TERM: 'xterm', GIT_TRAINING_NO_BROWSER: '1', GIT_TRAINING_NO_EXPLORER: '1', ...env } });
