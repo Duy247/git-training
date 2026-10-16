@@ -11,6 +11,7 @@ import { openFolder, folderMessage } from './explorer.js';
 import { checkExercise, createSession, getExerciseInfo, getHint, getProgress, getRoadmapProgress, getSession, getSolution, listCourses, migrateLegacySession, nextExercise, openExercise, submitAnswer } from './engine.js';
 
 const usage = `git-training — luyện Git bằng repository riêng trên máy của bạn
+Dành cho cán bộ nhân viên MBBank; mọi người bên ngoài vẫn dùng tự do. Tác giả: Văn Thành Duy (https://duyqa.blog)
 
 Cách dùng:
   git-training courses                    Liệt kê 11 track

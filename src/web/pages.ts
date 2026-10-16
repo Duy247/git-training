@@ -3,12 +3,14 @@ import type { ProgressView } from './service.js';
 export const esc = (value: unknown): string => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
 
-export type Section = 'learn' | 'progress' | 'home';
+export type Section = 'learn' | 'progress' | 'home' | 'about';
+
+const brandNotice = 'Công cụ học tập do tác giả tự xây dựng cho CBNV MBBank, không phải sản phẩm hay kênh chính thức của MB. Logo MB là nhãn hiệu của MB.';
 
 /** Khung trang chung. Mọi tài nguyên đều cùng nguồn (không CDN) để chạy được khi không có mạng. */
 export function layout(options: { title: string; section: Section; version: string; body: string; boot?: unknown; wide?: boolean; hasSession: boolean }): string {
   const link = (href: string, label: string, active: boolean) =>
-    `<a href="${href}" class="inline-flex min-h-11 items-center px-1 text-base ${active ? 'font-semibold text-ink underline decoration-accent decoration-2 underline-offset-8' : 'text-muted hover:text-ink'}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
+    `<a href="${href}" class="nav-link"${active ? ' aria-current="page"' : ''}>${label}</a>`;
   return `<!doctype html>
 <html lang="vi">
 <head>
@@ -17,19 +19,19 @@ export function layout(options: { title: string; section: Section; version: stri
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
 <title>${esc(options.title)} · Git Training</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23a8391a'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/theory/assets/fonts.css">
 <link rel="stylesheet" href="/static/app.css?v=${esc(options.version)}">
 </head>
 <body class="min-h-screen">
 <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink">Chuyển đến nội dung</a>
-<header class="border-b border-line">
-  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 py-2 sm:px-8">
-    <a href="/" class="inline-flex min-h-11 items-center gap-2 text-lg font-semibold tracking-tight text-ink no-underline">
-      <span aria-hidden="true" class="grid h-6 w-6 place-items-center rounded-sm bg-accent text-accent-ink"><svg viewBox="0 0 16 16" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span>
-      Git Training
+<header class="brandbar">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-0 px-4 py-2 sm:gap-x-6 sm:px-8">
+    <a href="/" class="inline-flex min-h-11 items-center gap-2 text-base font-semibold tracking-tight sm:gap-3 sm:text-lg">
+      <span class="logo-plate"><img src="/static/logo-mb.png" alt="MB" width="231" height="96"></span>
+      <span>Git Training</span>
     </a>
-    <nav aria-label="Điều hướng chính" class="flex items-center gap-5">
+    <nav aria-label="Điều hướng chính" class="flex items-center gap-1 sm:gap-5">
       ${options.hasSession ? link('/lesson', 'Bài học', options.section === 'learn') : ''}
       ${link('/progress', 'Tất cả bài', options.section === 'progress')}
     </nav>
@@ -39,7 +41,11 @@ export function layout(options: { title: string; section: Section; version: stri
 ${options.body}
 </main>
 <footer class="border-t border-line">
-  <p class="mx-auto max-w-7xl px-5 py-5 text-sm text-muted sm:px-8">Chạy ngay trên máy của bạn, không gửi dữ liệu đi đâu. Dừng bằng Ctrl+C trong cửa sổ terminal. Phiên bản ${esc(options.version)}.</p>
+  <div class="mx-auto max-w-7xl space-y-2 px-5 py-6 text-sm text-muted sm:px-8">
+    <p>Dành cho cán bộ nhân viên MBBank; mọi người bên ngoài vẫn dùng tự do. <a class="link" href="/about"${options.section === 'about' ? ' aria-current="page"' : ''}>Tác giả: Văn Thành Duy</a></p>
+    <p>Chạy ngay trên máy của bạn, không gửi dữ liệu đi đâu. Dừng bằng Ctrl+C trong cửa sổ terminal. Phiên bản ${esc(options.version)}.</p>
+    <p>${brandNotice}</p>
+  </div>
 </footer>
 <noscript><p class="mx-auto max-w-3xl px-5 pb-10 text-base">Trang này cần JavaScript để kiểm tra bài tự động. Hãy bật JavaScript trong trình duyệt, hoặc dùng <code>git-training --terminal</code>.</p></noscript>
 <script type="application/json" id="boot">${json(options.boot ?? {})}</script>
@@ -48,11 +54,52 @@ ${options.body}
 </html>`;
 }
 
+const author = {
+  name: 'Văn Thành Duy',
+  headline: 'Automation Tester · Manual Tester · Coding Enthusiast',
+  bio: 'Mình yêu công nghệ và vật lý, luôn tìm những bài toán mới để học, thử nghiệm và biến kiến thức thành tài liệu có thể áp dụng.',
+};
+const authorLinks: Array<[string, string]> = [
+  ['Blog Ultimate QA', 'https://duyqa.blog'],
+  ['Giới thiệu tác giả trên blog', 'https://duyqa.blog/about'],
+  ['Mã nguồn git-training trên GitHub', 'https://github.com/Duy247/git-training'],
+  ['GitHub: Duy247', 'https://github.com/Duy247'],
+];
+const authorSkills: Array<[string, string]> = [
+  ['Kiểm thử', 'Manual Testing · Playwright · Robot Framework · Selenium · Appium · Karate'],
+  ['Lập trình', 'Python · Java · JavaScript · C# · HTML · CSS · PHP'],
+  ['Dữ liệu', 'SQL · Microsoft SQL Server · MySQL · Web Scraping · Beautiful Soup'],
+];
+
+/** Trang giới thiệu tác giả. Chỉ có liên kết ra ngoài (mở tab mới), không nạp tài nguyên nào từ mạng. */
+export function aboutPage(options: { version: string; hasSession: boolean }): string {
+  const skills = authorSkills.map(([label, items]) => `<div class="border-t border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">${label}</dt><dd class="text-base">${items}</dd></div>`).join('');
+  const links = authorLinks.map(([label, href]) => `<li><a class="link inline-flex min-h-11 items-center text-base" href="${href}" target="_blank" rel="noopener noreferrer">${label}<span class="sr-only"> (mở tab mới)</span></a><span class="ml-2 hidden text-sm text-muted sm:inline">${href.replace('https://', '')}</span></li>`).join('');
+  const body = `
+<p class="eyebrow">Tác giả</p>
+<h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">${author.name}</h1>
+<p class="mt-1 text-lg text-muted">${author.headline}</p>
+<p class="mt-5 text-lg">${author.bio}</p>
+<dl class="mt-8">
+  <div class="border-t border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">Hiện tại</dt><dd class="text-base"><strong class="font-semibold">MBBank · Chuyên viên Kiểm thử (Automation Tester)</strong><span class="block text-sm text-muted">03/2025 đến nay</span>Kiểm thử tự động cho mobile, web và API; tham gia phát triển và vận hành framework kiểm thử nội bộ; thực hiện kiểm thử hiệu năng khi có yêu cầu.</dd></div>
+  <div class="border-t border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">Trước đó</dt><dd class="text-base"><strong class="font-semibold">FPT Software · Fresher Automation Tester</strong><span class="block text-sm text-muted">10/2024 - 03/2025</span>Đào tạo ISTQB Foundation; Robot Framework, Playwright, Selenium, Appium, Karate; xây dựng giải pháp automation bằng Playwright Python cho dự án Hyundai AutoEver.</dd></div>
+  ${skills}
+  <div class="border-y border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">Học vấn</dt><dd class="text-base"><strong class="font-semibold">Bauman Moscow State Technical University</strong><span class="block text-sm text-muted">2020 - 2024</span>Cử nhân Tự động hóa quy trình công nghệ và sản xuất (học bổng toàn phần theo hiệp định Nga - Việt).</dd></div>
+</dl>
+<h2 class="mt-8 text-lg font-semibold">Liên kết</h2>
+<ul class="mt-1">${links}</ul>
+<p class="mt-2 text-sm text-muted">Các liên kết mở ở tab mới và cần có mạng. Bảng học này không tự gọi trang nào bên ngoài.</p>
+<p class="mt-8 text-sm text-muted">${brandNotice}</p>
+<p class="mt-6"><a class="link text-base" href="/">Về trang chính</a></p>`;
+  return layout({ title: 'Tác giả', section: 'about', version: options.version, body, boot: { page: 'about' }, hasSession: options.hasSession });
+}
+
 export function welcomePage(options: { version: string; current?: { course: string; position: number; total: number; title: string; done: number }; firstCourse: string; totalAll: number; doneAll: number }): string {
   const { current } = options;
   const body = `
-<p class="eyebrow">Chào mừng bạn</p>
-<h1 class="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Học Git bằng cách làm thật, ngay trên máy của bạn</h1>
+<p><span class="capsule">Dành cho cán bộ nhân viên MBBank</span></p>
+<h1 class="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">Học Git bằng cách làm thật, ngay trên máy của bạn</h1>
+<p class="mt-4 text-base text-muted">Mọi người bên ngoài MBBank vẫn dùng được tự do: mã nguồn mở, miễn phí.</p>
 <ol class="mt-8 space-y-4 text-lg">
   <li class="flex gap-4"><span class="mt-0.5 w-6 flex-none font-semibold text-accent">1.</span><span>Đọc một bài lý thuyết ngắn.</span></li>
   <li class="flex gap-4"><span class="mt-0.5 w-6 flex-none font-semibold text-accent">2.</span><span>Làm theo nhiệm vụ trong một thư mục bài tập. Bạn gõ lệnh Git ở cửa sổ terminal; trang này chỉ hướng dẫn và theo dõi.</span></li>
@@ -67,7 +114,14 @@ export function welcomePage(options: { version: string; current?: { course: stri
     <a class="link text-base" href="/progress">Xem tất cả ${options.totalAll} bài${options.doneAll ? ` (đã xong ${options.doneAll})` : ''}</a>
   </div>
   <p id="start-error" class="mt-4 text-base text-ink" role="alert" hidden></p>
-</div>`;
+</div>
+<section class="card mt-12" aria-labelledby="author-title">
+  <h2 id="author-title" class="eyebrow">Tác giả</h2>
+  <p class="mt-1 text-lg font-semibold">${author.name}</p>
+  <p class="text-base text-muted">${author.headline}</p>
+  <p class="mt-2 text-base">${author.bio}</p>
+  <p class="mt-3"><a class="link text-base" href="/about">Xem thêm về tác giả</a></p>
+</section>`;
   return layout({ title: 'Chào mừng', section: 'home', version: options.version, body, boot: { page: 'welcome' }, hasSession: Boolean(current) });
 }
 
@@ -134,6 +188,6 @@ export function finishPage(options: { version: string; courseTitle: string; done
 /** Trang lỗi nhỏ, không cần tệp tĩnh (dùng cả khi chưa có cookie). */
 export function plainPage(title: string, message: string): string {
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>${esc(title)}</title>
-<style>body{margin:0;font:17px/1.65 'Segoe UI',system-ui,sans-serif;background:#f6f5f1;color:#1c1b18}main{max-width:36rem;margin:0 auto;padding:4rem 1.25rem}h1{font-size:1.5rem;line-height:1.3}code{background:#fff;border:1px solid #d9d6cd;border-radius:4px;padding:.1em .35em}@media(prefers-color-scheme:dark){body{background:#151513;color:#ebe9e2}code{background:#1d1d1a;border-color:#34332e}}</style></head>
+<style>body{margin:0;font:17px/1.65 'Segoe UI',system-ui,sans-serif;background:#f6f7fb;color:#1c273b}main{max-width:36rem;margin:0 auto;padding:4rem 1.25rem}h1{font-size:1.5rem;line-height:1.3}code{background:#fff;border:1px solid #d8dcea;border-radius:4px;padding:.1em .35em}@media(prefers-color-scheme:dark){body{background:#0f1522;color:#eaeef7}code{background:#182033;border-color:#2b3650}}</style></head>
 <body><main><h1>${esc(title)}</h1><p>${message}</p></main></body></html>`;
 }
