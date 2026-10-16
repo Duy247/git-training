@@ -13,8 +13,6 @@ export const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
 const staticFiles: Record<string, { file: string; type: string }> = {
   '/static/app.css': { file: 'web/app.css', type: 'text/css; charset=utf-8' },
   '/static/app.js': { file: 'web/app.js', type: 'text/javascript; charset=utf-8' },
-  '/static/logo-mb.png': { file: 'web/logo-mb.png', type: 'image/png' },
-  '/static/favicon.png': { file: 'web/favicon.png', type: 'image/png' },
 };
 const theoryTypes: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.woff2': 'font/woff2',

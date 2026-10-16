@@ -5,7 +5,7 @@ const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\
 
 export type Section = 'learn' | 'progress' | 'home' | 'about';
 
-const brandNotice = 'Công cụ học tập do tác giả tự xây dựng cho CBNV MBBank, không phải sản phẩm hay kênh chính thức của MB. Logo MB là nhãn hiệu của MB.';
+const brandNotice = 'Công cụ do tác giả tự xây dựng, không phải sản phẩm chính thức của MB. Màu sắc lấy cảm hứng từ nhận diện của MBBank.';
 
 /** Khung trang chung. Mọi tài nguyên đều cùng nguồn (không CDN) để chạy được khi không có mạng. */
 export function layout(options: { title: string; section: Section; version: string; body: string; boot?: unknown; wide?: boolean; hasSession: boolean }): string {
@@ -19,7 +19,6 @@ export function layout(options: { title: string; section: Section; version: stri
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
 <title>${esc(options.title)} · Git Training</title>
-<link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/theory/assets/fonts.css">
 <link rel="stylesheet" href="/static/app.css?v=${esc(options.version)}">
 </head>
@@ -27,8 +26,7 @@ export function layout(options: { title: string; section: Section; version: stri
 <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink">Chuyển đến nội dung</a>
 <header class="brandbar">
   <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-0 px-4 py-2 sm:gap-x-6 sm:px-8">
-    <a href="/" class="inline-flex min-h-11 items-center gap-2 text-base font-semibold tracking-tight sm:gap-3 sm:text-lg">
-      <span class="logo-plate"><img src="/static/logo-mb.png" alt="MB" width="231" height="96"></span>
+    <a href="/" class="inline-flex min-h-11 items-center text-lg font-semibold tracking-tight sm:text-xl">
       <span>Git Training</span>
     </a>
     <nav aria-label="Điều hướng chính" class="flex items-center gap-1 sm:gap-5">
@@ -56,7 +54,6 @@ ${options.body}
 const author = {
   name: 'Văn Thành Duy',
   headline: 'Automation Tester · Manual Tester · Coding Enthusiast',
-  bio: 'Mình yêu công nghệ và vật lý, luôn tìm những bài toán mới để học, thử nghiệm và biến kiến thức thành tài liệu có thể áp dụng.',
 };
 const authorLinks: Array<[string, string]> = [
   ['Blog Ultimate QA', 'https://duyqa.blog'],
@@ -78,7 +75,6 @@ export function aboutPage(options: { version: string; hasSession: boolean }): st
 <p class="eyebrow">Tác giả</p>
 <h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">${author.name}</h1>
 <p class="mt-1 text-lg text-muted">${author.headline}</p>
-<p class="mt-5 text-lg">${author.bio}</p>
 <dl class="mt-8">
   <div class="border-t border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">Hiện tại</dt><dd class="text-base"><strong class="font-semibold">MBBank · Chuyên viên Kiểm thử (Automation Tester)</strong><span class="block text-sm text-muted">03/2025 đến nay</span>Kiểm thử tự động cho mobile, web và API; tham gia phát triển và vận hành framework kiểm thử nội bộ; thực hiện kiểm thử hiệu năng khi có yêu cầu.</dd></div>
   <div class="border-t border-line py-3 sm:flex sm:gap-6"><dt class="label w-28 flex-none sm:pt-1">Trước đó</dt><dd class="text-base"><strong class="font-semibold">FPT Software · Fresher Automation Tester</strong><span class="block text-sm text-muted">10/2024 - 03/2025</span>Đào tạo ISTQB Foundation; Robot Framework, Playwright, Selenium, Appium, Karate; xây dựng giải pháp automation bằng Playwright Python cho dự án Hyundai AutoEver.</dd></div>
@@ -116,8 +112,7 @@ export function welcomePage(options: { version: string; current?: { course: stri
   <h2 id="author-title" class="eyebrow">Tác giả</h2>
   <p class="mt-1 text-lg font-semibold">${author.name}</p>
   <p class="text-base text-muted">${author.headline}</p>
-  <p class="mt-2 text-base">${author.bio}</p>
-  <p class="mt-3"><a class="link text-base" href="/about">Xem thêm về tác giả</a></p>
+    <p class="mt-2"><a class="link text-base" href="/about">Xem thêm về tác giả</a></p>
 </section>`;
   return layout({ title: 'Chào mừng', section: 'home', version: options.version, body, boot: { page: 'welcome' }, hasSession: Boolean(current) });
 }

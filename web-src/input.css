@@ -3,7 +3,7 @@
 @source "../web/app.js";
 
 /* Bảng học web của git-training. Một màu nhấn (xanh MB), màu xanh lá chỉ dùng cho "đã xong".
-   Bảng màu lấy theo nhận diện MB (xanh #141ECD, đỏ #EB2C4B chỉ có trong logo); giá trị ước lượng từ ảnh mẫu, không phải thông số chính thức.
+   Bảng màu lấy theo nhận diện MB (xanh #141ECD; đỏ #EB2C4B hiện chưa dùng); giá trị ước lượng từ ảnh mẫu, không phải thông số chính thức.
    Phông Be Vietnam Pro / JetBrains Mono tự lưu trong theory/assets (không gọi CDN). */
 
 :root {
@@ -120,17 +120,15 @@
 
   .banner-ok { border-left: 4px solid var(--c-ok); background: var(--c-ok-soft); padding: 1rem 1.15rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
   .note { border-left: 4px solid var(--c-accent); background: var(--c-accent-soft); padding: .75rem 1rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
-  /* Dải thương hiệu: xanh MB đặc, không chuyển màu. Chữ và logo luôn trắng, kể cả chế độ tối. */
+  /* Dải thương hiệu: xanh MB đặc, không chuyển màu. Chữ luôn trắng, kể cả chế độ tối. */
   .brandbar { background: var(--c-brand); color: var(--c-brand-ink); }
   .brandbar :focus-visible { outline-color: var(--c-brand-ink); }
   .brandbar a { color: inherit; text-decoration: none; }
-  .logo-plate { display: inline-flex; align-items: center; background: #ffffff; border-radius: var(--radius-md); padding: .25rem .5rem; }
   @media (min-width: 40rem) { .nav-link { font-size: 1.0625rem; } }
-  .logo-plate img { display: block; height: 1.5rem; width: auto; }
   .nav-link { display: inline-flex; min-height: 2.75rem; align-items: center; padding: 0 .3rem; font-size: 1rem; color: var(--c-brand-soft); }
   .nav-link:hover { color: var(--c-brand-ink); }
   .nav-link[aria-current='page'] { color: var(--c-brand-ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .5rem; }
-  /* Nhãn viên thuốc (hình dạng lấy từ họa tiết cánh sao của MB): chỉ viền mảnh, không đổ màu. */
+  /* Nhãn viên thuốc (dạng viên thuốc): chỉ viền mảnh, không đổ màu. */
   .capsule { display: inline-flex; align-items: center; border: 1px solid var(--c-accent); color: var(--c-accent); border-radius: 999px; padding: .2rem .95rem; font-size: .9375rem; font-weight: 600; line-height: 1.5; }
   .card { border: 1px solid var(--c-line); background: var(--c-surface); border-radius: var(--radius-md); padding: 1.1rem 1.25rem; }
   .rule-grow { height: 3px; background: var(--c-ok); transform-origin: left; }
