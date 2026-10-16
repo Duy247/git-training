@@ -87,8 +87,7 @@ export function aboutPage(options: { version: string; hasSession: boolean }): st
 </dl>
 <h2 class="mt-8 text-lg font-semibold">Liên kết</h2>
 <ul class="mt-1">${links}</ul>
-<p class="mt-8 text-sm text-muted">${brandNotice}</p>
-<p class="mt-6"><a class="link text-base" href="/">Về trang chính</a></p>`;
+<p class="mt-8"><a class="link text-base" href="/">Về trang chính</a></p>`;
   return layout({ title: 'Tác giả', section: 'about', version: options.version, body, boot: { page: 'about' }, hasSession: options.hasSession });
 }
 
