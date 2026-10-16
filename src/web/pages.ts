@@ -43,7 +43,6 @@ ${options.body}
 <footer class="border-t border-line">
   <div class="mx-auto max-w-7xl space-y-2 px-5 py-6 text-sm text-muted sm:px-8">
     <p>Dành cho cán bộ nhân viên MBBank; mọi người bên ngoài vẫn dùng tự do. <a class="link" href="/about"${options.section === 'about' ? ' aria-current="page"' : ''}>Tác giả: Văn Thành Duy</a></p>
-    <p>Chạy ngay trên máy của bạn, không gửi dữ liệu đi đâu. Dừng bằng Ctrl+C trong cửa sổ terminal. Phiên bản ${esc(options.version)}.</p>
     <p>${brandNotice}</p>
   </div>
 </footer>
@@ -88,7 +87,6 @@ export function aboutPage(options: { version: string; hasSession: boolean }): st
 </dl>
 <h2 class="mt-8 text-lg font-semibold">Liên kết</h2>
 <ul class="mt-1">${links}</ul>
-<p class="mt-2 text-sm text-muted">Các liên kết mở ở tab mới và cần có mạng. Bảng học này không tự gọi trang nào bên ngoài.</p>
 <p class="mt-8 text-sm text-muted">${brandNotice}</p>
 <p class="mt-6"><a class="link text-base" href="/">Về trang chính</a></p>`;
   return layout({ title: 'Tác giả', section: 'about', version: options.version, body, boot: { page: 'about' }, hasSession: options.hasSession });
